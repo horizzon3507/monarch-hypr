@@ -1,7 +1,7 @@
 """Thin compatibility wall around the archinstall Python library.
 
-ONLY this module imports from archinstall. Everything else uses these helpers.
-If archinstall's API churns, the blast radius is contained here.
+This adapter and its upstream luks_tuning companion import archinstall.
+Other orchestrator modules use these helpers.
 
 Targets archinstall 4.5 (Python 3.14).
 
@@ -129,6 +129,8 @@ def load_arch_config(config_path: Path, creds_path: Path) -> ArchConfigHandler:
     archinstall a synthetic argv just for this call.
     """
     import sys
+    from . import luks_tuning
+    luks_tuning.apply()
     saved_argv = sys.argv
     sys.argv = [
         saved_argv[0] if saved_argv else "monarch-iso-install",
