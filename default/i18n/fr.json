@@ -993,6 +993,9 @@
     "monarch-hypr-monitor-scaling-cycle": "Faire défiler les échelles d’affichage de 1× à 4×",
     "monarch-hypr-input-toggle": "Activer ou désactiver une classe de périphériques Niri via libinput",
     "monarch-hw-hypr-instance": "Afficher la signature de l’instance Hyprland active et réparer HYPRLAND_INSTANCE_SIGNATURE s’il est périmé",
-    "monarch-hypr-screencast-dnd": "Couper les notifications pendant un partage d’écran Hyprland"
+    "monarch-hypr-screencast-dnd": "Couper les notifications pendant un partage d’écran Hyprland",
+    "monarch-theme-render": "Générer les configurations du shell Hyprland à partir de la palette du thème actif",
+    "monarch-theme-current": "Afficher le thème Monarch actif sous la forme « custom <nom> »",
+    "monarch-theme-mode": "Lire, définir ou basculer l’apparence sombre/claire"
   }
 }
