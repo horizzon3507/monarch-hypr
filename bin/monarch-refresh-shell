@@ -1,0 +1,15 @@
+#!/bin/bash
+
+# monarch:summary=Reset the desktop shell configuration to Monarch defaults, re-render the theme, and restart the shell.
+# monarch:examples=monarch refresh shell
+
+set -euo pipefail
+
+for config in mako/config walker/config.toml swayosd/style.css \
+  hypr/hyprlock.conf hypr/hypridle.conf hypr/hyprpaper.conf \
+  monarch/palettes/Monarch.json; do
+  monarch-refresh-config "$config"
+done
+
+monarch-theme-render
+monarch-shell-restart

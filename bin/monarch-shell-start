@@ -1,0 +1,35 @@
+#!/bin/bash
+
+# monarch:summary=Start the Hyprland desktop shell components (idempotent)
+# monarch:examples=monarch shell start
+
+# The bar and panels are the Quickshell shell shipped in default/quickshell.
+# Wallpaper, notifications, the volume/brightness OSD and idle handling stay
+# separate daemons. Each one is started only when it is not already running.
+
+set -uo pipefail
+
+MONARCH_ROOT="${MONARCH_PATH:-/usr/share/monarch}"
+SHELL_DIR="${MONARCH_SHELL_DIR:-$MONARCH_ROOT/default/quickshell}"
+
+start_once() {
+  local proc=$1
+  shift
+  pgrep -x "$proc" >/dev/null 2>&1 && return 0
+  uwsm-app -t service -- "$@" >/dev/null 2>&1 &
+}
+
+# Colors must exist before the first component reads them.
+monarch-theme-render >/dev/null 2>&1 || true
+monarch-theme-apply >/dev/null 2>&1 || true
+
+start_once hyprpaper hyprpaper
+start_once mako mako
+start_once swayosd-server swayosd-server
+start_once hypridle hypridle
+if [[ -f $SHELL_DIR/shell.qml ]]; then
+  start_once quickshell quickshell --path "$SHELL_DIR"
+else
+  echo "monarch-shell-start: no Quickshell config at $SHELL_DIR" >&2
+fi
+wait

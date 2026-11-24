@@ -996,6 +996,11 @@
     "monarch-hypr-screencast-dnd": "Couper les notifications pendant un partage d’écran Hyprland",
     "monarch-theme-render": "Générer les configurations du shell Hyprland à partir de la palette du thème actif",
     "monarch-theme-current": "Afficher le thème Monarch actif sous la forme « custom <nom> »",
-    "monarch-theme-mode": "Lire, définir ou basculer l’apparence sombre/claire"
+    "monarch-theme-mode": "Lire, définir ou basculer l’apparence sombre/claire",
+    "monarch-osd": "Changer le volume ou la luminosité avec un indicateur à l’écran",
+    "monarch-restart-shell": "Redémarrer le shell",
+    "monarch-refresh-shell": "Rétablir les réglages du shell, réappliquer le thème puis redémarrer le shell",
+    "monarch-shell-restart": "Redémarrer les composants du shell de bureau Hyprland",
+    "monarch-shell-start": "Démarrer les composants du shell de bureau Hyprland (idempotent)"
   }
 }

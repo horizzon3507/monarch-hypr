@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# monarch:summary=Restart the Hyprland desktop shell (bar, notifications, OSD, idle, wallpaper).
+# monarch:group=restart
+# monarch:name=shell
+# monarch:examples=monarch restart shell
+
+exec monarch-shell-restart
