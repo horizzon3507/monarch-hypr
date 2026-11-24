@@ -1,0 +1,100 @@
+#!/bin/bash
+
+# monarch:summary=Render the active theme palette into the Hyprland shell configs
+# monarch:examples=monarch theme render
+
+# Reads the palette JSON of the active theme (dark or light block) and fills the
+# templates in default/monarch/theme-templates, writing the result to
+# ~/.config/monarch/current/theme/ where Hyprland, Waybar, Mako, Walker,
+# Hyprlock and SwayOSD read it. Running components reload afterwards.
+
+set -uo pipefail
+
+MONARCH_ROOT="${MONARCH_PATH:-/usr/share/monarch}"
+TEMPLATES="${MONARCH_THEME_TEMPLATES_DIR:-$MONARCH_ROOT/default/monarch/theme-templates}"
+PALETTES="${MONARCH_THEME_PALETTES_DIR:-$HOME/.config/monarch/palettes}"
+OUT="${MONARCH_THEME_OUT_DIR:-$HOME/.config/monarch/current/theme}"
+
+command -v jq >/dev/null 2>&1 || { echo "jq is required" >&2; exit 1; }
+
+scheme=$(monarch-theme-current | cut -d' ' -f2-)
+mode=$(monarch-theme-mode get)
+palette="$PALETTES/$scheme.json"
+[[ -f $palette ]] || { echo "Unknown Monarch theme: $scheme" >&2; exit 1; }
+
+variant=$mode
+jq -e --arg v "$variant" 'has($v)' "$palette" >/dev/null 2>&1 || variant=dark
+jq -e --arg v "$variant" 'has($v)' "$palette" >/dev/null 2>&1 || variant=light
+
+color() {
+  local value
+  value=$(jq -r --arg v "$variant" --arg k "$1" '.[$v][$k] // empty' "$palette")
+  [[ $value =~ ^#[0-9a-fA-F]{6}$ ]] || { echo "Palette $scheme has no valid $1" >&2; return 1; }
+  printf '%s' "${value,,}"
+}
+
+declare -A vars
+declare -A keys=(
+  [accent]=mPrimary [bg]=mSurface [fg]=mOnSurface [outline]=mOutline
+  [surface_variant]=mSurfaceVariant [error]=mError [secondary]=mSecondary
+)
+for name in "${!keys[@]}"; do
+  value=$(color "${keys[$name]}") || exit 1
+  vars[$name]=$value
+  vars[${name}_hex]=${value#\#}
+done
+
+# Terminal palette: ANSI colors and the selection/cursor colors, for every
+# terminal and TUI template. Absent keys fall back to the surface colors.
+tcolor() {
+  local value
+  value=$(jq -r --arg v "$variant" --arg k "$1" '.[$v].terminal | getpath($k | split(".")) // empty' "$palette" 2>/dev/null)
+  [[ $value =~ ^#[0-9a-fA-F]{6}$ ]] || return 1
+  printf '%s' "${value,,}"
+}
+add_color() {
+  local name=$1 value=$2
+  vars[$name]=$value
+  vars[${name}_hex]=${value#\#}
+}
+for group in normal bright; do
+  for color in black red green yellow blue magenta cyan white; do
+    value=$(tcolor "$group.$color") || value=${vars[fg]}
+    add_color "term_${group}_$color" "$value"
+  done
+done
+add_color term_fg "$(tcolor foreground || printf '%s' "${vars[fg]}")"
+add_color term_bg "$(tcolor background || printf '%s' "${vars[bg]}")"
+add_color term_sel_fg "$(tcolor selectionFg || printf '%s' "${vars[fg]}")"
+add_color term_sel_bg "$(tcolor selectionBg || printf '%s' "${vars[accent]}")"
+add_color term_cursor "$(tcolor cursor || printf '%s' "${vars[fg]}")"
+add_color term_cursor_text "$(tcolor cursorText || printf '%s' "${vars[bg]}")"
+value=$(color mOnPrimary) && add_color on_accent "$value"
+value=$(color mTertiary) && add_color tertiary "$value"
+value=$(color mOnSurfaceVariant) && add_color on_surface_variant "$value"
+vars[mode]=$variant
+
+stage=$(mktemp -d) || exit 1
+trap 'rm -rf "$stage"' EXIT
+
+for template in "$TEMPLATES"/*; do
+  [[ -f $template ]] || continue
+  content=$(<"$template")
+  for name in "${!vars[@]}"; do
+    content=${content//"{{$name}}"/${vars[$name]}}
+  done
+  printf '%s\n' "$content" >"$stage/${template##*/}"
+done
+
+mkdir -p "$OUT" || exit 1
+cp -f "$stage"/* "$OUT"/ || exit 1
+
+# Reload what is running; each component keeps going if another is absent.
+hyprctl reload >/dev/null 2>&1 || true
+pkill -SIGUSR2 -x waybar 2>/dev/null || true
+makoctl reload >/dev/null 2>&1 || true
+if pgrep -x swayosd-server >/dev/null 2>&1; then
+  pkill -x swayosd-server
+  setsid --fork uwsm-app -t service -- swayosd-server >/dev/null 2>&1 || true
+fi
+exit 0

@@ -1,0 +1,5 @@
+@define-color window_bg_color {{bg}};
+@define-color accent_bg_color {{accent}};
+@define-color theme_fg_color {{fg}};
+@define-color error_bg_color {{error}};
+@define-color error_fg_color {{bg}};

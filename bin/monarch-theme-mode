@@ -1,0 +1,22 @@
+#!/bin/bash
+
+# monarch:summary=Get, set or toggle the dark/light appearance
+# monarch:args=[get|dark|light|toggle]
+# monarch:examples=monarch theme mode toggle
+
+STATE="${XDG_STATE_HOME:-$HOME/.local/state}/monarch/theme-mode"
+mode=dark
+[[ -s $STATE ]] && mode=$(<"$STATE")
+
+case "${1:-get}" in
+  get) printf '%s\n' "$mode" ; exit 0 ;;
+  dark | light) mode=$1 ;;
+  toggle) [[ $mode == "dark" ]] && mode=light || mode=dark ;;
+  *) echo "Usage: monarch theme mode [get|dark|light|toggle]" >&2; exit 1 ;;
+esac
+
+mkdir -p "${STATE%/*}"
+printf '%s\n' "$mode" >"$STATE"
+gsettings set org.gnome.desktop.interface color-scheme "prefer-$mode" >/dev/null 2>&1 || true
+monarch-theme-render >/dev/null 2>&1 || exit 1
+monarch-theme-apply >/dev/null 2>&1 &

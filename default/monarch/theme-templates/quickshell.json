@@ -1,0 +1,9 @@
+{
+  "bg": "{{bg}}",
+  "fg": "{{fg}}",
+  "accent": "{{accent}}",
+  "outline": "{{outline}}",
+  "surfaceVariant": "{{surface_variant}}",
+  "error": "{{error}}",
+  "secondary": "{{secondary}}"
+}
