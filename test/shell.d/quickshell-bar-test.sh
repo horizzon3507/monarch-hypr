@@ -26,7 +26,12 @@ grep -q 'anchors.centerIn: parent' "$QS/Bar.qml" || fail "the clock is centered 
 # never the outline color, which is nearly invisible on the bar background.
 ! grep -q 'Theme.outline : Theme.fg\|slot.ws !== null ? Theme.fg : Theme.outline' "$QS/Workspaces.qml" \
   || fail "inactive workspace labels stay readable"
-pass "clock is centered and inactive workspace labels are readable"
+# Text never uses the outline color (unreadable on the bar background); dim
+# states use opacity instead. Wi-Fi "off" needs a real backend with devices.
+! grep -q 'color: .*Theme.outline' "$QS"/Indicators.qml "$QS"/Connectivity.qml || fail "readout text stays readable"
+grep -q 'NetworkBackendType.None' "$QS/Connectivity.qml" || fail "wifi off is not claimed without a backend"
+grep -q 'anchors.right: parent.right' "$QS/Bar.qml" || fail "the right group is anchored to the bar edge"
+pass "clock is centered, text is readable, and the right group hugs the edge"
 
 if ! command -v node >/dev/null 2>&1; then
   pass "skipped bar logic checks: node is not installed"

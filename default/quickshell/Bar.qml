@@ -39,21 +39,30 @@ Variants {
             color: Theme.fg
         }
 
-        RowLayout {
-            anchors.fill: parent
+        Workspaces {
+            anchors.left: parent.left
             anchors.leftMargin: 10
+            anchors.verticalCenter: parent.verticalCenter
+            fontSize: bar.fontSize
+        }
+
+        // The right group is anchored to the bar edge on its own, so it hugs the
+        // right margin whatever its content (empty services take no space).
+        RowLayout {
+            anchors.right: parent.right
             anchors.rightMargin: 10
-            spacing: 14
-
-            Workspaces {
-                fontSize: bar.fontSize
-            }
-
-            Item { Layout.fillWidth: true }
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 0
 
             Tray { iconSize: Math.round(bar.fontSize * 1.2) }
-            Connectivity { fontSize: bar.fontSize }
-            Indicators { fontSize: bar.fontSize }
+            Connectivity {
+                fontSize: bar.fontSize
+                Layout.leftMargin: implicitWidth > 0 ? 14 : 0
+            }
+            Indicators {
+                fontSize: bar.fontSize
+                Layout.leftMargin: implicitWidth > 0 ? 14 : 0
+            }
         }
     }
 }

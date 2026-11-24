@@ -12,11 +12,17 @@ RowLayout {
     spacing: 12
     property int fontSize: 13
 
+    // "Wi-Fi is off" is only claimed when NetworkManager is the backend and it
+    // reports devices. With no backend (no daemon) wifiEnabled is false too, and
+    // that must not read as the user having turned Wi-Fi off.
     Text {
-        visible: !Networking.wifiEnabled
+        visible: Networking.backend !== NetworkBackendType.None
+            && Networking.devices.values.length > 0
+            && !Networking.wifiEnabled
         text: "wifi off"
         font.pixelSize: root.fontSize
-        color: Theme.outline
+        color: Theme.fg
+        opacity: 0.6
     }
 
     Repeater {
@@ -53,7 +59,8 @@ RowLayout {
         visible: adapter !== null
         text: visible ? Logic.bluetoothText(adapter.enabled, connectedNames()) : ""
         font.pixelSize: root.fontSize
-        color: visible && adapter.enabled ? Theme.fg : Theme.outline
+        color: Theme.fg
+        opacity: visible && adapter.enabled ? 1.0 : 0.6
 
         function connectedNames() {
             var out = [];
