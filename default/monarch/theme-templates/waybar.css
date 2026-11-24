@@ -1,0 +1,4 @@
+@define-color background {{bg}};
+@define-color foreground {{fg}};
+@define-color accent {{accent}};
+@define-color outline {{outline}};
