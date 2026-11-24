@@ -50,6 +50,39 @@ jobs:
       - name: Run deterministic integration suite
         run: test/run integration
 
+  iso-pkgs-static-tests:
+    name: ISO and package static tests
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Install test dependencies
+        run: pacman -Syu --noconfirm --needed bash git python libarchive pacman-contrib base-devel shellcheck
+
+      - uses: actions/checkout@v4
+
+      - name: Run iso/ shell unit tests
+        run: |
+          git config --global --add safe.directory "$PWD"
+          cd iso
+          status=0
+          for t in test/unit/*-test.sh; do
+            case "$t" in
+              # Noctalia-specific; retired together with the Noctalia shell.
+              */noctalia-plugin-activation-test.sh) continue ;;
+            esac
+            echo "== $t"
+            bash "$t" || status=1
+          done
+          exit $status
+
+      - name: Run iso/ Python unit tests
+        run: cd iso && python -m unittest discover -s test/unit -p 'test_*.py'
+
+      - name: Run package recipe tests
+        run: |
+          cd pkgs/pkgbuilds/monarch
+          for t in permissions-test.sh defaults-permissions-test.sh; do bash "$t"; done
+
   repository-tests:
     name: Repository availability tests
     runs-on: ubuntu-latest
