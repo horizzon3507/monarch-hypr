@@ -1,0 +1,58 @@
+#!/bin/bash
+
+# monarch:summary=Install the Monarch Hyprland entry-point at ~/.config/hypr/hyprland.conf, bootstrap the user-owned files, and reload a running Hyprland.
+# monarch:group=refresh
+# monarch:name=hypr
+
+set -euo pipefail
+
+MONARCH_ROOT="${MONARCH_PATH:-/usr/share/monarch}"
+MONARCH_PATH="$MONARCH_ROOT"
+SOURCE="$MONARCH_ROOT/default/hypr/hyprland.conf"
+CONFIG_DIR="$HOME/.config/hypr"
+TARGET="$CONFIG_DIR/hyprland.conf"
+USER_FILES=(monitors.conf input.conf bindings.conf looknfeel.conf autostart.conf)
+
+mkdir -p "$CONFIG_DIR"
+
+# A missing source file is a hard error in Hyprland, so every user-owned file
+# in the include chain must exist. Seed absent ones; never overwrite edits.
+for file in "${USER_FILES[@]}"; do
+  if [[ ! -f $CONFIG_DIR/$file ]]; then
+    if [[ -f $MONARCH_ROOT/config/hypr/$file ]]; then
+      cp "$MONARCH_ROOT/config/hypr/$file" "$CONFIG_DIR/$file"
+    else
+      : >"$CONFIG_DIR/$file"
+    fi
+  fi
+done
+
+# Generate keyboard.conf before validating: it is part of the include chain.
+if [[ -f $MONARCH_ROOT/install/user/detect-keyboard-layout.sh ]]; then
+  bash "$MONARCH_ROOT/install/user/detect-keyboard-layout.sh"
+elif [[ ! -f $CONFIG_DIR/keyboard.conf ]]; then
+  : >"$CONFIG_DIR/keyboard.conf"
+fi
+
+rendered="$(mktemp)"
+trap 'rm -f "$rendered"' EXIT
+sed "s|@MONARCH_PATH@|$MONARCH_ROOT|g" "$SOURCE" >"$rendered"
+
+# Keep one backup of a changed entry point.
+if [[ -f $TARGET ]] && ! cmp -s "$rendered" "$TARGET"; then
+  cp -f "$TARGET" "$TARGET.bak.$(date +%s)"
+fi
+cp -f "$rendered" "$TARGET"
+
+# Validate the assembled config through the include chain.
+if command -v Hyprland >/dev/null 2>&1; then
+  if ! Hyprland --verify-config --config "$TARGET"; then
+    echo "monarch-refresh-hypr: Hyprland config validation failed for $TARGET" >&2
+    exit 1
+  fi
+fi
+
+# Reload a running instance.
+if pgrep -x Hyprland >/dev/null 2>&1; then
+  hyprctl reload >/dev/null 2>&1 || true
+fi
