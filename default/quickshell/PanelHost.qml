@@ -48,6 +48,14 @@ Scope {
 
             focus: true
             Keys.onEscapePressed: root.current = ""
+            // A panel with a long list scrolls from the keyboard through scrollBy().
+            Keys.onUpPressed: if (loader.item && loader.item.scrollBy) loader.item.scrollBy(-1)
+            Keys.onDownPressed: if (loader.item && loader.item.scrollBy) loader.item.scrollBy(1)
+            Keys.onPressed: function (event) {
+                if (!loader.item || !loader.item.scrollBy) return;
+                if (event.key === Qt.Key_PageUp) { loader.item.scrollBy(-8); event.accepted = true; }
+                else if (event.key === Qt.Key_PageDown) { loader.item.scrollBy(8); event.accepted = true; }
+            }
             Connections {
                 target: window
                 function onVisibleChanged() { if (window.visible) card.forceActiveFocus(); }
