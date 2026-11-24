@@ -28,7 +28,7 @@ monarch.default("shell")
 
 -- Runtime toggles (flag files managed by monarch-toggle)
 local toggles = os.getenv("HOME") .. "/.local/state/monarch/toggles"
-for _, name in ipairs({ "single-window-aspect-ratio", "window-no-gaps" }) do
+for _, name in ipairs({ "single-window-aspect-ratio", "window-no-gaps", "window-opaque" }) do
   if io.open(toggles .. "/" .. name, "r") then
     monarch.default("toggles/" .. name)
   end
@@ -39,6 +39,7 @@ monarch.optional(user .. "/keyboard.lua")
 
 -- User overrides
 monarch.optional(user .. "/monitors.lua")
+monarch.optional(user .. "/runtime.lua")
 monarch.optional(user .. "/input.lua")
 monarch.optional(user .. "/bindings.lua")
 monarch.optional(user .. "/looknfeel.lua")
