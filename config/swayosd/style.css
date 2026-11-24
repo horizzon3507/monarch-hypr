@@ -1,0 +1,12 @@
+@import "../monarch/current/theme/swayosd.css";
+
+window#osd {
+  padding: 12px 20px;
+  border-radius: 0;
+  border: 2px solid @border-color;
+  background: alpha(@background-color, 0.97);
+}
+window#osd label, window#osd image { color: @label; }
+window#osd progressbar:disabled, window#osd image:disabled { opacity: 0.5; }
+window#osd trough { background: alpha(@border-color, 0.2); }
+window#osd progress { background: @border-color; }

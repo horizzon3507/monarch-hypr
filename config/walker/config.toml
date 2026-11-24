@@ -1,0 +1,7 @@
+force_keyboard_focus = true
+close_when_open = true
+theme = "monarch"
+hide_action_hints = true
+
+[providers]
+default = ["desktopapplications", "calc", "runner", "websearch"]
