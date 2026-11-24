@@ -157,7 +157,7 @@ function bluetoothText(adapterEnabled, connected) {
 
 // Panels the host knows. Names come from the IPC call, so anything else is
 // refused rather than loaded.
-var PANELS = ["wifi-qr", "network"];
+var PANELS = ["wifi-qr", "network", "theme"];
 
 function panelName(name) {
     var n = String(name === undefined || name === null ? "" : name);
@@ -244,4 +244,25 @@ function wifiHeader(snapshot) {
 // fresh, validated snapshot.
 function wifiRadioEnabled(snapshot, stale) {
     return snapshot !== null && stale !== true;
+}
+
+// Output of `monarch-theme-list`: one theme per line,
+//   selected<TAB>name<TAB>slug<TAB>preview path
+// Lines that do not have those fields are dropped. null means nothing usable,
+// which the panel shows as unavailable rather than as an empty list.
+function parseThemeList(text) {
+    var out = [];
+    var lines = String(text === undefined || text === null ? "" : text).split("\n");
+    for (var i = 0; i < lines.length; i++) {
+        var f = lines[i].split("\t");
+        if (f.length < 3 || f[1] === "" || (f[0] !== "true" && f[0] !== "false")) continue;
+        out.push({ name: f[1], slug: f[2], selected: f[0] === "true" });
+    }
+    return out.length > 0 ? out : null;
+}
+
+// `monarch-theme-mode get` prints dark or light; anything else is unknown.
+function parseThemeMode(text) {
+    var m = String(text === undefined || text === null ? "" : text).trim();
+    return m === "dark" || m === "light" ? m : "";
 }

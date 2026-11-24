@@ -82,7 +82,7 @@ Scope {
                 id: loader
                 anchors.centerIn: parent
                 active: root.current !== ""
-                source: root.current === "wifi-qr" ? "WifiQr.qml" : (root.current === "network" ? "NetworkPanel.qml" : "")
+                source: root.current === "wifi-qr" ? "WifiQr.qml" : (root.current === "network" ? "NetworkPanel.qml" : (root.current === "theme" ? "ThemePanel.qml" : ""))
             }
         }
     }
