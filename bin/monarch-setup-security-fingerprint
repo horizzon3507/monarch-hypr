@@ -5,6 +5,13 @@
 
 set -e
 
+# Hyprland uses hyprlock, whose PAM service is not migrated yet. Do nothing,
+# before any prompt, PAM write or enrollment change.
+if [[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]]; then
+  echo "Fingerprint authentication is not available with this lock screen yet. Nothing was changed." >&2
+  exit 1
+fi
+
 
 check_fingerprint_hardware() {
   # Get fingerprint devices for the user
@@ -118,20 +125,10 @@ if sudo fprintd-enroll "$USER"; then
   echo -e "\nNow let's verify that it's working correctly.\n"
   if fprintd-verify; then
     setup_pam_config
-    if [[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]]; then
-      lockscreen=false
-    else
-      lockscreen=true
-      setup_noctalia_lockscreen
-    fi
+    setup_noctalia_lockscreen
     add_fingerprint_marker
     echo -e "\e[32m\nPerfect! Fingerprint authentication is now configured.\e[0m"
-    if [[ $lockscreen == true ]]; then
-      echo "You can use your fingerprint for sudo, polkit, and the lock screen (Super + L)."
-    else
-      echo "You can use your fingerprint for sudo and polkit."
-      echo "Fingerprint on the lock screen (Super + L) is not available with this lock screen yet: use your password there."
-    fi
+    echo "You can use your fingerprint for sudo, polkit, and the lock screen (Super + L)."
   else
     echo -e "\e[31m\nVerification failed. You may want to try enrolling again.\e[0m"
     exit 1
