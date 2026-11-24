@@ -90,7 +90,7 @@ Scope {
                 id: loader
                 anchors.centerIn: parent
                 active: root.current !== ""
-                source: root.current === "wifi-qr" ? "WifiQr.qml" : (root.current === "network" ? "NetworkPanel.qml" : (root.current === "theme" ? "ThemePanel.qml" : (root.current === "display" ? "DisplayPanel.qml" : "")))
+                source: root.current === "wifi-qr" ? "WifiQr.qml" : (root.current === "network" ? "NetworkPanel.qml" : (root.current === "theme" ? "ThemePanel.qml" : (root.current === "display" ? "DisplayPanel.qml" : (root.current === "background" ? "BackgroundPanel.qml" : (root.current === "crashes" ? "CrashPanel.qml" : (root.current === "first-steps" ? "FirstStepsPanel.qml" : (root.current === "usage" ? "UsagePanel.qml" : "")))))))
             }
         }
     }

@@ -1,5 +1,6 @@
 #!/bin/bash
 set -euo pipefail
+unset HYPRLAND_INSTANCE_SIGNATURE
 source "${BASH_SOURCE[0]%/*}/base-test.sh"
 temporary=$(mktemp -d)
 trap 'rm -rf "$temporary"' EXIT

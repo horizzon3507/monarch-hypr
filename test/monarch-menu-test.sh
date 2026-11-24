@@ -128,7 +128,7 @@ assert_equals "no menu row points at Waybar" "$output" ""
 
 output=$(jq -r '.[] | select(.id | test("^system\\.[^.]+$")) | .label' <<<"$SHIPPED_TREE" | tr '\n' ' ')
 assert_equals "system retains session and power actions before crash history" "${output% }" \
-  "Lock Screensaver Suspend Hibernate Logout Restart Shutdown Crashes"
+  "Lock Screensaver Suspend Hibernate Logout Restart Shutdown Crashes Crash panel Agent usage"
 
 output=$("$MENU" --rows learn | cut -f2 | tr '\n' ' ')
 assert_contains "documentation contains About" "$output" "About"
@@ -403,7 +403,7 @@ rm -f "$USER_MENU"
 # evaluated in one payload.
 STATE=$("$MENU" --state)
 output=$(jq -r '.tree[0].id + " " + .tree[-1].id' <<<"$STATE")
-assert_equals "--state emits the tree in declaration order" "$output" "apps system.crashes"
+assert_equals "--state emits the tree in declaration order" "$output" "apps system.usage-panel"
 
 output=$(jq -r '.tree[] | select(.id == "learn.bash") | .action' <<<"$STATE")
 assert_contains "--state carries the fields the panel renders" "$output" "devhints.io/bash"

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# monarch:summary=Toggle idle locking (Noctalia caffeine)
+# monarch:summary=Toggle idle locking (caffeine: Noctalia, or an idle inhibitor on Hyprland)
 # monarch:args=[toggle|on|off|status|claim <owner>|release <owner>]
 # monarch:examples=monarch toggle idle | monarch toggle idle status
 
@@ -28,13 +28,80 @@
 # authoritative instead of the two drifting apart the way a blind toggle would.
 
 STATE_FILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/monarch/caffeine"
+PID_FILE="$STATE_FILE.pid"
+
+# Hyprland: caffeine is a held logind idle inhibitor (hypridle honors it unless
+# ignore_systemd_inhibit is set, which Monarch's hypridle.conf does not do). It
+# pauses the idle screensaver, lock and DPMS only: hypridle keeps running, so a
+# manual lock, before_sleep and after_sleep handling still work. The inhibitor
+# is `systemd-inhibit ... sleep infinity` in its own session; its pid is kept
+# beside the state file and is only ever signalled after its command line is
+# checked, so a recycled pid is never killed. Both files live in the runtime
+# dir and die with the session.
+use_inhibitor() { [[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]]; }
+
+inhibitor_alive() {
+  local pid cmdline
+  [[ -f $PID_FILE ]] || return 1
+  pid=$(<"$PID_FILE") || return 1
+  [[ $pid =~ ^[1-9][0-9]*$ ]] || return 1
+  [[ -r /proc/$pid/cmdline ]] || return 1
+  cmdline=$(tr '\0' ' ' <"/proc/$pid/cmdline") || return 1
+  [[ $cmdline == *systemd-inhibit* && $cmdline == *--who=monarch* && $cmdline == *--why=caffeine* ]]
+}
+
+start_inhibitor() {
+  local attempt
+  rm -f "$PID_FILE"
+  command -v systemd-inhibit >/dev/null 2>&1 || { echo "systemd-inhibit is not available" >&2; return 1; }
+  # `exec` keeps the shell's pid (and process group, from setsid) on the inhibitor.
+  setsid -f bash -c 'printf "%s\n" "$$" >"$1"; exec systemd-inhibit --what=idle --who=monarch --why=caffeine --mode=block sleep infinity' _ "$PID_FILE" >/dev/null 2>&1 || return 1
+  for ((attempt = 0; attempt < 20; attempt++)); do
+    inhibitor_alive && return 0
+    sleep 0.1
+  done
+  stop_inhibitor
+  echo "The idle inhibitor did not start" >&2
+  return 1
+}
+
+stop_inhibitor() {
+  local pid
+  if inhibitor_alive; then
+    pid=$(<"$PID_FILE")
+    kill -TERM -- "-$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null || true
+  fi
+  rm -f "$PID_FILE"
+}
 
 caffeine_enabled() {
-  [[ -f $STATE_FILE ]]
+  [[ -f $STATE_FILE ]] || return 1
+  use_inhibitor || return 0
+  inhibitor_alive && return 0
+  # A flag whose inhibitor is gone is stale: report off and clean it up.
+  rm -f "$STATE_FILE" "$PID_FILE"
+  return 1
 }
 
 apply_state() {
   local owner="${2:-user}"
+
+  if use_inhibitor; then
+    case "$1" in
+      on)
+        mkdir -p "$(dirname "$STATE_FILE")"
+        if ! caffeine_enabled; then
+          start_inhibitor || return 1
+        fi
+        printf '%s\n' "$owner" >"$STATE_FILE"
+        ;;
+      off)
+        stop_inhibitor
+        rm -f "$STATE_FILE"
+        ;;
+    esac
+    return 0
+  fi
 
   case "$1" in
     on)
@@ -92,7 +159,7 @@ case "${1:-toggle}" in
   release)
     owner="${2:-}"
     [[ $owner =~ ^[A-Za-z0-9:._-]+$ ]] || { echo "Invalid Caffeine owner" >&2; exit 2; }
-    if [[ -f $STATE_FILE && $(<"$STATE_FILE") == $owner ]]; then
+    if caffeine_enabled && [[ $(<"$STATE_FILE") == "$owner" ]]; then
       apply_state off
     fi
     ;;

@@ -5,6 +5,13 @@
 
 set -e
 
+# Hyprland uses hyprlock, whose PAM service is not migrated yet. Do nothing,
+# before any prompt, PAM write or enrollment change.
+if [[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]]; then
+  echo "Fingerprint authentication is not available with this lock screen yet. Nothing was changed." >&2
+  exit 1
+fi
+
 
 check_fingerprint_hardware() {
   # Get fingerprint devices for the user

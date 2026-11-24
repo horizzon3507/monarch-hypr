@@ -1,6 +1,7 @@
 #!/bin/bash
 
 set -euo pipefail
+unset HYPRLAND_INSTANCE_SIGNATURE
 
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 TMP=$(mktemp -d)

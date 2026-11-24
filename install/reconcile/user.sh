@@ -88,26 +88,33 @@ defer_plugin_activation() {
   trap - EXIT
 }
 
-noctalia_ready=false
-if monarch_noctalia_wait 1; then
-  noctalia_ready=true
-  if [[ $plugins_changed == "true" ]]; then
-    monarch-restart-noctalia
-    monarch_noctalia_wait || noctalia_ready=false
-  fi
-fi
-
-if [[ $noctalia_ready == "true" ]]; then
-  plugins_ready=true
-  monarch_noctalia_enable_plugins >/dev/null 2>&1 || plugins_ready=false
+# Hyprland session: Noctalia is not running, so do not wait for it, restart it,
+# enable its plugins or queue a post-boot plugin hook. Other sessions unchanged.
+if [[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]]; then
+  rm -f "$plugin_hook"
   monarch-theme-apply >/dev/null 2>&1 || true
-  if [[ $plugins_ready == "true" ]]; then
-    rm -f "$plugin_hook"
+else
+  noctalia_ready=false
+  if monarch_noctalia_wait 1; then
+    noctalia_ready=true
+    if [[ $plugins_changed == "true" ]]; then
+      monarch-restart-noctalia
+      monarch_noctalia_wait || noctalia_ready=false
+    fi
+  fi
+
+  if [[ $noctalia_ready == "true" ]]; then
+    plugins_ready=true
+    monarch_noctalia_enable_plugins >/dev/null 2>&1 || plugins_ready=false
+    monarch-theme-apply >/dev/null 2>&1 || true
+    if [[ $plugins_ready == "true" ]]; then
+      rm -f "$plugin_hook"
+    else
+      defer_plugin_activation
+    fi
   else
     defer_plugin_activation
   fi
-else
-  defer_plugin_activation
 fi
 
 # The optional todo package handles its own plugin activation and legacy copies.

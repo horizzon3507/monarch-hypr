@@ -157,7 +157,7 @@ function bluetoothText(adapterEnabled, connected) {
 
 // Panels the host knows. Names come from the IPC call, so anything else is
 // refused rather than loaded.
-var PANELS = ["wifi-qr", "network", "theme", "display"];
+var PANELS = ["wifi-qr", "network", "theme", "display", "background", "crashes", "first-steps", "usage"];
 
 function panelName(name) {
     var n = String(name === undefined || name === null ? "" : name);
@@ -347,3 +347,263 @@ function brightnessText(map) {
     for (var k in map) if (map[k].backend === "backlight") return "bri " + map[k].percent + "%";
     return "";
 }
+
+// Output of `monarch-theme-background-list`: active, file name, path, thumbnail
+// path and removable, tab separated. Only absolute paths are accepted. Blank
+// output is a real empty list (a theme with no backgrounds). Non-blank output
+// with no usable row is a different format or garbage, which is null (unusable)
+// and must not read as "no backgrounds".
+function parseBackgroundList(text) {
+    var out = [];
+    var raw = String(text === undefined || text === null ? "" : text);
+    var lines = raw.split("\n");
+    for (var i = 0; i < lines.length; i++) {
+        var f = lines[i].split("\t");
+        if (f.length < 4 || (f[0] !== "true" && f[0] !== "false") || f[1] === "" || f[2].charAt(0) !== "/") continue;
+        out.push({
+            active: f[0] === "true",
+            name: f[1],
+            path: f[2],
+            thumbnail: f[3].charAt(0) === "/" ? f[3] : ""
+        });
+    }
+    if (out.length === 0 && raw.trim() !== "") return null;
+    return out;
+}
+
+// Output of `monarch-crash-history list --json`:
+//   {"crashes":[{id,application,date,signal,core,...}],"limit":N,"hasMore":bool}
+// Entries without a well-formed id are dropped: the id goes back to the helper
+// for a report, and the helper accepts only that shape. null means the output
+// was not usable (a failed read), which differs from an empty list.
+function parseCrashList(text) {
+    var data;
+    try { data = JSON.parse(text); } catch (e) { return null; }
+    if (!data || typeof data !== "object" || !Array.isArray(data.crashes)) return null;
+    var rows = [];
+    for (var i = 0; i < data.crashes.length; i++) {
+        var c = data.crashes[i];
+        if (!c || typeof c.id !== "string" || !/^[a-f0-9]{32}:[0-9]{1,10}:[0-9]{1,20}$/.test(c.id)) continue;
+        rows.push({
+            id: c.id,
+            application: typeof c.application === "string" && c.application !== "" ? c.application : "unknown",
+            date: typeof c.date === "string" ? c.date : "",
+            signal: typeof c.signal === "string" ? c.signal : "",
+            core: typeof c.core === "string" ? c.core : ""
+        });
+    }
+    return { crashes: rows, hasMore: data.hasMore === true };
+}
+
+// `monarch-crash-history export` prints {"path": "..."}; "" when unusable.
+function parseExportPath(text) {
+    try {
+        var d = JSON.parse(text);
+        return d && typeof d.path === "string" && d.path.charAt(0) === "/" ? d.path : "";
+    } catch (e) { return ""; }
+}
+
+// ---- First steps -----------------------------------------------------------
+
+var FIRST_STEPS = ["network", "update", "shortcuts", "appearance", "software"];
+
+// The phase a guide opens at, from `monarch-setup-first-steps state`
+// ({"shown":bool,"pending":bool,"phase":"..."}). Unknown phases start over.
+function firstStepsPhase(text) {
+    try {
+        var d = JSON.parse(text);
+        var p = d && typeof d.phase === "string" ? d.phase : "";
+        return FIRST_STEPS.indexOf(p) >= 0 || p === "done" ? p : "welcome";
+    } catch (e) { return "welcome"; }
+}
+
+// Phase after "next": welcome starts the steps, the last step ends at done.
+function nextPhase(phase) {
+    var i = FIRST_STEPS.indexOf(phase);
+    if (i < 0) return phase === "welcome" ? FIRST_STEPS[0] : "";
+    return i + 1 < FIRST_STEPS.length ? FIRST_STEPS[i + 1] : "done";
+}
+
+function prevPhase(phase) {
+    var i = FIRST_STEPS.indexOf(phase);
+    return i > 0 ? FIRST_STEPS[i - 1] : (i === 0 ? "welcome" : "");
+}
+
+// `monarch-setup-first-steps tools-state`. null when unusable, so the panel
+// shows "state unavailable" instead of treating it as "nothing installed".
+function parseToolsState(text) {
+    var d;
+    try { d = JSON.parse(text); } catch (e) { return null; }
+    if (!d || typeof d !== "object" || !d.installed || typeof d.installed !== "object" || typeof d.connected !== "boolean") return null;
+    return {
+        installed: {
+            burpsuite: d.installed.burpsuite === true,
+            rfswift: d.installed.rfswift === true,
+            seclists: d.installed.seclists === true
+        },
+        active: typeof d.active === "string" ? d.active : "",
+        connected: d.connected,
+        updateResult: d.updateResult && typeof d.updateResult.code === "number" ? d.updateResult : null,
+        lastResult: d.lastResult && typeof d.lastResult.code === "number" && typeof d.lastResult.tool === "string" ? d.lastResult : null
+    };
+}
+
+// `monarch-update-available --all --json` with its exit code: 0 available,
+// 1 current, 2 error. Anything that does not fit is an error, never "current".
+function parseUpdateCheck(text, exitCode) {
+    var d;
+    try { d = JSON.parse(text); } catch (e) { return { status: "error" }; }
+    if (!d || typeof d !== "object" || typeof d.count !== "number") {
+        if (d && exitCode === 2 && d.status === "error") return d;
+        return { status: "error" };
+    }
+    if (exitCode === 1 && d.status === "current" && d.count === 0 && d.complete !== false) return d;
+    if (exitCode === 0 && d.status === "available" && d.count > 0) return d;
+    if (exitCode === 2 && d.status === "error") return d;
+    return { status: "error" };
+}
+
+// What the update step shows and offers.
+function updateView(check, tools, connected, toolsLoaded, checking) {
+    var out = { title: "Checking for updates...", detail: "Reading the system repositories and the AUR.", canUpdate: false, button: "" };
+    var result = tools ? tools.updateResult : null;
+    var active = tools ? tools.active : "";
+    var current = check && check.status === "current";
+    var available = check && check.status === "available";
+    var failedBefore = current && result !== null && result.code !== 0;
+    var repair = check && check.status === "error" && check.reason === "repositories-unavailable";
+    var partial = check && check.complete === false;
+    if (active === "update") {
+        out.title = "Update in progress..."; out.detail = "Follow it in the terminal.";
+    } else if (active !== "") {
+        out.title = "Installation in progress..."; out.detail = "The check starts when the installation ends.";
+    } else if (toolsLoaded && !connected) {
+        out.title = "Connection needed"; out.detail = "Connect to check for updates.";
+    } else if (current) {
+        out.title = failedBefore ? "Packages are current, finishing needs a retry" : "System is up to date";
+        out.detail = failedBefore ? "The last attempt did not finish. Resume the configuration and post-update tasks." : "No update is available in the system repositories or the AUR.";
+    } else if (available) {
+        out.title = (partial ? "At least " : "") + check.count + (check.count === 1 ? " update available" : " updates available");
+        out.detail = "System repositories: " + (check.repositories || 0) + " | AUR: " + (partial ? "not checked" : (check.aur || 0));
+    } else if (check && check.status === "error") {
+        out.title = "Could not check";
+        out.detail = repair ? "The repository check failed. The terminal can offer to refresh the signing keys." : "The repositories could not be checked. Retry or continue later.";
+    }
+    out.canUpdate = (available || failedBefore || repair) && connected && active === "" && !checking;
+    out.button = repair ? "Check in the terminal" : (failedBefore ? "Finish the update" : "Update now");
+    out.failedBefore = failedBefore;
+    out.current = current;
+    return out;
+}
+
+// Label for a key binding chord, e.g. "SUPER ALT + Space" to "Win + Alt + Space".
+function shortcutText(chord) {
+    return String(chord === undefined || chord === null ? "" : chord)
+        .replace(/SUPER/g, "Win").replace(/ALT/g, "Alt").replace(/Win Alt/g, "Win + Alt")
+        .replace(/\s*\+\s*/g, " + ");
+}
+
+// The bindings the guide shows from `monarch-menu-keybindings --json`.
+function firstStepsShortcuts(text) {
+    var d;
+    try { d = JSON.parse(text); } catch (e) { return []; }
+    if (!Array.isArray(d)) return [];
+    var out = [];
+    for (var i = 0; i < d.length; i++) {
+        var b = d[i];
+        if (!b || typeof b.label !== "string" || typeof b.shortcut !== "string") continue;
+        if (b.label !== "Terminal" && b.label !== "Monarch menu" && b.label.indexOf("Launcher") !== 0) continue;
+        out.push({ label: b.label === "Monarch menu" ? "monarch-menu" : (b.label.indexOf("Launcher") === 0 ? "App launcher" : b.label), shortcut: shortcutText(b.shortcut) });
+    }
+    return out;
+}
+
+// ---- Agent usage -----------------------------------------------------------
+
+var PROVIDER_NAMES = { codex: "Codex", claude: "Claude", synthetic: "Synthetic", openrouter: "OpenRouter" };
+
+function providerName(p) {
+    var id = String(p && (p.provider || p.id) || "unknown");
+    return PROVIDER_NAMES[id] || (id.charAt(0).toUpperCase() + id.slice(1));
+}
+
+// `monarch-agent-usage-fetch` output: {"providers":[...],"ok":bool}. An
+// unusable envelope, or a failed fetch with nothing in it, is null
+// (unavailable), never "no providers".
+function parseUsage(text) {
+    var d;
+    try { d = JSON.parse(text); } catch (e) { return null; }
+    if (!d || typeof d !== "object" || !Array.isArray(d.providers) || typeof d.ok !== "boolean") return null;
+    if (!d.ok && d.providers.length === 0) return null;
+    var out = [];
+    for (var i = 0; i < d.providers.length; i++) {
+        if (d.providers[i] && typeof d.providers[i] === "object") out.push(usageProvider(d.providers[i]));
+    }
+    return { providers: out, ok: d.ok };
+}
+
+function usageIssue(p) {
+    var e = p.error;
+    if (e && typeof e === "object") return String(e.message || e.description || e.kind || "Provider unavailable");
+    return e ? String(e) : "";
+}
+
+function usageReset(t) {
+    return String(t).replace(/^(\d{4}-\d\d-\d\d)T(\d\d:\d\d):\d\dZ$/, "$1 $2 UTC");
+}
+
+// Cadence label from the documented `windowMinutes` when no label is given.
+function usageCadence(minutes) {
+    var m = parseFloat(minutes);
+    if (isNaN(m) || m <= 0) return "";
+    if (m === 10080) return "Weekly";
+    if (m === 1440) return "Daily";
+    if (m % 1440 === 0) return (m / 1440) + " days";
+    if (m % 60 === 0) return (m / 60) + " h";
+    return m + " min";
+}
+
+function usageWindows(p) {
+    var usage = p.usage || {}, labels = p.rateWindowLabels || {}, rows = [], seen = [];
+    function add(key, w, label) {
+        if (!w || typeof w !== "object" || w.usageKnown === false || seen.indexOf(w) >= 0 || isNaN(parseFloat(w.usedPercent))) return;
+        seen.push(w);
+        rows.push({
+            title: String(label || labels[key] || w.title || w.label || usageCadence(w.windowMinutes) || key),
+            used: Math.max(0, Math.min(100, parseFloat(w.usedPercent))),
+            reset: w.resetsAt ? usageReset(w.resetsAt) : ""
+        });
+    }
+    ["primary", "secondary", "tertiary"].forEach(function (k) { add(k, usage[k]); });
+    (usage.extraRateWindows || []).forEach(function (x) { if (x && x.usageKnown !== false) add("Additional quota", x.window || x, x.title || x.name); });
+    (usage.windows || []).forEach(function (x) { if (x) add("Quota", x.window || x, x.title || x.name); });
+    return rows;
+}
+
+function usageProvider(p) {
+    var usage = p.usage || {}, identity = usage.identity || {}, cost = usage.providerCost;
+    var credits = p.credits || usage.credits;
+    var lines = [];
+    if (cost && typeof cost === "object") {
+        var used = parseFloat(cost.used), limit = parseFloat(cost.limit);
+        var hideSpend = cost.balance !== undefined && cost.balance !== null && used === 0 && (isNaN(limit) || limit === 0);
+        if (!isNaN(used) && !hideSpend) {
+            lines.push("Spend: " + used + (limit > 0 ? " of " + limit : "") + (cost.currencyCode ? " " + cost.currencyCode : "") + (cost.period ? " (" + cost.period + ")" : ""));
+        }
+        if (cost.balance !== undefined && cost.balance !== null) lines.push("Balance: " + cost.balance + (cost.currencyCode ? " " + cost.currencyCode : ""));
+    }
+    if (credits && typeof credits === "object" && credits.remaining !== undefined && credits.remaining !== null) lines.push("Credits: " + credits.remaining);
+    var windows = usageWindows(p), issue = usageIssue(p);
+    return {
+        key: String(p.provider || p.id || "unknown") + ":" + String(p.account || ""),
+        name: providerName(p),
+        plan: String(identity.plan || identity.loginMethod || identity.accountEmail || p.source || ""),
+        issue: issue,
+        windows: windows,
+        lines: lines,
+        stale: p.stale === true,
+        empty: windows.length === 0 && issue === "" && lines.length === 0
+    };
+}
+
+function usageColor(used) { return used >= 90 ? "error" : (used >= 70 ? "warn" : "ok"); }

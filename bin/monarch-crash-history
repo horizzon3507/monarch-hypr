@@ -157,6 +157,12 @@ export_report() {
 open_history() {
   local id=${1:-} context attempt agent=false agent_name strings language
   [[ -z $id ]] || validate_id "$id"
+  if [[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]]; then
+    # The shell's crash panel lists the crashes; it has no deep link to one id.
+    "$runtime/bin/monarch-panel" open crashes 2>/dev/null && return 0
+    echo "The crash history panel is unavailable." >&2
+    return 1
+  fi
   agent_name=$(monarch-default-agent)
   if [[ -n $agent_name ]] && monarch-cmd-present "$agent_name"; then agent=true; fi
   strings=$(python3 "$runtime/default/i18n/i18n.py" --ui crashHistory)
