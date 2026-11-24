@@ -1,16 +1,22 @@
 #!/bin/bash
 
-# monarch:summary=Toggle notification do-not-disturb mode via Noctalia
+# monarch:summary=Toggle notification do-not-disturb mode (mako)
 # monarch:args=[toggle|on|off|status]
 # monarch:examples=monarch toggle notification-silencing status
 
 # Same shape as monarch-toggle-idle and monarch-toggle-nightlight, minus the
-# bookkeeping: DND is the one of the three states v5 will actually tell us about
-# (`notification-dnd-status`), so the shell stays the single source of truth and
-# there is no Monarch-side flag to drift. `status` reports what the shell says.
+# state file: mako owns the state as its `do-not-disturb` mode (defined in
+# config/mako/config; critical notifications still show), so there is no
+# Monarch-side flag to drift. `status` reports what mako says.
+
+mode=do-not-disturb
+
+dnd_on() {
+  makoctl mode 2>/dev/null | grep -qx "$mode"
+}
 
 print_status() {
-  if [[ $(noctalia msg notification-dnd-status 2>/dev/null) == "on" ]]; then
+  if dnd_on; then
     printf '{"enabled":true,"tooltip":"Do not disturb - allow notifications"}\n'
   else
     printf '{"enabled":false,"tooltip":"Silence notifications"}\n'
@@ -19,13 +25,13 @@ print_status() {
 
 case "${1:-toggle}" in
   toggle)
-    noctalia msg notification-dnd-toggle >/dev/null 2>&1
+    if dnd_on; then makoctl mode -r "$mode" >/dev/null 2>&1; else makoctl mode -a "$mode" >/dev/null 2>&1; fi
     ;;
   on)
-    noctalia msg notification-dnd-set on >/dev/null 2>&1
+    dnd_on || makoctl mode -a "$mode" >/dev/null 2>&1
     ;;
   off)
-    noctalia msg notification-dnd-set off >/dev/null 2>&1
+    ! dnd_on || makoctl mode -r "$mode" >/dev/null 2>&1
     ;;
   status | --status)
     print_status

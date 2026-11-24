@@ -1,6 +1,5 @@
 #!/bin/bash
 set -euo pipefail
-unset HYPRLAND_INSTANCE_SIGNATURE
 source "${BASH_SOURCE[0]%/*}/base-test.sh"
 temporary=$(mktemp -d)
 trap 'rm -rf "$temporary"' EXIT
@@ -17,38 +16,8 @@ chmod 755 "$temporary/bin/noctalia"
 export XDG_RUNTIME_DIR="$temporary/runtime" CALL_LOG="$temporary/calls"
 export PATH="$temporary/bin:$ROOT/bin:$PATH"
 
-for toggle in idle nightlight; do
-  entry=caffeine
-  [[ $toggle != "nightlight" ]] || entry=nightlight
-  command="$ROOT/bin/monarch-toggle-$toggle"
-  marker="$XDG_RUNTIME_DIR/monarch/$entry"
-  : >"$CALL_LOG"
-  "$command" on
-  [[ -f $marker ]] || fail "$entry marker missing"
-  [[ $(tail -1 "$CALL_LOG") == "msg plugin monarch/indicators:$entry all refresh" ]] || fail "$entry event precedes state"
-  "$command" status | jq -e '.enabled == true' >/dev/null
-  "$command" off
-  [[ ! -e $marker ]] || fail "$entry marker remains"
-  [[ $(tail -1 "$CALL_LOG") == "msg plugin monarch/indicators:$entry all refresh" ]] || fail "$entry removal not signaled"
-  IPC_FAILURE=1 "$command" on
-  [[ -f $marker ]] || fail "missing widget affects $entry activation"
-  IPC_FAILURE=1 "$command" off
-  : >"$CALL_LOG"
-  SETTER_FAILURE=1 "$command" on && fail "failed $entry setter reports success"
-  [[ ! -e $marker ]] || fail "failed setter leaves $entry marker"
-  ! grep -q 'msg plugin ' "$CALL_LOG" || fail "failed setter advertises $entry change"
-done
-pass "toggle events follow successful state changes and absent widgets do not break commands"
-
-monarch-toggle-idle claim update-owner
-monarch-toggle-idle on
-[[ $(cat "$XDG_RUNTIME_DIR/monarch/caffeine") == user ]] || fail "user ownership not recorded"
-: >"$CALL_LOG"
-monarch-toggle-idle release update-owner
-[[ -f $XDG_RUNTIME_DIR/monarch/caffeine && ! -s $CALL_LOG ]] || fail "stale release changed user choice"
-monarch-toggle-idle off
-pass "event notifications preserve Caffeine ownership and stale releases"
-
+# The toggle commands no longer talk to Noctalia: caffeine is an idle inhibitor
+# (toggle-idle-inhibitor-test.sh), do-not-disturb is mako (toggle-dnd-test.sh).
 lua - "$ROOT" <<'LUA'
 local root = arg[1]
 local path = root .. "/default/noctalia/plugins/monarch-indicators/"
