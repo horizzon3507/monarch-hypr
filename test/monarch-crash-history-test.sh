@@ -8,7 +8,7 @@ trap 'rm -rf "$test_tmp"' EXIT
 mkdir -p "$test_tmp/bin" "$test_tmp/home"
 export JOURNAL_FIXTURE="$test_tmp/journal.jsonl" JOURNAL_CALLS="$test_tmp/journal.calls"
 export PACMAN_CALLS="$test_tmp/pacman.calls"
-export QS_CALLS="$test_tmp/quickshell.calls"
+export QS_CALLS="$test_tmp/quickshell.calls" TUI_CALLS="$test_tmp/tui.calls"
 export XDG_CONFIG_HOME="$test_tmp/home" XDG_STATE_HOME="$test_tmp/state" MONARCH_PATH="$ROOT"
 export PATH="$test_tmp/bin:$ROOT/bin:/usr/bin"
 boot=0123456789abcdef0123456789abcdef
@@ -48,6 +48,11 @@ cat > "$test_tmp/bin/quickshell" <<'EOF'
 #!/bin/bash
 printf '%s\n' "$*" >> "$QS_CALLS"
 [[ ${QS_FAIL:-false} != "true" ]]
+EOF
+cat > "$test_tmp/bin/monarch-launch-tui" <<'EOF'
+#!/bin/bash
+printf '%s\n' "$*" >> "$TUI_CALLS"
+[[ ${TUI_FAIL:-false} != "true" ]]
 EOF
 chmod +x "$test_tmp/bin/"*
 touch "$test_tmp/core"
@@ -171,12 +176,20 @@ monarch-crash-history list --json | jq -e '.crashes == [] and .hasMore == false'
 entry "$UID" "$boot" 1790859948000000 '' > "$JOURNAL_FIXTURE"
 monarch-crash-history list --json | jq -e '.crashes[0].core == "unavailable"' >/dev/null
 
-# open hands off to the shell's crashes panel (no deep link to one id), and a
-# shell that does not answer is a failure with a message.
+# open hands off to the shell's crashes panel (no deep link to one id). When
+# the shell does not answer, the history opens in a terminal instead; only a
+# launcher failure is a failure.
 monarch-crash-history open "$id"
 grep -q 'call panel open crashes$' "$QS_CALLS"
+[[ ! -e $TUI_CALLS ]] || exit 1
 : > "$QS_CALLS"
-if QS_FAIL=true monarch-crash-history open "$id" 2>"$test_tmp/open.err"; then exit 1; fi
-grep -q 'crash history panel is unavailable' "$test_tmp/open.err"
+QS_FAIL=true monarch-crash-history open "$id" 2>"$test_tmp/open.err"
+grep -q 'opening it in a terminal' "$test_tmp/open.err"
+grep -qF -e 'report "$1"' "$TUI_CALLS" && grep -qF -e "monarch-crash-history $id" "$TUI_CALLS"
+: > "$TUI_CALLS"
+QS_FAIL=true monarch-crash-history open 2>/dev/null
+grep -qF -e " list | " "$TUI_CALLS"
+if QS_FAIL=true TUI_FAIL=true monarch-crash-history open "$id" 2>"$test_tmp/open.err"; then exit 1; fi
+grep -q 'terminal could not be started' "$test_tmp/open.err"
 
 echo "Crash history identity, user scope, journal failure, report projection and private export pass"
