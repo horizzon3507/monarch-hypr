@@ -7,3 +7,4 @@ Tray 1.0 Tray.qml
 Connectivity 1.0 Connectivity.qml
 PanelHost 1.0 PanelHost.qml
 WifiQr 1.0 WifiQr.qml
+NetworkPanel 1.0 NetworkPanel.qml
