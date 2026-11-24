@@ -120,17 +120,14 @@ expand_tilde() {
 # wallpaper.directory repointing in sync_wallpaper — see the comment there.
 
 # --- Wallpaper ---------------------------------------------------------------
-# Apply the first wallpaper from the folder. v5's wallpaper-set persists and
-# takes effect immediately, so the separate refresh call v4 needed (its
-# `wallpaper refresh`, which has no v5 equivalent) is gone.
-#
-# Reports whether the wallpaper actually reached the shell, which the caller
-# needs: the config-stage run happens before the shell exists, so a silent
-# success there would record a wallpaper that was never set.
+# Apply the first wallpaper from the folder.
+# Records the choice with `monarch wallpaper set`, which writes the persistent
+# link that hyprpaper reads at start and updates a running hyprpaper live. The
+# link is written even while hyprpaper is not running: the config-stage run and
+# the shell start run this before hyprpaper exists, and hyprpaper reads the link
+# when it starts. Success means the link was recorded, which the caller stamps.
 apply_wallpaper() {
-  local first=$1
-  pgrep -x hyprpaper >/dev/null 2>&1 || return 1
-  monarch-wallpaper set "$first" >/dev/null 2>&1
+  monarch-wallpaper set "$1" >/dev/null 2>&1
 }
 
 # Point Noctalia's picker/cycler at the current scheme's backgrounds and apply
