@@ -48,13 +48,13 @@ say "initial active workspace: $(active)"; shot ws1-initial
 hyprctl dispatch 'hl.dsp.focus({ workspace = 3 })' >> "$OUT/dispatch.log" 2>&1
 sleep 2; say "after dispatcher focus 3 -> active workspace: $(active)"; shot ws3-dispatch
 
+VPTR=${VPTR:-/tmp/vptr}
 # Real pointer click on the bar's slot 5 (slot centers: x = 10 + (i-1)*(w+4) + w/2, w = 13*1.9; y = 15)
 slot_x() { python3 -c "w=13*1.9;print(round(10+($1-1)*(w+4)+w/2))"; }
 X=$(slot_x 5); Y=15
-wlrctl pointer move -4000 -4000 >> "$OUT/pointer.log" 2>&1
-wlrctl pointer move "$X" "$Y" >> "$OUT/pointer.log" 2>&1
+"$VPTR" "$X" "$Y" 1280 720 >> "$OUT/pointer.log" 2>&1; say "pointer move rc=$?"
 sleep 1; say "cursor pos: $(hyprctl cursorpos 2>&1)"
-wlrctl pointer click left >> "$OUT/pointer.log" 2>&1
+"$VPTR" "$X" "$Y" 1280 720 click >> "$OUT/pointer.log" 2>&1; say "pointer click rc=$?"
 sleep 2; say "after real click on slot 5 (x=$X,y=$Y) -> active workspace: $(active)"; shot ws5-click
 
 # back to 2 by dispatcher, then pixel-check the focused slot is highlighted

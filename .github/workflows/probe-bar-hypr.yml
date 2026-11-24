@@ -16,8 +16,16 @@ jobs:
       image: archlinux:latest
       options: --privileged
     steps:
-      - run: pacman -Syu --noconfirm --needed hyprland quickshell mesa grim wlrctl seatd git sudo qt6-wayland python python-pillow
+      - run: pacman -Syu --noconfirm --needed hyprland quickshell mesa grim seatd gcc pkgconf wayland wayland-protocols wlr-protocols git sudo qt6-wayland python python-pillow
       - uses: actions/checkout@v4
+      - name: Build the virtual pointer helper
+        run: |
+          X=$(ls /usr/share/wlr-protocols/unstable/wlr-virtual-pointer-unstable-v1.xml)
+          cd probe-hypr
+          wayland-scanner client-header "$X" wlr-virtual-pointer-unstable-v1-client-protocol.h
+          wayland-scanner private-code "$X" wlr-virtual-pointer-unstable-v1-protocol.c
+          gcc -o /tmp/vptr vptr.c wlr-virtual-pointer-unstable-v1-protocol.c $(pkg-config --cflags --libs wayland-client)
+          chmod 755 /tmp/vptr
       - name: Run the bar in Hyprland
         run: |
           useradd -m tester; chmod 666 /dev/dri/* || true; (seatd -g tester &); sleep 1
