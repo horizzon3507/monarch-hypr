@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell.Services.UPower
 import Quickshell.Services.Pipewire
+import Quickshell
 import Quickshell.Io
 import "ShellLogic.js" as Logic
 
@@ -28,6 +29,95 @@ RowLayout {
         repeat: true
         triggeredOnStart: true
         onTriggered: if (!briProc.running) briProc.running = true
+    }
+
+    // State chips: recording, caffeine, do-not-disturb, night light and pending
+    // updates. A chip shows only for a state read as on; an unreadable state
+    // shows nothing and is never taken as off (see ShellLogic.stateChips). A
+    // click runs the chip's own command.
+    property var chipState: ({ recording: null, caffeine: null, dnd: null, nightlight: null, update: null })
+    property bool updateFailed: false
+
+    function setChip(key, value) {
+        var next = Object.assign({}, root.chipState);
+        next[key] = value;
+        root.chipState = next;
+    }
+
+    // Recording is the privacy chip, so it is read on its own short cycle.
+    Process {
+        id: recProc
+        command: ["monarch-capture-screenrecording", "--status"]
+        onExited: function (exitCode) { root.setChip("recording", Logic.parseRecordingStatus(exitCode)); }
+    }
+    Process {
+        id: idleProc
+        command: ["monarch-toggle-idle", "status"]
+        stdout: StdioCollector { id: idleOut }
+        onExited: function (exitCode) { root.setChip("caffeine", Logic.parseToggleStatus(idleOut.text, exitCode)); }
+    }
+    Process {
+        id: dndProc
+        command: ["monarch-toggle-notification-silencing", "status"]
+        stdout: StdioCollector { id: dndOut }
+        onExited: function (exitCode) { root.setChip("dnd", Logic.parseToggleStatus(dndOut.text, exitCode)); }
+    }
+    Process {
+        id: nightProc
+        command: ["monarch-toggle-nightlight", "status"]
+        stdout: StdioCollector { id: nightOut }
+        onExited: function (exitCode) { root.setChip("nightlight", Logic.parseToggleStatus(nightOut.text, exitCode)); }
+    }
+    Timer {
+        interval: 5000
+        running: true
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: {
+            if (!recProc.running) recProc.running = true;
+            if (!idleProc.running) idleProc.running = true;
+            if (!dndProc.running) dndProc.running = true;
+            if (!nightProc.running) nightProc.running = true;
+        }
+    }
+
+    // The update check syncs a temporary package database, so it runs rarely:
+    // after a short delay at start, then every 6 h while current, every 10 min
+    // while updates are pending or the check failed.
+    Process {
+        id: updateProc
+        command: ["monarch-update-available", "--all", "--json"]
+        stdout: StdioCollector { id: updateOut }
+        onExited: function (exitCode) {
+            var check = Logic.parseUpdateCheck(updateOut.text, exitCode);
+            root.updateFailed = check.status === "error";
+            root.setChip("update", Logic.updateChipState(root.chipState.update, updateOut.text, exitCode));
+            updateTimer.interval = Logic.updateIntervalMinutes(root.chipState.update, root.updateFailed) * 60000;
+            updateTimer.restart();
+        }
+    }
+    Timer {
+        id: updateTimer
+        interval: 90000
+        running: true
+        onTriggered: if (!updateProc.running) updateProc.running = true
+    }
+
+    Repeater {
+        model: Logic.stateChips(root.chipState)
+        Text {
+            required property var modelData
+            text: modelData.text
+            font.pixelSize: root.fontSize
+            font.bold: modelData.urgent
+            color: modelData.urgent ? Theme.error : Theme.fg
+            opacity: modelData.urgent ? 1.0 : (modelData.dim ? 0.5 : 0.8)
+            MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: Quickshell.execDetached(modelData.action)
+            }
+        }
     }
 
     Text {
