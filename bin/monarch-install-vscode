@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# monarch:summary=Install VS Code and configure Monarch defaults for secrets, updates, and theme
+# monarch:summary=Install VS Code and configure Monarch defaults for secrets, updates, and the rendered Monarch theme
 
 echo "Installing VSCode..."
 monarch-pkg-add visual-studio-code-bin
@@ -20,12 +20,32 @@ cat > ~/.vscode/argv.json << 'EOF'
 }
 EOF
 
-# Ensure VSC's own auto-update feature is turned off and follow Noctalia's theme
-printf '{\n  "update.mode": "none",\n  "workbench.colorTheme": "NoctaliaTheme"\n}\n' > ~/.config/Code/User/settings.json
+# Monarch theme: a small local extension whose two themes are the files
+# monarch-theme-render writes (Monarch Dark and Monarch Light). They are linked,
+# so every re-render is picked up. Schema-shaped, not yet checked in a running
+# VS Code.
+ext="$HOME/.vscode/extensions/monarch.monarch-theme-1.0.0"
+mkdir -p "$ext/themes"
+cp "${MONARCH_PATH:-/usr/share/monarch}/default/monarch/vscode-extension/package.json" "$ext/package.json"
+ln -sfn "$HOME/.config/monarch/current/theme/vscode-dark.json" "$ext/themes/monarch-dark.json"
+ln -sfn "$HOME/.config/monarch/current/theme/vscode-light.json" "$ext/themes/monarch-light.json"
+monarch-theme-render >/dev/null 2>&1 || true
 
-# Theming is delegated to Noctalia via the NoctaliaTheme companion extension
-# (Open VSX). Install it before Noctalia resolves editor paths; if Noctalia is
-# already running, it must be restarted to pick up the new VSCode install.
-code --install-extension Noctalia.noctaliatheme >/dev/null 2>&1 || true
+# Fresh installs get VS Code's own auto-update turned off and the Monarch theme
+# following the system dark/light setting. An existing settings.json is never
+# rewritten.
+settings="$HOME/.config/Code/User/settings.json"
+if [[ ! -f $settings ]]; then
+  cat >"$settings" <<'JSON'
+{
+  "update.mode": "none",
+  "window.autoDetectColorScheme": true,
+  "workbench.preferredDarkColorTheme": "Monarch Dark",
+  "workbench.preferredLightColorTheme": "Monarch Light"
+}
+JSON
+elif ! grep -q 'Monarch ' "$settings"; then
+  echo 'Note: select the "Monarch Dark" / "Monarch Light" color theme in VS Code to follow the Monarch theme.'
+fi
 
 setsid gtk-launch code

@@ -1,0 +1,15 @@
+{
+  "name": "monarch-theme",
+  "displayName": "Monarch Theme",
+  "description": "Monarch Dark and Monarch Light, rendered from the active Monarch palette",
+  "version": "1.0.0",
+  "publisher": "monarch",
+  "engines": { "vscode": "^1.60.0" },
+  "categories": ["Themes"],
+  "contributes": {
+    "themes": [
+      { "label": "Monarch Dark", "uiTheme": "vs-dark", "path": "./themes/monarch-dark.json" },
+      { "label": "Monarch Light", "uiTheme": "vs", "path": "./themes/monarch-light.json" }
+    ]
+  }
+}
