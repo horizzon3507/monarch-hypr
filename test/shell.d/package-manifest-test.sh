@@ -49,7 +49,7 @@ for package in "${all[@]}"; do
   all_packages[$package]=true
 done
 
-for package in chromium gpu-screen-recorder grim localsend mpv mpv-mpris neovim niri noctalia networkmanager sddm slurp uwsm yay zbar; do
+for package in chromium gpu-screen-recorder grim localsend mpv mpv-mpris neovim hyprland noctalia networkmanager sddm slurp uwsm yay zbar; do
   [[ -v required_packages[$package] ]] || fail "$package is a required package"
 done
 [[ -v required_packages[linux-cachyos-headers] ]] || fail "CachyOS kernel headers are required"
@@ -81,12 +81,12 @@ if ((${#all[@]} != $(printf '%s\n' "${all[@]}" | sort -u | wc -l))); then
 fi
 
 invalid="$TEST_ROOT/package-manifest"
-printf '%s\n' orphan '# required' niri >"$invalid"
+printf '%s\n' orphan '# required' hyprland >"$invalid"
 if monarch_load_package_manifest all "$invalid" 2>/dev/null; then
   fail "packages before the first section are rejected"
 fi
 
-printf '%s\n' '# required' niri >"$invalid"
+printf '%s\n' '# required' hyprland >"$invalid"
 if monarch_load_package_manifest defaults "$invalid" default 2>/dev/null; then
   fail "missing requested sections are rejected"
 fi

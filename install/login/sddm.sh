@@ -1,14 +1,14 @@
 monarch-refresh-sddm
 mkdir -p /usr/local/share/wayland-sessions
 cp "$MONARCH_PATH/default/wayland-sessions/monarch.desktop" /usr/local/share/wayland-sessions/monarch.desktop
-cp "$MONARCH_PATH/default/sddm/niri.kdl" /usr/share/sddm/niri.kdl
+cp "$MONARCH_PATH/default/sddm/hyprland.lua" /usr/share/sddm/hyprland.lua
 
 mkdir -p /etc/sddm.conf.d
 cat >/etc/sddm.conf.d/10-wayland.conf <<'EOF'
 [General]
 DisplayServer=wayland
 [Wayland]
-CompositorCommand=niri --config /usr/share/sddm/niri.kdl
+CompositorCommand=start-hyprland -- --config /usr/share/sddm/hyprland.lua
 EOF
 
 # Autologin belongs to the ISO orchestrator, which knows the encryption and

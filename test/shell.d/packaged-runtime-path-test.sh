@@ -53,10 +53,52 @@ for rc in "$ROOT/default/zsh/rc" "$ROOT/default/bash/rc"; do
 done
 pass "login sessions prefer the packaged runtime and retain upgrade recovery"
 
-grep -qF '${MONARCH_INSTALL:-${MONARCH_PATH:-/usr/share/monarch}/install}/helpers/workspaces.sh' \
-  "$ROOT/install/user/detect-keyboard-layout.sh" ||
-  fail "keyboard detection does not fall back from MONARCH_INSTALL to the packaged runtime"
-pass "keyboard detection resolves helpers from the packaged runtime"
+hypr_runtime="$test_tmp/hypr-runtime"
+hypr_home="$test_tmp/hypr-home"
+mkdir -p "$hypr_runtime/default" "$hypr_runtime/config" "$hypr_runtime/install/user" "$hypr_home"
+cp -R "$ROOT/default/hypr" "$hypr_runtime/default/hypr"
+cp -R "$ROOT/config/hypr" "$hypr_runtime/config/hypr"
+cp "$ROOT/install/user/detect-keyboard-layout.sh" "$hypr_runtime/install/user/"
+
+cat >"$test_tmp/bin/Hyprland" <<'EOF'
+#!/bin/bash
+printf '%s\n' "$*" >>"$HOME/hyprland-calls"
+[[ ! -e $HOME/validation-fails ]]
+EOF
+chmod +x "$test_tmp/bin/Hyprland"
+
+if ! HOME="$hypr_home" MONARCH_PATH="$hypr_runtime" PATH="$test_tmp/bin:$PATH" \
+  bash "$ROOT/bin/monarch-refresh-hypr"; then
+  fail "refresh hypr runs against the packaged runtime fixture"
+fi
+hypr_target="$hypr_home/.config/hypr/hyprland.lua"
+grep -qF "local root = \"$hypr_runtime\"" "$hypr_target" ||
+  fail "refresh hypr expands the selected runtime path"
+if grep -qF '@MONARCH_PATH@' "$hypr_target"; then
+  fail "refresh hypr leaves an unexpanded runtime placeholder"
+fi
+for user_file in monitors input bindings looknfeel autostart keyboard; do
+  [[ -f $hypr_home/.config/hypr/$user_file.lua ]] ||
+    fail "refresh hypr seeds $user_file.lua so the config loads"
+done
+grep -qF -- "--verify-config" "$hypr_home/hyprland-calls" ||
+  fail "refresh hypr validates the assembled config"
+
+printf '%s\n' '-- DP-1 disabled' >"$hypr_home/.config/hypr/monitors.lua"
+HOME="$hypr_home" MONARCH_PATH="$hypr_runtime" PATH="$test_tmp/bin:$PATH" \
+  bash "$ROOT/bin/monarch-refresh-hypr" || fail "refresh hypr is idempotent"
+grep -qF 'DP-1 disabled' "$hypr_home/.config/hypr/monitors.lua" ||
+  fail "refresh hypr preserves user edits"
+if compgen -G "$hypr_home/.config/hypr/hyprland.lua.bak.*" >/dev/null; then
+  fail "refresh hypr backs up an unchanged entry point"
+fi
+
+touch "$hypr_home/validation-fails"
+if HOME="$hypr_home" MONARCH_PATH="$hypr_runtime" PATH="$test_tmp/bin:$PATH" \
+  bash "$ROOT/bin/monarch-refresh-hypr" 2>/dev/null; then
+  fail "refresh hypr succeeds after a failed validation"
+fi
+pass "refresh hypr installs, preserves user files and fails on invalid config"
 
 if grep -R -q '%h/.local/share/monarch/bin/' "$ROOT/config/systemd/user"; then
   fail "a user service still invokes a checkout-only command path"

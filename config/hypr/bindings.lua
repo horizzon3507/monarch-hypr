@@ -1,0 +1,1 @@
+-- Your key bindings, for example: monarch.cmd("SUPER + SHIFT + A", "monarch-launch-webapp https://chatgpt.com", "ChatGPT")

@@ -1,0 +1,3 @@
+-- Shell layer: autostart (monarch-shell-start), key bindings and layer rules
+-- for the bar, launcher, notifications, lock screen, wallpaper and OSD.
+-- Owned by the shell migration; the compositor config only loads this file.

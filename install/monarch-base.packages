@@ -47,6 +47,8 @@ gvfs-mtp
 gvfs-nfs
 gvfs-smb
 herdr-bin
+hyprland
+hyprland-guiutils
 imagemagick
 imv
 inetutils
@@ -67,7 +69,6 @@ mpv
 mpv-mpris
 neovim
 networkmanager
-niri
 noctalia
 noto-fonts
 noto-fonts-cjk
@@ -112,6 +113,7 @@ wpa_supplicant
 wtype
 xdg-desktop-portal-gnome
 xdg-desktop-portal-gtk
+xdg-desktop-portal-hyprland
 xdg-terminal-exec
 xmlstarlet
 xwayland-satellite

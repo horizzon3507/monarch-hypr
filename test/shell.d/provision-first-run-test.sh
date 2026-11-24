@@ -16,7 +16,7 @@ for command in monarch-provision-first-run monarch-provision-user monarch-done m
   ln -s "$ROOT/bin/$command" "$runtime/bin/$command"
 done
 
-for command in monarch-refresh-niri monarch-refresh-noctalia monarch-refresh-applications \
+for command in monarch-refresh-hypr monarch-refresh-noctalia monarch-refresh-applications \
   monarch-theme-apply monarch-mise-install monarch-notification-wait monarch-notification-send \
   xdg-user-dirs-update xdg-settings xdg-mime update-desktop-database git mise \
   systemctl noctalia gsettings nm-online pactl sleep; do
@@ -54,19 +54,19 @@ run_for_user() {
 seed_customizations() {
   local user_home="$1"
 
-  mkdir -p "$user_home/.local/share/keyrings" "$user_home/Work" "$user_home/.config/niri"
+  mkdir -p "$user_home/.local/share/keyrings" "$user_home/Work" "$user_home/.config/hypr"
   printf '%s\n' '[keyring]' 'display-name=Existing keyring' '[1]' 'secret=existing-secret' \
     >"$user_home/.local/share/keyrings/Default_keyring.keyring"
   printf '%s\n' Login >"$user_home/.local/share/keyrings/default"
   printf '%s\n' 'include "/custom/compose"' >"$user_home/.XCompose"
   printf '%s\n' '[tools]' 'node = "22"' >"$user_home/Work/.mise.toml"
-  printf '%s\n' 'input { keyboard { xkb { layout "de"; }; }; }' >"$user_home/.config/niri/keyboard.kdl"
+  printf '%s\n' 'hl.config({ input = { kb_layout = "de" } })' >"$user_home/.config/hypr/input.lua"
   mkdir -p "$user_home/expected"
   cp "$user_home/.local/share/keyrings/Default_keyring.keyring" "$user_home/expected/keyring"
   cp "$user_home/.local/share/keyrings/default" "$user_home/expected/default"
   cp "$user_home/.XCompose" "$user_home/expected/compose"
   cp "$user_home/Work/.mise.toml" "$user_home/expected/mise"
-  cp "$user_home/.config/niri/keyboard.kdl" "$user_home/expected/keyboard"
+  cp "$user_home/.config/hypr/input.lua" "$user_home/expected/keyboard"
 }
 
 assert_customizations() {
@@ -78,7 +78,7 @@ assert_customizations() {
     fail "existing default keyring selection survives provisioning"
   cmp -s "$user_home/expected/compose" "$user_home/.XCompose" || fail "custom XCompose survives provisioning"
   cmp -s "$user_home/expected/mise" "$user_home/Work/.mise.toml" || fail "custom Work tools survive provisioning"
-  cmp -s "$user_home/expected/keyboard" "$user_home/.config/niri/keyboard.kdl" || fail "custom keyboard survives provisioning"
+  cmp -s "$user_home/expected/keyboard" "$user_home/.config/hypr/input.lua" || fail "custom keyboard survives provisioning"
   if grep -Eq '^(xdg-mime|xdg-settings|xdg-user-dirs-update|mise) ' "$user_home/calls"; then
     fail "existing-user provisioning does not reset associations, directories or tools"
   fi
