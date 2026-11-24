@@ -9,6 +9,15 @@ on:
         description: Boot the built ISO in QEMU and capture screenshots
         type: boolean
         default: true
+      inspect_present:
+        description: Package names that must be in the target image record (space separated). Empty = report only.
+        default: ''
+      inspect_present_live:
+        description: Package names that must be in the live root (space separated). Empty = report only.
+        default: ''
+      inspect_absent:
+        description: Package families that must appear nowhere in the ISO (space separated, e.g. "niri noctalia"). Empty = report only.
+        default: ''
 
 permissions:
   contents: read
@@ -62,6 +71,36 @@ jobs:
           compression-level: 0
           retention-days: 7
           if-no-files-found: error
+
+  inspect:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: monarch-iso
+          path: release
+      - name: Inspect ISO contents (kernel, desktop packages, installer lists)
+        env:
+          INSPECT_EXPECT_PRESENT: ${{ inputs.inspect_present }}
+          INSPECT_EXPECT_PRESENT_LIVE: ${{ inputs.inspect_present_live }}
+          INSPECT_EXPECT_ABSENT: ${{ inputs.inspect_absent }}
+        run: |
+          iso=$(ls release/*.iso | head -n1)
+          bash iso/test/ci/inspect-iso.sh "$iso" iso-inspection
+      - name: Summary
+        if: always()
+        run: |
+          { echo '### ISO inspection'; echo '```'; cat iso-inspection/report.txt 2>/dev/null || echo 'no report'; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: iso-inspection
+          path: |
+            iso-inspection/*.txt
+          retention-days: 14
 
   boot-test:
     needs: build
