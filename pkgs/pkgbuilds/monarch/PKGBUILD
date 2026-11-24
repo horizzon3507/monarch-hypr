@@ -1,7 +1,7 @@
 pkgbase=monarch
 pkgname=(monarch monarch-settings)
 pkgver=0.1.0
-pkgrel=6
+pkgrel=7
 pkgdesc="Monarch desktop runtime and defaults"
 arch=('any')
 url="https://github.com/monarch-os/monarch"
@@ -14,11 +14,12 @@ depends=(
   'limine-mkinitcpio-hook'
   'limine-snapper-sync'
   'snapper'
-  'niri'
+  'hyprland'
+  'hyprland-guiutils'
   'noctalia'
   'uwsm'
   'sddm'
-  'xdg-desktop-portal-gnome'
+  'xdg-desktop-portal-hyprland'
   'wireplumber'
   'pipewire'
   'gnome-keyring'
@@ -237,7 +238,7 @@ package_monarch() {
 
   install -d "$pkgdir/usr/share/sddm/themes" "$pkgdir/usr/share/sddm"
   cp -a default/sddm/monarch "$pkgdir/usr/share/sddm/themes/"
-  install -Dm644 default/sddm/niri.kdl "$pkgdir/usr/share/sddm/niri.kdl"
+  install -Dm644 default/sddm/hyprland.lua "$pkgdir/usr/share/sddm/hyprland.lua"
   install -Dm644 default/wayland-sessions/monarch.desktop \
     "$pkgdir/usr/local/share/wayland-sessions/monarch.desktop"
 
