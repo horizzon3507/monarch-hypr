@@ -1,0 +1,49 @@
+name: Quickshell smoke
+
+on:
+  pull_request:
+    paths:
+      - "default/quickshell/**"
+      - "test/quickshell/**"
+      - "test/quickshell-smoke.sh"
+      - ".github/workflows/quickshell-smoke.yml"
+  push:
+    branches: [dev]
+    paths:
+      - "default/quickshell/**"
+      - "test/quickshell/**"
+      - "test/quickshell-smoke.sh"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Load Quickshell configs in headless layer-shell
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Install Quickshell and a headless compositor
+        run: |
+          pacman -Syu --noconfirm --needed quickshell sway qt6-wayland grim git sudo
+          useradd -m tester
+          quickshell --version
+
+      - uses: actions/checkout@v4
+
+      - name: Run the smoke test
+        run: |
+          chown -R tester: "$GITHUB_WORKSPACE"
+          sudo -u tester env GITHUB_WORKSPACE="$GITHUB_WORKSPACE" bash -euo pipefail -c '
+            cd "$GITHUB_WORKSPACE"
+            bash test/quickshell-smoke.sh --screenshots "$GITHUB_WORKSPACE/smoke-shots"
+          '
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quickshell-smoke-screenshots
+          path: smoke-shots/
+          if-no-files-found: ignore
