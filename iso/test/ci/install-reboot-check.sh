@@ -110,10 +110,13 @@ g "processes after login" ssh_guest 'pgrep -a "Hyprland|quickshell|hyprpaper|mak
 g "hyprctl after login" ssh_guest 'u=$(id -u); export XDG_RUNTIME_DIR=/run/user/$u; sig=$(ls "$XDG_RUNTIME_DIR/hypr" 2>/dev/null | head -1); echo "sig=$sig"; HYPRLAND_INSTANCE_SIGNATURE=$sig hyprctl version 2>&1 | head -4; HYPRLAND_INSTANCE_SIGNATURE=$sig hyprctl layers 2>&1 | head -30'
 g "user units" ssh_guest 'systemctl --user list-units --no-legend --state=failed; systemctl --user list-units --no-legend "app-uwsm*" "wayland-wm*" | head'
 g "wallpaper state before restart" ssh_guest 'pgrep -a hyprpaper || echo "hyprpaper not running"; find ~/.config/monarch ~/.local/state/monarch -maxdepth 3 \( -name "background*" -o -name "*wallpaper*" \) -exec ls -l {} + 2>&1 | head'
+g "wallpaper link (current/background) and hyprpaper log" ssh_guest 'ls -lL ~/.config/monarch/current/background 2>&1; readlink -f ~/.config/monarch/current/background 2>&1; journalctl --user -b --no-pager 2>/dev/null | grep -i hyprpaper | grep -iE "ERR|target|path" | tail -5'
+capture_console "success-wallpaper-before-restart"
 g "monarch restart shell" ssh_guest 'u=$(id -u); export XDG_RUNTIME_DIR=/run/user/$u; export HYPRLAND_INSTANCE_SIGNATURE=$(ls "$XDG_RUNTIME_DIR/hypr" 2>/dev/null | head -1); timeout 60 monarch restart shell 2>&1 | tail -20'
 sleep 10
 g "after restart" ssh_guest 'pgrep -a "hyprpaper|quickshell|mako|swayosd|hypridle" || echo none'
 capture_console "success-after-shell-restart"
+g "wallpaper link after restart (selection must be preserved)" ssh_guest 'readlink -f ~/.config/monarch/current/background 2>&1'
 # Night light (hyprsunset), only when the installed system has the package.
 if ssh_guest 'pacman -Q hyprsunset' >/dev/null 2>&1; then
   g "hyprsunset package" ssh_guest 'pacman -Q hyprsunset; hyprsunset --version 2>&1 | head -2'
