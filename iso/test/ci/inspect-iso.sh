@@ -19,7 +19,12 @@
 #   installer-lists  usr/share/monarch-iso/*.packages and usr/share/monarch/install/*.packages,
 #                    excluding root-image.packages
 #   offline-mirror   package files in the offline mirror baked into the ISO
-#   monarch-depends  %DEPENDS% of the monarch package inside the ISO
+#   monarch-depends  %DEPENDS% of the monarch package, read without mounting the target image:
+#                    first from the offline mirror database (offline.db.tar.gz in the squashfs),
+#                    then from the live root pacman db. If neither has the package the set is
+#                    UNAVAILABLE (never reported as empty/pass).
+# UNAVAILABLE monarch-depends fails any gated run, unless INSPECT_ALLOW_UNAVAILABLE=1 (an explicit,
+# printed waiver for intermediate builds; a final gate must not set it).
 # Dependency strings and installer lists are reported but never satisfy PRESENT.
 # The target image itself is not mounted: installed-root is the build-time record.
 set -uo pipefail
@@ -40,6 +45,7 @@ extract() {
   unsquashfs -d "$out/root" -f "$sfs" usr/lib/modules usr/share/monarch-iso var/lib/pacman/local >/dev/null 2>&1 \
     || { echo "GATE FAIL: unsquashfs of required paths failed"; return 1; }
   unsquashfs -d "$out/root" -f "$sfs" usr/share/monarch/install >/dev/null 2>&1 || true   # optional
+  unsquashfs -d "$out/root" -f "$sfs" var/cache/monarch/mirror/offline/offline.db.tar.gz >/dev/null 2>&1 || true   # optional
   unsquashfs -l "$sfs" var/cache/monarch/mirror/offline 2>/dev/null | grep -oE '[^/]+\.pkg\.tar\.[a-z0-9]+$' > "$out/offline-files.txt"
   rm -f "$sfs"
   echo ok > "$out/extract.status"
@@ -62,15 +68,31 @@ analyze() {
   done
   sort -u "$out/installer-lists.txt.tmp" > "$out/installer-lists.txt"; rm -f "$out/installer-lists.txt.tmp"
   sed -E 's/-[^-]+-[^-]+-[^-]+\.pkg\.tar\.[a-z0-9]+$//' "$out/offline-files.txt" 2>/dev/null | sort -u > "$out/offline-mirror.txt"
-  local desc; desc=$(ls -d "$root"/var/lib/pacman/local/monarch-[0-9]* 2>/dev/null | head -n1)
-  if [[ -n $desc && -f $desc/desc ]]; then
-    sed -n '/^%DEPENDS%/,/^$/p' "$desc/desc" | sed '1d;/^$/d' | sed -E 's/[<>=].*//' | sort -u > "$out/monarch-depends.txt"
-  else : > "$out/monarch-depends.txt"; fi
+  # monarch %DEPENDS%: offline mirror db first, then the live root db. Neither => UNAVAILABLE.
+  local depsrc="" depdesc=""
+  : > "$out/monarch-depends.txt"
+  local db="$root/var/cache/monarch/mirror/offline/offline.db.tar.gz"
+  if [[ -f $db ]]; then
+    depdesc=$(tar -tzf "$db" 2>/dev/null | grep -E '^monarch-[0-9][^/]*/desc$' | head -n1)
+    if [[ -n $depdesc ]]; then
+      tar -xzOf "$db" "$depdesc" 2>/dev/null | sed -n '/^%DEPENDS%/,/^$/p' | sed '1d;/^$/d' | sed -E 's/[<>=].*//' | sort -u > "$out/monarch-depends.txt"
+      depsrc="offline mirror db ($depdesc)"
+    fi
+  fi
+  if [[ -z $depsrc ]]; then
+    local desc; desc=$(ls -d "$root"/var/lib/pacman/local/monarch-[0-9]* 2>/dev/null | head -n1)
+    if [[ -n $desc && -f $desc/desc ]]; then
+      sed -n '/^%DEPENDS%/,/^$/p' "$desc/desc" | sed '1d;/^$/d' | sed -E 's/[<>=].*//' | sort -u > "$out/monarch-depends.txt"
+      depsrc="live root pacman db ($desc)"
+    fi
+  fi
+  [[ -n $depsrc ]] && echo "$depsrc" > "$out/monarch-depends.source" || echo UNAVAILABLE > "$out/monarch-depends.source"
 
   {
     echo "kernel module dirs: $(tr '\n' ' ' < "$out/module-dirs.txt")"
     for s in $sets; do echo "set $s: $(wc -l < "$out/$s.txt") names"; done
     echo "(installed-root is the build-time package record of monarch-root.img.zst, not a mounted image)"
+    echo "monarch-depends source: $(cat "$out/monarch-depends.source")"
     for k in linux-cachyos niri noctalia hyprland quickshell waybar walker mako hyprlock uwsm sddm; do
       line="$k:"
       for s in $sets; do m=$(grep -E "^$k(-|\$)" "$out/$s.txt" | tr '\n' ','); line="$line  $s=[${m%,}]"; done
@@ -80,7 +102,18 @@ analyze() {
 
   [[ -s $out/module-dirs.txt ]] || { echo "GATE FAIL: no kernel modules found in live root"; rc=1; }
   if [[ $gated == 1 ]]; then
-    for s in $sets; do [[ -s $out/$s.txt ]] || { echo "GATE FAIL: set $s is empty (extraction or parsing problem)"; rc=1; }; done
+    for s in $sets; do
+      [[ -s $out/$s.txt ]] && continue
+      if [[ $s == monarch-depends && $(cat "$out/monarch-depends.source") == UNAVAILABLE ]]; then
+        if [[ ${INSPECT_ALLOW_UNAVAILABLE:-} == 1 ]]; then
+          echo "NOTE: monarch-depends UNAVAILABLE (monarch package found in neither the offline mirror db nor the live root); waived by INSPECT_ALLOW_UNAVAILABLE=1, its dependencies are NOT verified"
+        else
+          echo "GATE FAIL: monarch-depends UNAVAILABLE (monarch package found in neither the offline mirror db nor the live root); not a pass"; rc=1
+        fi
+        continue
+      fi
+      echo "GATE FAIL: set $s is empty (extraction or parsing problem)"; rc=1
+    done
   fi
   for p in ${INSPECT_EXPECT_PRESENT:-}; do
     grep -qx "$p" "$out/installed-root.txt" || { echo "GATE FAIL: $p expected in installed-root (target image record)"; rc=1; }
