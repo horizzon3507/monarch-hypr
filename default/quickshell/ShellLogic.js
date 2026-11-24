@@ -154,3 +154,35 @@ function bluetoothText(adapterEnabled, connected) {
     if (names.length === 1) return "bt " + names[0];
     return "bt " + names.length;
 }
+
+// Panels the host knows. Names come from the IPC call, so anything else is
+// refused rather than loaded.
+var PANELS = ["wifi-qr"];
+
+function panelName(name) {
+    var n = String(name === undefined || name === null ? "" : name);
+    return PANELS.indexOf(n) >= 0 ? n : "";
+}
+
+// New current panel after a toggle: the same name closes, another switches.
+function togglePanel(current, name) {
+    var next = panelName(name);
+    if (next === "") return current;
+    return current === next ? "" : next;
+}
+
+// Output of `monarch-wifi-qr --png`: one line
+//   meta<TAB>interface<TAB>security<TAB>png<TAB>ssid
+// The SSID goes last because it is the only field that may contain a tab.
+// Returns null when the line is not in that shape or has no image path.
+function parseWifiQr(text) {
+    var line = String(text === undefined || text === null ? "" : text).split("\n")[0];
+    var m = /^meta\t([^\t]*)\t([^\t]*)\t([^\t]*)\t(.*)$/.exec(line);
+    if (!m || m[3] === "") return null;
+    return { iface: m[1], security: m[2], png: m[3], ssid: m[4] };
+}
+
+// A WPA/WEP network has a password to reveal, an open one does not.
+function wifiSecured(security) {
+    return security !== "" && security !== "nopass";
+}
