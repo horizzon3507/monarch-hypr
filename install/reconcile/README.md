@@ -77,8 +77,10 @@ explicitly selects initial setup. Keyring initialization only seeds missing
 files, including when a new installation retries after a later step failed.
 
 The V4 transition seeds `noctalia/monarch-v4.toml` with compatible palette,
-dark/light and idle preferences. Bar position uses the existing user-owned
-`zz-monarch-bar-position.toml`, so the bar command reads the migrated position.
+dark/light and idle preferences. Bar position is kept in the user-owned
+`zz-monarch-bar-position.toml` for the Noctalia bar. The Quickshell bar reads
+`shell.json` instead and supports top or bottom only, so `monarch-bar-position`
+does not read the migrated fragment.
 Zero timeouts and disabled idle stay disabled; custom idle commands are carried
 as data, never executed by migration. Existing fragments and Noctalia's mutable
 settings are not overwritten. The [Noctalia configuration layers](https://docs.noctalia.dev/noctalia/configuration/)
