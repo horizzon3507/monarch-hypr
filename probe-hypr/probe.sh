@@ -6,6 +6,7 @@ OUT=${1:-/tmp/probe-out}; mkdir -p "$OUT"
 export XDG_RUNTIME_DIR=/tmp/xdg; mkdir -p "$XDG_RUNTIME_DIR"; chmod 700 "$XDG_RUNTIME_DIR"
 { id; uname -r; ls -l /dev/dri /dev/kvm 2>&1; Hyprland --version | head -n 3; } > "$OUT/env.txt" 2>&1
 cat > /tmp/probe.lua <<'LUA'
+hl.config({ debug = { enable_stdout_logs = true } })
 hl.monitor({ output = "", mode = "1280x720@60", position = "0x0", scale = 1 })
 LUA
 trace() { env AQ_TRACE=1 HYPRLAND_TRACE=1 "$@"; }
@@ -23,7 +24,7 @@ try() { # name, env...
     hyprctl activeworkspace >> "$d/dispatch.txt" 2>&1
     kill $pid; sleep 2
   else echo "EXITED" > "$d/status"; fi
-  cp "$XDG_RUNTIME_DIR"/hypr/*/hyprland.log "$d/hyprland.log" 2>/dev/null
+  cp -r "$XDG_RUNTIME_DIR"/hypr "$d/hypr-dir" 2>/dev/null; find "$XDG_RUNTIME_DIR/hypr" -type f 2>/dev/null > "$d/hypr-files.txt"
   echo "$name: $(cat "$d/status")"
 }
 # 1) real DRM card (made accessible), default backend selection
