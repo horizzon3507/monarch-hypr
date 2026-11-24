@@ -14,9 +14,9 @@ shipped_dir="$MONARCH_PATH/themes/monarch"
 mkdir -p "$user_dir" "$shipped_dir" "$TEST_ROOT/bin" "$TEST_ROOT/external"
 touch "$user_dir/imported.png" "$user_dir/protected.png" "$shipped_dir/protected.png" "$TEST_ROOT/external/builtin.png"
 
-cat >"$TEST_ROOT/bin/noctalia" <<'EOF'
+cat >"$TEST_ROOT/bin/monarch-theme-current" <<'EOF'
 #!/bin/bash
-[[ ${1:-} == msg && ${2:-} == color-scheme-get ]] && echo "custom Monarch"
+echo "custom Monarch"
 EOF
 cat >"$TEST_ROOT/bin/monarch-theme-apply" <<'EOF'
 #!/bin/bash

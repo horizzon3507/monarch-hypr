@@ -20,7 +20,7 @@ if [[ -z $name ]]; then
   name=$(monarch-theme-bundle list | awk -F '\t' -v id="$id" '$1 == id { print $2; exit }')
 fi
 echo "Downloading and validating ${name:-$id}..."
-active=$(noctalia msg color-scheme-get 2>/dev/null || true)
+active=$(monarch-theme-current 2>/dev/null || true)
 active=${active#custom }
 result=$(monarch-theme-bundle update "$id")
 IFS=$'\t' read -r id name <<<"$result"

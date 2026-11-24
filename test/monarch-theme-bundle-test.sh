@@ -12,13 +12,13 @@ export MONARCH_THEME_PALETTES_DIR="$TEST_ROOT/palettes"
 export MONARCH_THEME_BACKGROUNDS_DIR="$TEST_ROOT/backgrounds"
 mkdir -p "$HOME" "$TEST_ROOT/bin" "$TEST_ROOT/runtime/bin"
 
-cat >"$TEST_ROOT/bin/noctalia" <<'EOF'
+cat >"$TEST_ROOT/bin/monarch-theme-current" <<'EOF'
 #!/bin/bash
 if [[ -f $HOME/active-theme ]]; then
   printf 'custom %s\n' "$(cat "$HOME/active-theme")"
 fi
 EOF
-chmod +x "$TEST_ROOT/bin/noctalia"
+chmod +x "$TEST_ROOT/bin/monarch-theme-current"
 cat >"$TEST_ROOT/runtime/bin/monarch-theme-set-browser-policy" <<'EOF'
 #!/bin/bash
 exit 0
@@ -45,7 +45,7 @@ export PATH="$TEST_ROOT/bin:$PATH"
 make_theme() {
   local repo=$1 name=$2 id=$3
   mkdir -p "$repo/backgrounds"
-  cp "$ROOT/config/noctalia/palettes/Monarch.json" "$repo/palette.json"
+  cp "$ROOT/config/monarch/palettes/Monarch.json" "$repo/palette.json"
   cp "$ROOT/themes/monarch/1-monarch.png" "$repo/backgrounds/wallpaper.png"
   cp "$ROOT/themes/monarch/preview.png" "$repo/preview.png"
   jq -n --arg id "$id" --arg name "$name" \

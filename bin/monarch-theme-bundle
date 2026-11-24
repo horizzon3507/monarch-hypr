@@ -6,7 +6,7 @@
 set -euo pipefail
 
 BUNDLES_DIR="${MONARCH_THEME_BUNDLES_DIR:-$HOME/.config/monarch/themes}"
-PALETTES_DIR="${MONARCH_THEME_PALETTES_DIR:-$HOME/.config/noctalia/palettes}"
+PALETTES_DIR="${MONARCH_THEME_PALETTES_DIR:-$HOME/.config/monarch/palettes}"
 
 fail() {
   echo "monarch-theme-bundle: $1" >&2
@@ -204,8 +204,8 @@ remove_theme() {
   bundle="$BUNDLES_DIR/$id"
   [[ -f "$bundle/provenance.json" ]] || fail "theme $id is not installed"
   name=$(jq -er .name "$bundle/provenance.json") || fail "theme provenance is invalid"
-  if command -v noctalia >/dev/null 2>&1; then
-    active=$(noctalia msg color-scheme-get 2>/dev/null || true)
+  if command -v monarch-theme-current >/dev/null 2>&1; then
+    active=$(monarch-theme-current 2>/dev/null || true)
     active=${active#custom }
   fi
   [[ $active != "$name" ]] || fail "switch to another theme before removing $name"
