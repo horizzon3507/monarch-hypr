@@ -1,5 +1,5 @@
 #!/bin/bash
 
-# monarch:summary=Open the Noctalia bluetooth panel (Bluetooth controls).
+# monarch:summary=Open the Bluetooth controls TUI (provided by bluetui).
 
-exec noctalia msg panel-toggle control-center bluetooth
+exec monarch-launch-or-focus-tui bluetui

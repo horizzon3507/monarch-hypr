@@ -1,5 +1,5 @@
 #!/bin/bash
 
-# monarch:summary=Open the Noctalia network panel (Wi-Fi controls).
+# monarch:summary=Open the Wi-Fi controls TUI (provided by impala).
 
-exec noctalia msg panel-toggle control-center network
+exec monarch-launch-or-focus-tui impala
