@@ -157,7 +157,7 @@ function bluetoothText(adapterEnabled, connected) {
 
 // Panels the host knows. Names come from the IPC call, so anything else is
 // refused rather than loaded.
-var PANELS = ["wifi-qr", "network", "theme"];
+var PANELS = ["wifi-qr", "network", "theme", "display"];
 
 function panelName(name) {
     var n = String(name === undefined || name === null ? "" : name);
@@ -265,4 +265,85 @@ function parseThemeList(text) {
 function parseThemeMode(text) {
     var m = String(text === undefined || text === null ? "" : text).trim();
     return m === "dark" || m === "light" ? m : "";
+}
+
+// Output of `monarch-display-list`: name, state (on/off), scale, mode, focused
+// and description, tab separated. A disabled output has no scale or mode and is
+// listed without controls. null means nothing usable (Hyprland not running).
+function parseDisplayList(text) {
+    var out = [];
+    var lines = String(text === undefined || text === null ? "" : text).split("\n");
+    for (var i = 0; i < lines.length; i++) {
+        var f = lines[i].split("\t");
+        if (f.length < 5 || f[0] === "" || (f[1] !== "on" && f[1] !== "off")) continue;
+        var scale = Number(f[2]);
+        out.push({
+            name: f[0],
+            enabled: f[1] === "on",
+            scale: f[1] === "on" && isFinite(scale) && scale > 0 ? scale : 0,
+            mode: f[3],
+            focused: f[4] === "focused",
+            description: f.length > 5 ? f.slice(5).join(" ") : ""
+        });
+    }
+    return out.length > 0 ? out : null;
+}
+
+// Output of `monarch-display-brightness --list`: connector, percent, backend.
+// Returns a map connector -> percent; outputs without a control are absent.
+function parseBrightnessList(text) {
+    var out = {};
+    var lines = String(text === undefined || text === null ? "" : text).split("\n");
+    for (var i = 0; i < lines.length; i++) {
+        var f = lines[i].split("\t");
+        if (f.length < 3 || f[0] === "" || !/^[0-9]+$/.test(f[1])) continue;
+        var p = Number(f[1]);
+        if (p > 100) continue;
+        out[f[0]] = { percent: p, backend: f[2] };
+    }
+    return out;
+}
+
+// Scales the panel steps through. The next step from any value is the nearest
+// listed step above or below it, so an odd current scale still moves.
+var SCALE_STEPS = [0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3];
+
+function stepScale(current, direction) {
+    var c = Number(current);
+    if (!isFinite(c) || c <= 0 || (direction !== 1 && direction !== -1)) return 0;
+    var best = -1;
+    if (direction === 1) {
+        for (var i = 0; i < SCALE_STEPS.length; i++) if (SCALE_STEPS[i] > c + 0.001) { best = i; break; }
+    } else {
+        for (var j = SCALE_STEPS.length - 1; j >= 0; j--) if (SCALE_STEPS[j] < c - 0.001) { best = j; break; }
+    }
+    return best < 0 ? 0 : SCALE_STEPS[best];
+}
+
+// Brightness moves by 10 and stays within 5..100: the panel never steps a
+// screen to fully dark.
+function stepBrightness(percent, direction) {
+    var p = Number(percent);
+    if (!isFinite(p) || (direction !== 1 && direction !== -1)) return -1;
+    return clamp(Math.round(p / 10) * 10 + direction * 10, 5, 100);
+}
+
+// `monarch-display-text-size --current` prints e.g. "115%". 0 when unknown.
+function parseTextSize(text) {
+    var m = /^\s*([0-9]+)%\s*$/.exec(String(text === undefined || text === null ? "" : text));
+    return m ? Number(m[1]) : 0;
+}
+
+// Text size steps by 5 within the command's 75..175 range; 0 for an unknown start.
+function stepTextSize(percent, direction) {
+    var p = Number(percent);
+    if (!isFinite(p) || p <= 0 || (direction !== 1 && direction !== -1)) return 0;
+    return clamp(p + direction * 5, 75, 175);
+}
+
+// Bar readout for the internal backlight. null/absent hides it.
+function brightnessText(map) {
+    if (!map) return "";
+    for (var k in map) if (map[k].backend === "backlight") return "bri " + map[k].percent + "%";
+    return "";
 }
