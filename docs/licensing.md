@@ -29,6 +29,10 @@ See `CREDITS.md` for attribution.
 
 `default/` holds configs and defaults for tools such as alacritty, foot, ghostty, chromium, firefox, zsh, niri, noctalia, snapper and sddm. Whether any were copied from third-party projects, and under what license, is not recorded. State: unknown, except where a file carries its own header.
 
+### Vendored Noctalia community templates
+
+`default/noctalia/community-templates/` (neovim, obsidian, vscode, zed) is a copy of https://github.com/noctalia-dev/community-templates at revision 682506c (see `upstream.json`). At that revision the upstream repository has no license file, the GitHub API reports no license for it, and its README states none (checked 2026-11-24). State: unknown. No permission to redistribute is recorded, and `CREDITS.md` has no entry for it. Do not treat these files as MIT. They are scheduled to leave with the Noctalia retirement. New editor themes for the Quickshell shell are written from scratch and must not derive from them.
+
 ## Installed packages
 
 `install/*.packages` lists about 240 package names (Arch, CachyOS and AUR). Each package has its own license, set by its packager. This repository does not inventory them, and no claim is made about them here. Packages the ISO pulls in follow the same rule.
