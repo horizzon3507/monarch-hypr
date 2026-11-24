@@ -1,0 +1,607 @@
+{
+  "$schema": "https://zed.dev/schema/themes/v0.2.0.json",
+  "name": "Monarch",
+  "author": "Monarch",
+  "themes": [
+    {
+      "name": "Monarch Dark",
+      "appearance": "dark",
+      "style": {
+        "accents": [
+          "{{dark.primary}}",
+          "{{dark.secondary}}",
+          "{{dark.tertiary}}"
+        ],
+        "background.appearance": "opaque",
+        "border": "{{dark.outline_variant}}",
+        "border.variant": "{{dark.surface_container_high}}",
+        "border.focused": "{{dark.primary}}",
+        "border.selected": "{{dark.primary}}",
+        "border.transparent": "{{dark.outline_variant}}40",
+        "border.disabled": "{{dark.outline_variant}}60",
+        "elevated_surface.background": "{{dark.surface_container_high}}",
+        "surface.background": "{{dark.surface_container}}",
+        "background": "{{dark.surface}}",
+        "element.background": "{{dark.surface_container_high}}",
+        "element.hover": "{{dark.surface_container_highest}}",
+        "element.active": "{{dark.surface_container_highest}}",
+        "element.selected": "{{dark.surface_container_highest}}",
+        "element.disabled": "{{dark.surface_container}}",
+        "drop_target.background": "{{dark.primary}}30",
+        "ghost_element.background": "#00000000",
+        "ghost_element.hover": "{{dark.surface_container_high}}",
+        "ghost_element.active": "{{dark.surface_container_highest}}",
+        "ghost_element.selected": "{{dark.surface_container_highest}}",
+        "ghost_element.disabled": "{{dark.surface_container}}",
+        "text": "{{dark.on_surface}}",
+        "text.muted": "{{dark.on_surface_variant}}",
+        "text.placeholder": "{{dark.on_surface_variant}}a0",
+        "text.disabled": "{{dark.on_surface_variant}}60",
+        "text.accent": "{{dark.primary}}",
+        "icon": "{{dark.on_surface}}",
+        "icon.muted": "{{dark.on_surface_variant}}",
+        "icon.disabled": "{{dark.on_surface_variant}}60",
+        "icon.placeholder": "{{dark.on_surface_variant}}",
+        "icon.accent": "{{dark.primary}}",
+        "status_bar.background": "{{dark.surface_dim}}",
+        "title_bar.background": "{{dark.surface_dim}}",
+        "title_bar.inactive_background": "{{dark.surface}}",
+        "toolbar.background": "{{dark.surface}}",
+        "tab_bar.background": "{{dark.surface_dim}}",
+        "tab.inactive_background": "{{dark.surface_dim}}",
+        "tab.active_background": "{{dark.surface}}",
+        "search.match_background": "{{dark.primary}}40",
+        "panel.background": "{{dark.surface_container}}",
+        "panel.focused_border": "{{dark.primary}}",
+        "pane.focused_border": "{{dark.primary}}",
+        "scrollbar.thumb.background": "{{dark.on_surface_variant}}40",
+        "scrollbar.thumb.hover_background": "{{dark.on_surface_variant}}60",
+        "scrollbar.thumb.border": "{{dark.outline_variant}}",
+        "scrollbar.track.background": "#00000000",
+        "scrollbar.track.border": "{{dark.surface_container_high}}",
+        "editor.foreground": "{{dark.term_fg}}",
+        "editor.background": "{{dark.term_bg}}",
+        "editor.gutter.background": "{{dark.term_bg}}",
+        "editor.subheader.background": "{{dark.surface_container}}",
+        "editor.active_line.background": "{{dark.surface_container_highest}}80",
+        "editor.highlighted_line.background": "{{dark.surface_container_highest}}80",
+        "editor.line_number": "{{dark.term_bright_black}}",
+        "editor.active_line_number": "{{dark.on_surface}}",
+        "editor.invisible": "{{dark.on_surface_variant}}60",
+        "editor.wrap_guide": "{{dark.outline_variant}}40",
+        "editor.active_wrap_guide": "{{dark.outline_variant}}80",
+        "editor.document_highlight.read_background": "{{dark.primary}}25",
+        "editor.document_highlight.write_background": "{{dark.primary}}40",
+        "terminal.background": "{{dark.term_bg}}",
+        "terminal.foreground": "{{dark.term_fg}}",
+        "terminal.bright_foreground": "{{dark.term_fg}}",
+        "terminal.dim_foreground": "{{dark.on_surface_variant}}",
+        "terminal.ansi.background": "{{dark.term_bg}}",
+        "link_text.hover": "{{dark.primary}}",
+        "terminal.ansi.black": "{{dark.term_normal_black}}",
+        "terminal.ansi.dim_black": "{{dark.term_normal_black}}",
+        "terminal.ansi.red": "{{dark.term_normal_red}}",
+        "terminal.ansi.dim_red": "{{dark.term_normal_red}}",
+        "terminal.ansi.green": "{{dark.term_normal_green}}",
+        "terminal.ansi.dim_green": "{{dark.term_normal_green}}",
+        "terminal.ansi.yellow": "{{dark.term_normal_yellow}}",
+        "terminal.ansi.dim_yellow": "{{dark.term_normal_yellow}}",
+        "terminal.ansi.blue": "{{dark.term_normal_blue}}",
+        "terminal.ansi.dim_blue": "{{dark.term_normal_blue}}",
+        "terminal.ansi.magenta": "{{dark.term_normal_magenta}}",
+        "terminal.ansi.dim_magenta": "{{dark.term_normal_magenta}}",
+        "terminal.ansi.cyan": "{{dark.term_normal_cyan}}",
+        "terminal.ansi.dim_cyan": "{{dark.term_normal_cyan}}",
+        "terminal.ansi.white": "{{dark.term_normal_white}}",
+        "terminal.ansi.dim_white": "{{dark.term_normal_white}}",
+        "terminal.ansi.bright_black": "{{dark.term_bright_black}}",
+        "terminal.ansi.bright_red": "{{dark.term_bright_red}}",
+        "terminal.ansi.bright_green": "{{dark.term_bright_green}}",
+        "terminal.ansi.bright_yellow": "{{dark.term_bright_yellow}}",
+        "terminal.ansi.bright_blue": "{{dark.term_bright_blue}}",
+        "terminal.ansi.bright_magenta": "{{dark.term_bright_magenta}}",
+        "terminal.ansi.bright_cyan": "{{dark.term_bright_cyan}}",
+        "terminal.ansi.bright_white": "{{dark.term_bright_white}}",
+        "conflict": "{{dark.term_normal_yellow}}",
+        "conflict.background": "{{dark.term_normal_yellow}}20",
+        "conflict.border": "{{dark.term_normal_yellow}}60",
+        "created": "{{dark.term_normal_green}}",
+        "created.background": "{{dark.term_normal_green}}20",
+        "created.border": "{{dark.term_normal_green}}60",
+        "deleted": "{{dark.error}}",
+        "deleted.background": "{{dark.error}}20",
+        "deleted.border": "{{dark.error}}60",
+        "error": "{{dark.error}}",
+        "error.background": "{{dark.error}}20",
+        "error.border": "{{dark.error}}60",
+        "hidden": "{{dark.on_surface_variant}}",
+        "hidden.background": "{{dark.on_surface_variant}}20",
+        "hidden.border": "{{dark.on_surface_variant}}60",
+        "hint": "{{dark.term_normal_cyan}}",
+        "hint.background": "{{dark.term_normal_cyan}}20",
+        "hint.border": "{{dark.term_normal_cyan}}60",
+        "ignored": "{{dark.on_surface_variant}}",
+        "ignored.background": "{{dark.on_surface_variant}}20",
+        "ignored.border": "{{dark.on_surface_variant}}60",
+        "info": "{{dark.term_normal_blue}}",
+        "info.background": "{{dark.term_normal_blue}}20",
+        "info.border": "{{dark.term_normal_blue}}60",
+        "modified": "{{dark.term_normal_yellow}}",
+        "modified.background": "{{dark.term_normal_yellow}}20",
+        "modified.border": "{{dark.term_normal_yellow}}60",
+        "predictive": "{{dark.on_surface_variant}}",
+        "predictive.background": "{{dark.on_surface_variant}}20",
+        "predictive.border": "{{dark.on_surface_variant}}60",
+        "renamed": "{{dark.term_normal_blue}}",
+        "renamed.background": "{{dark.term_normal_blue}}20",
+        "renamed.border": "{{dark.term_normal_blue}}60",
+        "success": "{{dark.term_normal_green}}",
+        "success.background": "{{dark.term_normal_green}}20",
+        "success.border": "{{dark.term_normal_green}}60",
+        "unreachable": "{{dark.on_surface_variant}}",
+        "unreachable.background": "{{dark.on_surface_variant}}20",
+        "unreachable.border": "{{dark.on_surface_variant}}60",
+        "warning": "{{dark.term_normal_yellow}}",
+        "warning.background": "{{dark.term_normal_yellow}}20",
+        "warning.border": "{{dark.term_normal_yellow}}60",
+        "players": [
+          {
+            "cursor": "{{dark.term_cursor}}",
+            "background": "{{dark.term_cursor}}",
+            "selection": "{{dark.term_cursor}}40"
+          },
+          {
+            "cursor": "{{dark.term_normal_magenta}}",
+            "background": "{{dark.term_normal_magenta}}",
+            "selection": "{{dark.term_normal_magenta}}40"
+          },
+          {
+            "cursor": "{{dark.term_normal_green}}",
+            "background": "{{dark.term_normal_green}}",
+            "selection": "{{dark.term_normal_green}}40"
+          },
+          {
+            "cursor": "{{dark.term_normal_yellow}}",
+            "background": "{{dark.term_normal_yellow}}",
+            "selection": "{{dark.term_normal_yellow}}40"
+          },
+          {
+            "cursor": "{{dark.term_normal_blue}}",
+            "background": "{{dark.term_normal_blue}}",
+            "selection": "{{dark.term_normal_blue}}40"
+          },
+          {
+            "cursor": "{{dark.term_normal_cyan}}",
+            "background": "{{dark.term_normal_cyan}}",
+            "selection": "{{dark.term_normal_cyan}}40"
+          },
+          {
+            "cursor": "{{dark.term_normal_red}}",
+            "background": "{{dark.term_normal_red}}",
+            "selection": "{{dark.term_normal_red}}40"
+          },
+          {
+            "cursor": "{{dark.term_bright_magenta}}",
+            "background": "{{dark.term_bright_magenta}}",
+            "selection": "{{dark.term_bright_magenta}}40"
+          }
+        ],
+        "syntax": {
+          "attribute": {
+            "color": "{{dark.term_normal_yellow}}"
+          },
+          "boolean": {
+            "color": "{{dark.term_bright_yellow}}"
+          },
+          "comment": {
+            "color": "{{dark.term_bright_black}}",
+            "font_style": "italic"
+          },
+          "comment.doc": {
+            "color": "{{dark.term_bright_black}}",
+            "font_style": "italic"
+          },
+          "constant": {
+            "color": "{{dark.term_bright_yellow}}"
+          },
+          "constructor": {
+            "color": "{{dark.term_normal_yellow}}"
+          },
+          "emphasis": {
+            "color": "{{dark.term_normal_blue}}",
+            "font_style": "italic"
+          },
+          "emphasis.strong": {
+            "color": "{{dark.term_normal_blue}}",
+            "font_weight": 700
+          },
+          "function": {
+            "color": "{{dark.term_normal_blue}}"
+          },
+          "keyword": {
+            "color": "{{dark.term_normal_magenta}}"
+          },
+          "label": {
+            "color": "{{dark.term_normal_blue}}"
+          },
+          "link_text": {
+            "color": "{{dark.term_normal_cyan}}"
+          },
+          "link_uri": {
+            "color": "{{dark.term_normal_cyan}}"
+          },
+          "number": {
+            "color": "{{dark.term_bright_yellow}}"
+          },
+          "operator": {
+            "color": "{{dark.term_normal_cyan}}"
+          },
+          "preproc": {
+            "color": "{{dark.term_normal_magenta}}"
+          },
+          "property": {
+            "color": "{{dark.term_normal_red}}"
+          },
+          "punctuation": {
+            "color": "{{dark.term_fg}}"
+          },
+          "punctuation.bracket": {
+            "color": "{{dark.term_fg}}"
+          },
+          "punctuation.delimiter": {
+            "color": "{{dark.term_fg}}"
+          },
+          "punctuation.list_marker": {
+            "color": "{{dark.term_normal_cyan}}"
+          },
+          "punctuation.special": {
+            "color": "{{dark.term_normal_cyan}}"
+          },
+          "string": {
+            "color": "{{dark.term_normal_green}}"
+          },
+          "string.escape": {
+            "color": "{{dark.term_normal_cyan}}"
+          },
+          "string.regex": {
+            "color": "{{dark.term_normal_cyan}}"
+          },
+          "string.special": {
+            "color": "{{dark.term_normal_cyan}}"
+          },
+          "string.special.symbol": {
+            "color": "{{dark.term_normal_cyan}}"
+          },
+          "tag": {
+            "color": "{{dark.term_normal_red}}"
+          },
+          "title": {
+            "color": "{{dark.term_normal_blue}}",
+            "font_weight": 700
+          },
+          "type": {
+            "color": "{{dark.term_normal_yellow}}"
+          },
+          "variable": {
+            "color": "{{dark.term_fg}}"
+          },
+          "variable.special": {
+            "color": "{{dark.term_normal_red}}"
+          },
+          "variant": {
+            "color": "{{dark.term_normal_yellow}}"
+          },
+          "enum": {
+            "color": "{{dark.term_normal_yellow}}"
+          },
+          "primary": {
+            "color": "{{dark.term_fg}}"
+          },
+          "embedded": {
+            "color": "{{dark.term_fg}}"
+          }
+        }
+      }
+    },
+    {
+      "name": "Monarch Light",
+      "appearance": "light",
+      "style": {
+        "accents": [
+          "{{light.primary}}",
+          "{{light.secondary}}",
+          "{{light.tertiary}}"
+        ],
+        "background.appearance": "opaque",
+        "border": "{{light.outline_variant}}",
+        "border.variant": "{{light.surface_container_high}}",
+        "border.focused": "{{light.primary}}",
+        "border.selected": "{{light.primary}}",
+        "border.transparent": "{{light.outline_variant}}40",
+        "border.disabled": "{{light.outline_variant}}60",
+        "elevated_surface.background": "{{light.surface_container_high}}",
+        "surface.background": "{{light.surface_container}}",
+        "background": "{{light.surface}}",
+        "element.background": "{{light.surface_container_high}}",
+        "element.hover": "{{light.surface_container_highest}}",
+        "element.active": "{{light.surface_container_highest}}",
+        "element.selected": "{{light.surface_container_highest}}",
+        "element.disabled": "{{light.surface_container}}",
+        "drop_target.background": "{{light.primary}}30",
+        "ghost_element.background": "#00000000",
+        "ghost_element.hover": "{{light.surface_container_high}}",
+        "ghost_element.active": "{{light.surface_container_highest}}",
+        "ghost_element.selected": "{{light.surface_container_highest}}",
+        "ghost_element.disabled": "{{light.surface_container}}",
+        "text": "{{light.on_surface}}",
+        "text.muted": "{{light.on_surface_variant}}",
+        "text.placeholder": "{{light.on_surface_variant}}a0",
+        "text.disabled": "{{light.on_surface_variant}}60",
+        "text.accent": "{{light.primary}}",
+        "icon": "{{light.on_surface}}",
+        "icon.muted": "{{light.on_surface_variant}}",
+        "icon.disabled": "{{light.on_surface_variant}}60",
+        "icon.placeholder": "{{light.on_surface_variant}}",
+        "icon.accent": "{{light.primary}}",
+        "status_bar.background": "{{light.surface_dim}}",
+        "title_bar.background": "{{light.surface_dim}}",
+        "title_bar.inactive_background": "{{light.surface}}",
+        "toolbar.background": "{{light.surface}}",
+        "tab_bar.background": "{{light.surface_dim}}",
+        "tab.inactive_background": "{{light.surface_dim}}",
+        "tab.active_background": "{{light.surface}}",
+        "search.match_background": "{{light.primary}}40",
+        "panel.background": "{{light.surface_container}}",
+        "panel.focused_border": "{{light.primary}}",
+        "pane.focused_border": "{{light.primary}}",
+        "scrollbar.thumb.background": "{{light.on_surface_variant}}40",
+        "scrollbar.thumb.hover_background": "{{light.on_surface_variant}}60",
+        "scrollbar.thumb.border": "{{light.outline_variant}}",
+        "scrollbar.track.background": "#00000000",
+        "scrollbar.track.border": "{{light.surface_container_high}}",
+        "editor.foreground": "{{light.term_fg}}",
+        "editor.background": "{{light.term_bg}}",
+        "editor.gutter.background": "{{light.term_bg}}",
+        "editor.subheader.background": "{{light.surface_container}}",
+        "editor.active_line.background": "{{light.surface_container_highest}}80",
+        "editor.highlighted_line.background": "{{light.surface_container_highest}}80",
+        "editor.line_number": "{{light.term_bright_black}}",
+        "editor.active_line_number": "{{light.on_surface}}",
+        "editor.invisible": "{{light.on_surface_variant}}60",
+        "editor.wrap_guide": "{{light.outline_variant}}40",
+        "editor.active_wrap_guide": "{{light.outline_variant}}80",
+        "editor.document_highlight.read_background": "{{light.primary}}25",
+        "editor.document_highlight.write_background": "{{light.primary}}40",
+        "terminal.background": "{{light.term_bg}}",
+        "terminal.foreground": "{{light.term_fg}}",
+        "terminal.bright_foreground": "{{light.term_fg}}",
+        "terminal.dim_foreground": "{{light.on_surface_variant}}",
+        "terminal.ansi.background": "{{light.term_bg}}",
+        "link_text.hover": "{{light.primary}}",
+        "terminal.ansi.black": "{{light.term_normal_black}}",
+        "terminal.ansi.dim_black": "{{light.term_normal_black}}",
+        "terminal.ansi.red": "{{light.term_normal_red}}",
+        "terminal.ansi.dim_red": "{{light.term_normal_red}}",
+        "terminal.ansi.green": "{{light.term_normal_green}}",
+        "terminal.ansi.dim_green": "{{light.term_normal_green}}",
+        "terminal.ansi.yellow": "{{light.term_normal_yellow}}",
+        "terminal.ansi.dim_yellow": "{{light.term_normal_yellow}}",
+        "terminal.ansi.blue": "{{light.term_normal_blue}}",
+        "terminal.ansi.dim_blue": "{{light.term_normal_blue}}",
+        "terminal.ansi.magenta": "{{light.term_normal_magenta}}",
+        "terminal.ansi.dim_magenta": "{{light.term_normal_magenta}}",
+        "terminal.ansi.cyan": "{{light.term_normal_cyan}}",
+        "terminal.ansi.dim_cyan": "{{light.term_normal_cyan}}",
+        "terminal.ansi.white": "{{light.term_normal_white}}",
+        "terminal.ansi.dim_white": "{{light.term_normal_white}}",
+        "terminal.ansi.bright_black": "{{light.term_bright_black}}",
+        "terminal.ansi.bright_red": "{{light.term_bright_red}}",
+        "terminal.ansi.bright_green": "{{light.term_bright_green}}",
+        "terminal.ansi.bright_yellow": "{{light.term_bright_yellow}}",
+        "terminal.ansi.bright_blue": "{{light.term_bright_blue}}",
+        "terminal.ansi.bright_magenta": "{{light.term_bright_magenta}}",
+        "terminal.ansi.bright_cyan": "{{light.term_bright_cyan}}",
+        "terminal.ansi.bright_white": "{{light.term_bright_white}}",
+        "conflict": "{{light.term_normal_yellow}}",
+        "conflict.background": "{{light.term_normal_yellow}}20",
+        "conflict.border": "{{light.term_normal_yellow}}60",
+        "created": "{{light.term_normal_green}}",
+        "created.background": "{{light.term_normal_green}}20",
+        "created.border": "{{light.term_normal_green}}60",
+        "deleted": "{{light.error}}",
+        "deleted.background": "{{light.error}}20",
+        "deleted.border": "{{light.error}}60",
+        "error": "{{light.error}}",
+        "error.background": "{{light.error}}20",
+        "error.border": "{{light.error}}60",
+        "hidden": "{{light.on_surface_variant}}",
+        "hidden.background": "{{light.on_surface_variant}}20",
+        "hidden.border": "{{light.on_surface_variant}}60",
+        "hint": "{{light.term_normal_cyan}}",
+        "hint.background": "{{light.term_normal_cyan}}20",
+        "hint.border": "{{light.term_normal_cyan}}60",
+        "ignored": "{{light.on_surface_variant}}",
+        "ignored.background": "{{light.on_surface_variant}}20",
+        "ignored.border": "{{light.on_surface_variant}}60",
+        "info": "{{light.term_normal_blue}}",
+        "info.background": "{{light.term_normal_blue}}20",
+        "info.border": "{{light.term_normal_blue}}60",
+        "modified": "{{light.term_normal_yellow}}",
+        "modified.background": "{{light.term_normal_yellow}}20",
+        "modified.border": "{{light.term_normal_yellow}}60",
+        "predictive": "{{light.on_surface_variant}}",
+        "predictive.background": "{{light.on_surface_variant}}20",
+        "predictive.border": "{{light.on_surface_variant}}60",
+        "renamed": "{{light.term_normal_blue}}",
+        "renamed.background": "{{light.term_normal_blue}}20",
+        "renamed.border": "{{light.term_normal_blue}}60",
+        "success": "{{light.term_normal_green}}",
+        "success.background": "{{light.term_normal_green}}20",
+        "success.border": "{{light.term_normal_green}}60",
+        "unreachable": "{{light.on_surface_variant}}",
+        "unreachable.background": "{{light.on_surface_variant}}20",
+        "unreachable.border": "{{light.on_surface_variant}}60",
+        "warning": "{{light.term_normal_yellow}}",
+        "warning.background": "{{light.term_normal_yellow}}20",
+        "warning.border": "{{light.term_normal_yellow}}60",
+        "players": [
+          {
+            "cursor": "{{light.term_cursor}}",
+            "background": "{{light.term_cursor}}",
+            "selection": "{{light.term_cursor}}40"
+          },
+          {
+            "cursor": "{{light.term_normal_magenta}}",
+            "background": "{{light.term_normal_magenta}}",
+            "selection": "{{light.term_normal_magenta}}40"
+          },
+          {
+            "cursor": "{{light.term_normal_green}}",
+            "background": "{{light.term_normal_green}}",
+            "selection": "{{light.term_normal_green}}40"
+          },
+          {
+            "cursor": "{{light.term_normal_yellow}}",
+            "background": "{{light.term_normal_yellow}}",
+            "selection": "{{light.term_normal_yellow}}40"
+          },
+          {
+            "cursor": "{{light.term_normal_blue}}",
+            "background": "{{light.term_normal_blue}}",
+            "selection": "{{light.term_normal_blue}}40"
+          },
+          {
+            "cursor": "{{light.term_normal_cyan}}",
+            "background": "{{light.term_normal_cyan}}",
+            "selection": "{{light.term_normal_cyan}}40"
+          },
+          {
+            "cursor": "{{light.term_normal_red}}",
+            "background": "{{light.term_normal_red}}",
+            "selection": "{{light.term_normal_red}}40"
+          },
+          {
+            "cursor": "{{light.term_bright_magenta}}",
+            "background": "{{light.term_bright_magenta}}",
+            "selection": "{{light.term_bright_magenta}}40"
+          }
+        ],
+        "syntax": {
+          "attribute": {
+            "color": "{{light.term_normal_yellow}}"
+          },
+          "boolean": {
+            "color": "{{light.term_bright_yellow}}"
+          },
+          "comment": {
+            "color": "{{light.term_bright_black}}",
+            "font_style": "italic"
+          },
+          "comment.doc": {
+            "color": "{{light.term_bright_black}}",
+            "font_style": "italic"
+          },
+          "constant": {
+            "color": "{{light.term_bright_yellow}}"
+          },
+          "constructor": {
+            "color": "{{light.term_normal_yellow}}"
+          },
+          "emphasis": {
+            "color": "{{light.term_normal_blue}}",
+            "font_style": "italic"
+          },
+          "emphasis.strong": {
+            "color": "{{light.term_normal_blue}}",
+            "font_weight": 700
+          },
+          "function": {
+            "color": "{{light.term_normal_blue}}"
+          },
+          "keyword": {
+            "color": "{{light.term_normal_magenta}}"
+          },
+          "label": {
+            "color": "{{light.term_normal_blue}}"
+          },
+          "link_text": {
+            "color": "{{light.term_normal_cyan}}"
+          },
+          "link_uri": {
+            "color": "{{light.term_normal_cyan}}"
+          },
+          "number": {
+            "color": "{{light.term_bright_yellow}}"
+          },
+          "operator": {
+            "color": "{{light.term_normal_cyan}}"
+          },
+          "preproc": {
+            "color": "{{light.term_normal_magenta}}"
+          },
+          "property": {
+            "color": "{{light.term_normal_red}}"
+          },
+          "punctuation": {
+            "color": "{{light.term_fg}}"
+          },
+          "punctuation.bracket": {
+            "color": "{{light.term_fg}}"
+          },
+          "punctuation.delimiter": {
+            "color": "{{light.term_fg}}"
+          },
+          "punctuation.list_marker": {
+            "color": "{{light.term_normal_cyan}}"
+          },
+          "punctuation.special": {
+            "color": "{{light.term_normal_cyan}}"
+          },
+          "string": {
+            "color": "{{light.term_normal_green}}"
+          },
+          "string.escape": {
+            "color": "{{light.term_normal_cyan}}"
+          },
+          "string.regex": {
+            "color": "{{light.term_normal_cyan}}"
+          },
+          "string.special": {
+            "color": "{{light.term_normal_cyan}}"
+          },
+          "string.special.symbol": {
+            "color": "{{light.term_normal_cyan}}"
+          },
+          "tag": {
+            "color": "{{light.term_normal_red}}"
+          },
+          "title": {
+            "color": "{{light.term_normal_blue}}",
+            "font_weight": 700
+          },
+          "type": {
+            "color": "{{light.term_normal_yellow}}"
+          },
+          "variable": {
+            "color": "{{light.term_fg}}"
+          },
+          "variable.special": {
+            "color": "{{light.term_normal_red}}"
+          },
+          "variant": {
+            "color": "{{light.term_normal_yellow}}"
+          },
+          "enum": {
+            "color": "{{light.term_normal_yellow}}"
+          },
+          "primary": {
+            "color": "{{light.term_fg}}"
+          },
+          "embedded": {
+            "color": "{{light.term_fg}}"
+          }
+        }
+      }
+    }
+  ]
+}

@@ -74,15 +74,36 @@ value=$(color mTertiary) && add_color tertiary "$value"
 value=$(color mOnSurfaceVariant) && add_color on_surface_variant "$value"
 vars[mode]=$variant
 
+# Both modes with the extra editor roles, as {{dark.<role>}} and {{light.<role>}}
+# (for single-file themes that carry a dark and a light theme). A failure only
+# costs the templates that use them; they are skipped below rather than written
+# half filled.
+derive="$MONARCH_ROOT/default/monarch/theme-derive.py"
+if derived=$(python3 -I "$derive" "$palette" 2>&1); then
+  while IFS=$'\t' read -r name value; do
+    vars[$name]=$value
+  done < <(jq -r 'to_entries[] | .key as $m | .value | to_entries[] | "\($m).\(.key)\t\(.value)"' <<<"$derived")
+else
+  echo "monarch-theme-render: editor roles unavailable: $derived" >&2
+fi
+
 stage=$(mktemp -d) || exit 1
 trap 'rm -rf "$stage"' EXIT
 
 for template in "$TEMPLATES"/*; do
   [[ -f $template ]] || continue
   content=$(<"$template")
-  for name in "${!vars[@]}"; do
-    content=${content//"{{$name}}"/${vars[$name]}}
-  done
+  # Substitute only the placeholders this template uses.
+  while IFS= read -r placeholder; do
+    name=${placeholder#"{{"}
+    name=${name%"}}"}
+    [[ -v vars[$name] ]] || continue
+    content=${content//"$placeholder"/${vars[$name]}}
+  done < <(grep -o '{{[^}]*}}' <<<"$content" | sort -u)
+  if [[ $content == *"{{"* ]]; then
+    echo "monarch-theme-render: ${template##*/} has unfilled placeholders, not written" >&2
+    continue
+  fi
   printf '%s\n' "$content" >"$stage/${template##*/}"
 done
 

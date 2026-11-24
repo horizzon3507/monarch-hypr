@@ -1,36 +1,27 @@
 #!/bin/bash
 
-# monarch:summary=Install Zed Editor and theme it via the Noctalia user-template
+# monarch:summary=Install Zed Editor and link the rendered Monarch theme
 
 set -euo pipefail
 
 echo "Installing Zed Editor..."
 monarch-pkg-add zed
 
-# Zed follows the active Monarch/Noctalia scheme through the `zed` community
-# template enabled by id in config/noctalia/config.toml.
-# Noctalia re-renders it on every color generation and Zed hot-reloads its
-# themes/ dir, so theme switching is live. (This replaces the old `monzed`
-# package.)
+# Zed reads the Monarch theme rendered by monarch-theme-render (Monarch Dark and
+# Monarch Light in one file). Link it so every re-render is picked up; Zed
+# hot-reloads its themes/ dir. Schema-shaped, not yet checked in a running Zed.
+mkdir -p "$HOME/.config/zed/themes"
+ln -sfn "$HOME/.config/monarch/current/theme/zed.json" "$HOME/.config/zed/themes/monarch.json"
+monarch-theme-render >/dev/null 2>&1 || true
 
-# Select the theme so Zed actually uses it (the template only makes it
-# available). Fresh installs have no settings.json yet, so seed one that follows
-# the system dark/light toggle; never rewrite an existing (JSONC) settings file.
+# Fresh installs have no settings.json yet, so seed one that follows the system
+# dark/light toggle; never rewrite an existing (JSONC) settings file.
 zed_settings="$HOME/.config/zed/settings.json"
-theme_block='"theme": { "mode": "system", "light": "Noctalia Light", "dark": "Noctalia Dark" }'
-mkdir -p "$HOME/.config/zed"
+theme_block='"theme": { "mode": "system", "light": "Monarch Light", "dark": "Monarch Dark" }'
 if [[ ! -f $zed_settings ]]; then
   printf '{\n  %s\n}\n' "$theme_block" > "$zed_settings"
-elif ! grep -q '"Noctalia ' "$zed_settings"; then
+elif ! grep -q '"Monarch ' "$zed_settings"; then
   echo "Note: set ${theme_block} in $zed_settings to follow the Monarch theme."
-fi
-
-# Render the theme now so it exists before first launch. v4 had to re-select the
-# active scheme to force a re-render, which meant reading the scheme name back
-# out of settings.json first; v5 has a verb for exactly this, so neither the
-# read nor the round-trip through color-scheme-set is needed.
-if command -v noctalia >/dev/null 2>&1; then
-  noctalia msg templates-apply >/dev/null 2>&1 || true
 fi
 
 setsid gtk-launch dev.zed.Zed
