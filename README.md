@@ -1,6 +1,6 @@
 # monarch-hypr
 
-> **Fork notice.** monarch-hypr is an independent fork of [monarch-os/monarch](https://github.com/monarch-os/monarch) (MIT). It replaces the Niri + Noctalia desktop with a customized Hyprland desktop and keeps the CachyOS base. It is not affiliated with or endorsed by the upstream project. The `upstream-base` branch holds the unmodified upstream history this fork started from. See [CREDITS.md](CREDITS.md).
+> **Fork notice.** monarch-hypr is an independent fork of [monarch-os/monarch](https://github.com/monarch-os/monarch) (MIT). It is replacing the Niri + Noctalia desktop with a customized Hyprland desktop and keeps the CachyOS base. It is not affiliated with or endorsed by the upstream project. The `upstream-base` branch holds the unmodified upstream history this fork started from. See [CREDITS.md](CREDITS.md).
 >
 > **Status.** Work in progress. No bootable ISO is published yet; see [docs/fork-status.md](docs/fork-status.md).
 
@@ -11,20 +11,21 @@
 
 Monarch turns a fresh [CachyOS](https://cachyos.org) installation into a fully-configured, beautiful, and modern desktop. It is lightly opinionated: a good default setup that stays easy to change. It also carries some security tooling and shell helpers inherited from [SkillArch](https://github.com/laluka/SkillArch).
 
-Read the [documentation](https://docs.monarchlinux.com/) to install Monarch and get started.
+## This fork: what exists today
 
-Prefer a bootable installer? [Download the latest nightly ISO](https://iso.monarchlinux.com/monarch-nightly.iso).
+This repository is a work in progress. The goal is a lightly opinionated desktop in the spirit of Omarchy: a good default setup that stays easy to change, on CachyOS with Hyprland.
 
-[![Play the Monarch desktop demo: terminal workflows, Niri navigation, and live theme switching (animated GIF)](assets/demo-preview.png)](assets/demo.gif)
+- **Compositor**: [Hyprland](https://hyprland.org), configured in Lua. It is the default on the `hyprland-desktop` branch, not yet on `dev`.
+- **Desktop shell**: a small custom [Quickshell](https://quickshell.org) shell (bar and panels for network, theme, display, background, crash history, first steps and agent usage). The lock screen, idle handling, notifications, launcher and on-screen displays stay on hyprlock, hypridle, mako, Walker and swayosd.
+- **Noctalia and Niri** are still shipped while the retirement is staged. They are going away in later changes, so do not build on them.
 
-*[Static preview](assets/demo.png).*
+Not done yet, and not claimed: a published ISO, a completed install, a reboot into the desktop, fingerprint login on the lock screen, and any run on real hardware. [docs/fork-status.md](docs/fork-status.md) lists what has been run and where, and is the source of truth when this page and it disagree.
 
-It runs its own desktop stack:
+### Trying it
 
-- **Compositor**: [Niri](https://github.com/YaLTeR/niri), a scrollable-tiling Wayland compositor, for a stable and ergonomic experience.
-- **Desktop shell**: [Noctalia](https://github.com/noctalia-dev/noctalia), a native Wayland shell providing the bar, launcher, notifications, control center, lock screen, OSDs, wallpaper, and theming.
+There is no supported install path for this fork yet. The ISO and installer links of the upstream project (documentation site, nightly ISO) install the upstream Niri and Noctalia desktop, not this one. To follow progress or contribute, read [docs/fork-status.md](docs/fork-status.md) and [docs/development.md](docs/development.md).
 
-Monarch is an independently maintained **hard fork** of [Omarchy](https://omarchy.org). The `monarch` CLI and the install scripts descend from it, and a good number of commands are still Omarchy's unchanged but for the name. The stack has since diverged — CachyOS rather than Arch, Niri rather than Hyprland, Noctalia rather than waybar and its neighbours — but the lineage is Omarchy's, and so is the licence.
+Monarch is an independently maintained **hard fork** of [Omarchy](https://omarchy.org). The `monarch` CLI and the install scripts descend from it, and a good number of commands are still Omarchy's unchanged but for the name. The stack has diverged (CachyOS rather than Arch, and a Hyprland-based desktop with its own shell), but the lineage is Omarchy's, and so is the licence. It also carries some security tooling and shell helpers inherited from [SkillArch](https://github.com/laluka/SkillArch).
 
 ## The true monarchs
 
