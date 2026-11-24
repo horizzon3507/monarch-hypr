@@ -6,7 +6,8 @@ source "${BASH_SOURCE[0]%/*}/base-test.sh"
 QS="$ROOT/default/quickshell"
 
 [[ -f $QS/shell.qml ]] || fail "shell entry point exists"
-pass "shell entry point exists"
+grep -q 'function onValuesChanged' "$QS/shell.qml" || fail "shell logs applied settings after every load"
+pass "shell entry point exists and logs applied settings"
 
 for name in Settings Theme; do
   grep -q "^singleton $name 1.0 $name.qml$" "$QS/qmldir" || fail "qmldir registers $name"
