@@ -132,6 +132,7 @@ ColumnLayout {
             readonly property var bri: root.brightness[modelData.name]
             spacing: 4
             Layout.preferredWidth: 340
+            Layout.alignment: Qt.AlignLeft
             opacity: root.settled ? 1.0 : 0.6
 
             Text {
@@ -142,66 +143,28 @@ ColumnLayout {
                 Layout.fillWidth: true
             }
 
-            RowLayout {
+            StepRow {
                 visible: screen.modelData.enabled
-                spacing: 8
-                Text { text: "Scale"; color: Theme.fg; opacity: 0.7; font.pixelSize: 13; Layout.preferredWidth: 80 }
-                Text {
-                    text: "\u2212"
-                    color: Theme.accent
-                    font.pixelSize: 18
-                    MouseArea { anchors.fill: parent; anchors.margins: -6; onClicked: root.stepScale(screen.modelData.name, screen.modelData.scale, -1) }
-                }
-                Text { text: screen.modelData.scale + "x"; color: Theme.fg; font.pixelSize: 13; Layout.preferredWidth: 50; horizontalAlignment: Text.AlignHCenter }
-                Text {
-                    text: "+"
-                    color: Theme.accent
-                    font.pixelSize: 18
-                    MouseArea { anchors.fill: parent; anchors.margins: -6; onClicked: root.stepScale(screen.modelData.name, screen.modelData.scale, 1) }
-                }
+                label: "Scale"
+                valueText: screen.modelData.scale + "x"
+                onStepped: function (direction) { root.stepScale(screen.modelData.name, screen.modelData.scale, direction); }
             }
 
-            RowLayout {
+            StepRow {
                 visible: screen.modelData.enabled && screen.bri !== undefined
-                spacing: 8
-                Text { text: "Brightness"; color: Theme.fg; opacity: 0.7; font.pixelSize: 13; Layout.preferredWidth: 80 }
-                Text {
-                    text: "\u2212"
-                    color: Theme.accent
-                    font.pixelSize: 18
-                    MouseArea { anchors.fill: parent; anchors.margins: -6; onClicked: root.stepBrightness(screen.modelData.name, screen.bri.percent, -1) }
-                }
-                Text { text: screen.bri !== undefined ? screen.bri.percent + "%" : ""; color: Theme.fg; font.pixelSize: 13; Layout.preferredWidth: 50; horizontalAlignment: Text.AlignHCenter }
-                Text {
-                    text: "+"
-                    color: Theme.accent
-                    font.pixelSize: 18
-                    MouseArea { anchors.fill: parent; anchors.margins: -6; onClicked: root.stepBrightness(screen.modelData.name, screen.bri.percent, 1) }
-                }
+                label: "Brightness"
+                valueText: screen.bri !== undefined ? screen.bri.percent + "%" : ""
+                onStepped: function (direction) { root.stepBrightness(screen.modelData.name, screen.bri.percent, direction); }
             }
         }
     }
 
-    RowLayout {
+    StepRow {
         visible: root.displays !== null
-        spacing: 8
-        Layout.preferredWidth: 340
-        Text { text: "Text size"; color: Theme.fg; opacity: 0.7; font.pixelSize: 13; Layout.preferredWidth: 80 }
-        Text {
-            text: "\u2212"
-            color: Theme.accent
-            font.pixelSize: 18
-            opacity: root.textSize > 0 ? 1.0 : 0.4
-            MouseArea { anchors.fill: parent; anchors.margins: -6; onClicked: root.stepText(-1) }
-        }
-        Text { text: root.textSize > 0 ? root.textSize + "%" : "unknown"; color: Theme.fg; font.pixelSize: 13; Layout.preferredWidth: 50; horizontalAlignment: Text.AlignHCenter }
-        Text {
-            text: "+"
-            color: Theme.accent
-            font.pixelSize: 18
-            opacity: root.textSize > 0 ? 1.0 : 0.4
-            MouseArea { anchors.fill: parent; anchors.margins: -6; onClicked: root.stepText(1) }
-        }
+        label: "Text size"
+        valueText: root.textSize > 0 ? root.textSize + "%" : "unknown"
+        active: root.textSize > 0
+        onStepped: function (direction) { root.stepText(direction); }
     }
 
     Text {

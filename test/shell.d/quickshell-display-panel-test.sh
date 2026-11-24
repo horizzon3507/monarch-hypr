@@ -9,7 +9,9 @@ P="$QS/DisplayPanel.qml"
 [[ -f $P ]] || fail "DisplayPanel.qml exists"
 grep -q '^DisplayPanel 1.0 DisplayPanel.qml$' "$QS/qmldir" || fail "qmldir registers DisplayPanel"
 grep -q 'DisplayPanel.qml' "$QS/PanelHost.qml" || fail "the host loads the display panel"
-! grep -Eq '#[0-9a-fA-F]{6}' "$P" "$QS/Indicators.qml" || fail "no color literals"
+[[ -f $QS/StepRow.qml ]] && grep -q '^StepRow 1.0 StepRow.qml$' "$QS/qmldir" || fail "StepRow exists and is registered"
+[[ $(grep -c "StepRow {" "$P") == 3 ]] || fail "scale, brightness and text size share one row layout"
+! grep -Eq '#[0-9a-fA-F]{6}' "$P" "$QS/StepRow.qml" "$QS/Indicators.qml" || fail "no color literals"
 for command in 'monarch-display-list' '"monarch-display-brightness", "--list"' '"monarch-display-text-size", "--current"' '"monarch-display-scale", name' '"monarch-display-brightness", name' '"monarch-display-text-size", String'; do
   grep -q "$command" "$P" || fail "the panel calls $command"
 done
