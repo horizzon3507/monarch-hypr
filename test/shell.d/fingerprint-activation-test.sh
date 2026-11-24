@@ -77,7 +77,7 @@ pass "missing packaged gate leaves authentication unchanged"
 
 : >"$CALL_LOG"
 bash "$test_tmp/setup" >/dev/null
-grep -Fq 'fingerprint = true' "$HOME/.config/noctalia/monarch-fingerprint.toml" || fail "verified fingerprint is not enabled in Noctalia"
+[[ ! -e "$HOME/.config/noctalia/monarch-fingerprint.toml" ]] || fail "setup writes no Noctalia lock screen config"
 [[ -f $HOME/.local/state/monarch/fingerprint-enabled ]] || fail "verified fingerprint has no marker"
 [[ $(sed -n '1p' "$test_tmp/etc/pam.d/sudo") == *'pam_exec.so quiet'* && \
   $(sed -n '2p' "$test_tmp/etc/pam.d/sudo") == *'pam_fprintd.so'* ]] || fail "the lid gate no longer skips just fingerprint"
@@ -88,4 +88,4 @@ grep -qF "pam_exec.so quiet $test_tmp/packaged-gate" "$test_tmp/etc/pam.d/sudo" 
 verify_line=$(grep -n '^verify$' "$CALL_LOG" | cut -d: -f1)
 pam_line=$(grep -n '^sed ' "$CALL_LOG" | head -1 | cut -d: -f1)
 (( verify_line < pam_line )) || fail "PAM is enabled before verification"
-pass "verified fingerprints activate PAM, the lid gate and Noctalia in that order"
+pass "verified fingerprints activate PAM and the lid gate in that order, with no Noctalia config"

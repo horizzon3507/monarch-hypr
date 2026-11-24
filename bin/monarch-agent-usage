@@ -19,10 +19,6 @@ monarch-cmd-present codexbar || {
   exit 1
 }
 
-refresh() {
-  noctalia msg plugin monarch/agents:collector all refresh >/dev/null 2>&1 || true
-}
-
 catalog() {
   codexbar config providers --json
 }
@@ -56,7 +52,6 @@ setup_provider() {
     codexbar config set-source --provider "$provider" --source "$method" || return
     codexbar config enable --provider "$provider" || return
     echo "Start $provider and sign in if needed; CodexBar reuses its existing authentication."
-    refresh
     return
     ;;
   synthetic) method="API key" ;;
@@ -68,7 +63,6 @@ setup_provider() {
   if [[ $method == "Existing authentication" ]]; then
     codexbar config enable --provider "$provider" || return
     echo "CodexBar will use the provider's existing credentials and configured source."
-    refresh
     return
   fi
 
@@ -82,7 +76,6 @@ setup_provider() {
   if printf '%s' "$key" | codexbar config set-api-key --provider "$provider" --stdin; then
     unset key
     codexbar config set-source --provider "$provider" --source api || return
-    refresh
     echo "Provider configured. Some providers also require endpoint or workspace settings in CodexBar."
   else
     unset key
@@ -111,7 +104,6 @@ enable | disable)
   [[ -n $provider ]] || { echo "$action requires a provider" >&2; exit 1; }
   validate_provider "$provider"
   codexbar config "$action" --provider "$provider"
-  refresh
   ;;
 setup)
   interactive
@@ -125,8 +117,8 @@ manage)
     choice=$(gum choose --header "$provider" "Configure authentication" "Enable" "Disable" "Back") || continue
     case "$choice" in
     "Configure authentication") setup_provider "$provider" || true ;;
-    "Enable") codexbar config enable --provider "$provider" && refresh || true ;;
-    "Disable") codexbar config disable --provider "$provider" && refresh || true ;;
+    "Enable") codexbar config enable --provider "$provider" || true ;;
+    "Disable") codexbar config disable --provider "$provider" || true ;;
     esac
   done
   ;;

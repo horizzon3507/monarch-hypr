@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# monarch:summary=Set up fingerprint authentication for sudo, polkit, and lock screen
+# monarch:summary=Set up fingerprint authentication for sudo and polkit
 # monarch:requires-sudo=true
 
 set -e
@@ -77,25 +77,10 @@ EOF
   fi
   add_gate_to /etc/pam.d/polkit-1 polkit
 
-  # The lock screen deliberately has no gate: v5 authenticates against the
+  # The lock screen (outside this script) deliberately has no gate: v5 authenticates against the
   # "login" stack with pam_fprintd stripped and drives the reader itself over
   # D-Bus, so a closed lid leaves the password field usable rather than blocking
   # a PAM module.
-}
-
-setup_noctalia_lockscreen() {
-  # Own file, not config.toml: Noctalia merges every *.toml in this directory,
-  # and monarch-refresh-noctalia overwrites config.toml with the shipped default.
-  echo "Configuring Noctalia lock screen for fingerprint authentication..."
-  mkdir -p "$HOME/.config/noctalia"
-  cat >"$HOME/.config/noctalia/monarch-fingerprint.toml" <<'EOF'
-# Managed by Monarch (monarch-setup-security-fingerprint).
-# Removed by monarch-remove-security-fingerprint.
-[lockscreen]
-fingerprint = true
-EOF
-
-  noctalia msg config-reload >/dev/null 2>&1 || true
 }
 
 add_fingerprint_marker() {
@@ -125,10 +110,9 @@ if sudo fprintd-enroll "$USER"; then
   echo -e "\nNow let's verify that it's working correctly.\n"
   if fprintd-verify; then
     setup_pam_config
-    setup_noctalia_lockscreen
     add_fingerprint_marker
     echo -e "\e[32m\nPerfect! Fingerprint authentication is now configured.\e[0m"
-    echo "You can use your fingerprint for sudo, polkit, and the lock screen (Super + L)."
+    echo "You can use your fingerprint for sudo and polkit."
   else
     echo -e "\e[31m\nVerification failed. You may want to try enrolling again.\e[0m"
     exit 1

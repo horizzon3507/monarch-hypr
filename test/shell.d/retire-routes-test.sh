@@ -26,7 +26,8 @@ run() { : >"$TEST_CALLS"; PATH="$tmp/bin:/usr/bin:/bin" bash "$ROOT/bin/$1" "${@
 [[ $(run monarch-launch-bluetooth) == "monarch-launch-tui bluetui" ]] || fail "bluetooth opens the terminal UI"
 [[ $(run monarch-launch-powerprofile) == "monarch-menu setup.power" ]] || fail "power opens the menu rows"
 [[ $(run monarch-crash-history open) == "monarch-panel open crashes" ]] || fail "crash history opens the crash panel"
-[[ $(PANEL_FAIL=1 run monarch-crash-history open) == "monarch-panel open crashes" ]] || fail "a missing panel is reported, not routed through Noctalia"
+out=$(PANEL_FAIL=1 run monarch-crash-history open); [[ $(head -n 1 <<<"$out") == "monarch-panel open crashes" && $(sed -n 2p <<<"$out") == "monarch-launch-tui bash -c"* ]] || fail "a missing panel falls back to a terminal, not Noctalia"
+! grep -q noctalia <<<"$out" || fail "crash history never reaches Noctalia"
 ! grep -q noctalia "$TEST_CALLS" || fail "no Hyprland route calls Noctalia"
 # Fingerprint on Hyprland: refuse before any sudo, PAM write or enrollment change.
 for S in setup remove; do
