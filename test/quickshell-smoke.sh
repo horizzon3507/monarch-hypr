@@ -46,8 +46,11 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# The packaged sway carries file capabilities that containers without them
+# refuse to exec; a plain copy runs without them.
+cp "$(command -v sway)" "$work/sway-bin"
 WLR_BACKENDS=headless WLR_LIBINPUT_NO_DEVICES=1 WLR_RENDERER=pixman \
-  sway -c /dev/null >"$work/sway.log" 2>&1 &
+  "$work/sway-bin" -c /dev/null >"$work/sway.log" 2>&1 &
 sway_pid=$!
 
 socket=""
