@@ -2,7 +2,6 @@
 
 set -euo pipefail
 source "${BASH_SOURCE[0]%/*}/base-test.sh"
-unset HYPRLAND_INSTANCE_SIGNATURE
 
 command -v setsid >/dev/null || { pass "skipped: setsid is not installed"; exit 0; }
 tmp=$(mktemp -d)
