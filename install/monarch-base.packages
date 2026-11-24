@@ -1,6 +1,5 @@
 # The ISO installs both sections; reconciliation restores only required packages.
 # monarch-preinstalls.packages defines the default subset managed as one bundle.
-
 # required
 alsa-utils
 archlinux-keyring
@@ -47,8 +46,11 @@ gvfs-mtp
 gvfs-nfs
 gvfs-smb
 herdr-bin
+hypridle
 hyprland
 hyprland-guiutils
+hyprlock
+hyprpaper
 imagemagick
 imv
 inetutils
@@ -61,6 +63,7 @@ libqalculate
 libsecret
 linux-cachyos-headers
 localsend
+mako
 man-db
 mise
 monarch-keyring
@@ -88,10 +91,12 @@ python-pipx
 python-terminaltexteffects
 qrencode
 qt5-wayland
+quickshell
 ripgrep
 sddm
 slurp
 starship
+swayosd
 system-config-printer
 tensaku
 tesseract
@@ -102,6 +107,7 @@ ufw
 ufw-docker
 unzip
 uwsm
+walker
 whois
 wireless-regdb
 wiremix
@@ -127,7 +133,6 @@ zsh-completions
 zsh-history-substring-search
 zsh-syntax-highlighting
 zsh-theme-powerlevel10k
-
 # default
 alacritty
 bettercap
