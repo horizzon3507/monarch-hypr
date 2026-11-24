@@ -10,3 +10,4 @@ WifiQr 1.0 WifiQr.qml
 NetworkPanel 1.0 NetworkPanel.qml
 ThemePanel 1.0 ThemePanel.qml
 DisplayPanel 1.0 DisplayPanel.qml
+StepRow 1.0 StepRow.qml
