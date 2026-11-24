@@ -157,7 +157,7 @@ function bluetoothText(adapterEnabled, connected) {
 
 // Panels the host knows. Names come from the IPC call, so anything else is
 // refused rather than loaded.
-var PANELS = ["wifi-qr", "network", "theme", "display"];
+var PANELS = ["wifi-qr", "network", "theme", "display", "background"];
 
 function panelName(name) {
     var n = String(name === undefined || name === null ? "" : name);
@@ -346,4 +346,24 @@ function brightnessText(map) {
     if (!map) return "";
     for (var k in map) if (map[k].backend === "backlight") return "bri " + map[k].percent + "%";
     return "";
+}
+
+// Output of `monarch-theme-background-list`: active, file name, path, thumbnail
+// path and removable, tab separated. Only absolute paths are accepted. An empty
+// result is a real empty list (a theme with no backgrounds), unlike a failed
+// command, which the panel reports separately.
+function parseBackgroundList(text) {
+    var out = [];
+    var lines = String(text === undefined || text === null ? "" : text).split("\n");
+    for (var i = 0; i < lines.length; i++) {
+        var f = lines[i].split("\t");
+        if (f.length < 4 || (f[0] !== "true" && f[0] !== "false") || f[1] === "" || f[2].charAt(0) !== "/") continue;
+        out.push({
+            active: f[0] === "true",
+            name: f[1],
+            path: f[2],
+            thumbnail: f[3].charAt(0) === "/" ? f[3] : ""
+        });
+    }
+    return out;
 }

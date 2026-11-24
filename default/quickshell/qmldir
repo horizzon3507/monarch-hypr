@@ -11,3 +11,4 @@ NetworkPanel 1.0 NetworkPanel.qml
 ThemePanel 1.0 ThemePanel.qml
 DisplayPanel 1.0 DisplayPanel.qml
 StepRow 1.0 StepRow.qml
+BackgroundPanel 1.0 BackgroundPanel.qml
