@@ -25,20 +25,21 @@ ln -s "$source_dir/second.jpg" "$farm/second.jpg"
 ln -s "$user_dir/imported.png" "$farm/imported.png"
 ln -s "$user_dir/legacy.png" "$farm/legacy.png"
 
-cat >"$TEST_ROOT/bin/noctalia" <<EOF
+cat >"$TEST_ROOT/bin/monarch-theme-current" <<'EOF'
 #!/bin/bash
-if [[ \${1:-} == msg && \${2:-} == wallpaper-get ]]; then
-  echo "$source_dir/second.jpg"
-elif [[ \${1:-} == msg && \${2:-} == color-scheme-get ]]; then
-  echo "custom Monarch"
-fi
+echo "custom Monarch"
+EOF
+cat >"$TEST_ROOT/bin/monarch-wallpaper" <<EOF
+#!/bin/bash
+[[ \${1:-} == get ]] && echo "$source_dir/second.jpg"
+exit 0
 EOF
 cat >"$TEST_ROOT/bin/magick" <<'EOF'
 #!/bin/bash
 source=${1%\[0\]}
 cp "$source" "${@: -1}"
 EOF
-chmod +x "$TEST_ROOT/bin/noctalia" "$TEST_ROOT/bin/magick"
+chmod +x "$TEST_ROOT/bin/"*
 
 output=$("$ROOT/bin/monarch-theme-background-list")
 expected=$(printf 'false\tfirst.png\t%s\nfalse\timported.png\t%s\nfalse\tlegacy.png\t%s\ntrue\tsecond.jpg\t%s' "$source_dir/first.png" "$user_dir/imported.png" "$user_dir/legacy.png" "$source_dir/second.jpg")

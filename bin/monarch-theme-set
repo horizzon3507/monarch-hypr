@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# monarch:summary=Apply a Monarch theme through Noctalia
+# monarch:summary=Apply a Monarch theme to the Hyprland shell
 # monarch:args=<name>
 # monarch:examples=monarch theme set Lumon
 
@@ -9,9 +9,21 @@ set -uo pipefail
 name=${1:-}
 [[ -n $name ]] || { echo "Usage: monarch theme set <name>" >&2; exit 1; }
 
-palette="$HOME/.config/noctalia/palettes/$name.json"
+palette="$HOME/.config/monarch/palettes/$name.json"
 [[ -f $palette ]] || { echo "Unknown Monarch theme: $name" >&2; exit 1; }
-command -v noctalia >/dev/null 2>&1 || { echo "Noctalia is not installed" >&2; exit 1; }
 
-noctalia msg color-scheme-set custom "$name" >/dev/null || exit 1
+state="${XDG_STATE_HOME:-$HOME/.local/state}/monarch/theme"
+previous=
+[[ -s $state ]] && previous=$(<"$state")
+
+mkdir -p "${state%/*}"
+printf '%s\n' "$name" >"$state"
+if ! monarch-theme-render; then
+  if [[ -n $previous ]]; then
+    printf '%s\n' "$previous" >"$state"
+  else
+    rm -f "$state"
+  fi
+  exit 1
+fi
 monarch-theme-apply

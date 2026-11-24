@@ -10,15 +10,18 @@ export HOME="$TEST_ROOT/home"
 export PATH="$TEST_ROOT/bin:$PATH"
 mkdir -p "$HOME" "$TEST_ROOT/bin"
 
-cat >"$TEST_ROOT/bin/noctalia" <<'EOF'
+cat >"$TEST_ROOT/bin/monarch-theme-current" <<'EOF'
 #!/bin/bash
-if [[ ${1:-} == msg && ${2:-} == color-scheme-get ]]; then
-  echo "custom Tokyo Night"
-elif [[ ${1:-} == msg && ${2:-} == wallpaper-set ]]; then
-  printf '%s\n' "$3" >"$HOME/applied"
-elif [[ ${1:-} == msg && ${2:-} == panel-open ]]; then
-  printf '%s\n' "$3" >"$HOME/reopened"
-fi
+echo "custom Tokyo Night"
+EOF
+cat >"$TEST_ROOT/bin/monarch-wallpaper" <<'EOF'
+#!/bin/bash
+[[ ${1:-} == set ]] && printf '%s\n' "$2" >"$HOME/applied"
+exit 0
+EOF
+cat >"$TEST_ROOT/bin/monarch-menu" <<'EOF'
+#!/bin/bash
+printf '%s\n' "$1" >"$HOME/reopened"
 EOF
 
 cat >"$TEST_ROOT/bin/monarch-theme-apply" <<'EOF'
@@ -38,12 +41,6 @@ EOF
 
 chmod +x "$TEST_ROOT/bin/"*
 
-panel="$ROOT/default/noctalia/plugins/monarch-theme/background.luau"
-if ! grep -Fq 'noctalia.runAsync(BIN .. "/monarch-theme-background-import --reopen-panel")' "$panel"; then
-  echo "Background imports are not detached from Noctalia's command timeout" >&2
-  exit 1
-fi
-
 cp "$ROOT/themes/monarch/1-monarch.png" "$TEST_ROOT/wallpaper.png"
 result=$("$ROOT/bin/monarch-theme-background-import" --reopen-panel "$TEST_ROOT/wallpaper.png")
 expected="$HOME/.config/monarch/backgrounds/tokyo-night/wallpaper.png"
@@ -52,7 +49,7 @@ expected="$HOME/.config/monarch/backgrounds/tokyo-night/wallpaper.png"
 [[ -f $expected ]]
 grep -qx 'wallpaper.png' "$HOME/refreshed"
 grep -qx "$expected" "$HOME/applied"
-grep -qx 'monarch/theme:background' "$HOME/reopened"
+grep -qx 'style.background' "$HOME/reopened"
 
 result=$("$ROOT/bin/monarch-theme-background-import" "$TEST_ROOT/wallpaper.png")
 [[ $result == "$HOME/.config/monarch/backgrounds/tokyo-night/wallpaper-2.png" ]]
@@ -66,6 +63,6 @@ fi
 
 rm "$HOME/reopened"
 "$ROOT/bin/monarch-theme-background-import" --reopen-panel
-grep -qx 'monarch/theme:background' "$HOME/reopened"
+grep -qx 'style.background' "$HOME/reopened"
 
 printf 'ok\n'
