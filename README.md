@@ -9,7 +9,7 @@
 [![Documentation](https://img.shields.io/badge/Documentation-Read_the_docs-7e33ff?style=flat-square)](https://docs.monarchlinux.com/)
 [![CI](https://img.shields.io/github/actions/workflow/status/monarch-os/monarch/ci.yml?branch=dev&label=CI&style=flat-square)](https://github.com/monarch-os/monarch/actions/workflows/ci.yml?query=branch%3Adev)
 
-Monarch turns a fresh [CachyOS](https://cachyos.org) installation into a fully-configured, beautiful, and modern desktop — purpose-built as a **cybersecurity platform**, inspired by [SkillArch](https://github.com/laluka/SkillArch), with tools and aliases preinstalled.
+Monarch turns a fresh [CachyOS](https://cachyos.org) installation into a fully-configured, beautiful, and modern desktop. It is lightly opinionated: a good default setup that stays easy to change. It also carries some security tooling and shell helpers inherited from [SkillArch](https://github.com/laluka/SkillArch).
 
 Read the [documentation](https://docs.monarchlinux.com/) to install Monarch and get started.
 
@@ -28,7 +28,7 @@ Monarch is an independently maintained **hard fork** of [Omarchy](https://omarch
 
 ## The true monarchs
 
-Monarch is, first and foremost, an assembly of projects built and maintained by others. Its role is to bring them together into a cohesive desktop and cybersecurity environment — not to take credit for their work. The people and communities behind those projects are the true sovereigns:
+Monarch is, first and foremost, an assembly of projects built and maintained by others. Its role is to bring them together into a cohesive desktop environment, with the inherited security tooling — not to take credit for their work. The people and communities behind those projects are the true sovereigns:
 
 - [Noctalia](https://github.com/noctalia-dev/noctalia) — the desktop shell that brings the interface to life, from the bar and launcher to notifications and theming.
 - [Niri](https://github.com/YaLTeR/niri) — the scrollable-tiling Wayland compositor at the heart of the desktop.
