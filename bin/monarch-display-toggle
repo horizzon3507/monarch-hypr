@@ -26,11 +26,11 @@ if [[ -z $output ]] || ! [[ $action =~ ^(on|off|toggle)$ ]]; then
   exit 2
 fi
 
-NIRI_SOCKET=$(monarch-hw-niri-socket) || {
-  echo "Error: niri is not running." >&2
+HYPRLAND_INSTANCE_SIGNATURE=$(monarch-hw-hypr-instance) || {
+  echo "Error: Hyprland is not running." >&2
   exit 1
 }
-export NIRI_SOCKET
+export HYPRLAND_INSTANCE_SIGNATURE
 
 displays=$(monarch-display-list) || exit 1
 state=$(awk -F'\t' -v name="$output" '$1 == name { print $2; exit }' <<<"$displays")
@@ -54,9 +54,4 @@ if [[ $action == off ]]; then
   fi
 fi
 
-if ! out=$(niri msg output "$output" "$action" 2>&1); then
-  printf '%s\n' "${out:-Could not turn $output $action}" >&2
-  exit 1
-fi
-
-monarch-niri-output-set "$output" power "$action" >/dev/null
+monarch-hypr-output-set "$output" power "$action" >/dev/null

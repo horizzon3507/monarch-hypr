@@ -1,0 +1,32 @@
+#!/bin/bash
+
+# monarch:summary=Persist one output property where Hyprland will keep it
+# monarch:group=hypr
+# monarch:args=<name> scale <value> | <name> power <on|off>
+# monarch:hidden=true
+
+# Hyprland has one owner of runtime output overrides: monarch-hypr-runtime
+# (~/.config/hypr/runtime.lua). This is the stable entry point for callers that
+# only know an output name, a property and a value.
+
+set -uo pipefail
+
+PATH="$PATH:$(cd -- "${BASH_SOURCE[0]%/*}" && pwd)"
+
+name=${1:-}
+property=${2:-}
+value=${3:-}
+
+if [[ -z $name || -z $property || -z $value ]]; then
+  echo "Usage: monarch-hypr-output-set <name> scale <value> | <name> power <on|off>" >&2
+  exit 2
+fi
+
+case "$property" in
+  scale) exec monarch-hypr-runtime output-scale "$name" "$value" ;;
+  power) exec monarch-hypr-runtime output "$name" "$value" ;;
+  *)
+    echo "Error: unknown property: $property" >&2
+    exit 2
+    ;;
+esac

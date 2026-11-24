@@ -68,7 +68,6 @@ test/monarch-network-controls-test.sh	network	medium	isolated
 test/monarch-network-panel-test.sh	network	medium	isolated
 test/monarch-network-speedtest-test.sh	network	medium	isolated
 test/shell.d/wifi-option-boundary-test.sh	wifi	medium	isolated
-test/monarch-niri-socket-test.sh	display-recovery	high	isolated
 test/shell.d/screencast-dnd-test.sh	notifications	high	isolated
 test/shell.d/chat-privacy-test.sh	privacy	medium	isolated
 test/shell.d/portal-recording-test.sh	privacy	high	isolated
@@ -192,3 +191,4 @@ test/shell.d/fingerprint-removal-test.sh	security	high	isolated
 test/monarch-i18n-test.sh	i18n	medium	isolated
 test/shell.d/hypr-geometry-test.sh	capture	high	isolated
 test/shell.d/hypr-dispatch-test.sh	capture	high	isolated
+test/monarch-hypr-instance-test.sh	display-recovery	high	isolated
