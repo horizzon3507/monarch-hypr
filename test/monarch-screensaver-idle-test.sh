@@ -39,7 +39,7 @@ cat >"$TMP/bin/idle-recorder" <<'EOF'
 printf '%s\n' "${0##*/} $*" >>"$IDLE_TEST_LOG"
 EOF
 chmod +x "$TMP/bin/idle-recorder"
-for command in noctalia pgrep pkill 1password monarch-brightness-keyboard niri sleep; do
+for command in noctalia pgrep pkill 1password monarch-brightness-keyboard niri hyprctl sleep; do
   ln -s idle-recorder "$TMP/bin/$command"
 done
 export IDLE_TEST_LOG="$TMP/idle.log"
@@ -79,7 +79,7 @@ def check_actions(behaviors):
   assert "niri msg action power-off-monitors" in calls
   calls = execute(behaviors["screen-off"], resume=True)
   assert "monarch-brightness-keyboard restore" in calls
-  assert "niri msg action power-on-monitors" in calls
+  assert 'hyprctl dispatch hl.dsp.dpms({ action = "enable" })' in calls
 
 check_actions(defaults)
 print("ok - shipped idle actions lock applications and restore screen and keyboard power")
