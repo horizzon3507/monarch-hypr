@@ -61,6 +61,33 @@ rule({ tag = "pip" }, {
   keep_aspect_ratio = true, border_size = 0, opacity = "1 1", move = "100%-w-40 4%",
 })
 
+-- Application rules
+rule({ class = "^(1[p|P]assword)$" }, { no_screen_share = true, tag = "+floating-window" })
+rule({ class = "^(Bitwarden)$" }, { no_screen_share = true, tag = "+floating-window" })
+rule({ class = "chrome-nngceckbapebfimnlniiiahkandclblb-Default" }, { no_screen_share = true, tag = "+floating-window" })
+-- Focus floating DaVinci Resolve dialog windows
+rule({ class = ".*[Rr]esolve.*", float = true }, { stay_focused = true })
+rule({ class = "GeForceNOW" }, { idle_inhibit = "fullscreen" })
+-- JetBrains IDEs: no focus on mouse move
+rule({ class = "^(jetbrains-.*)$" }, { no_follow_mouse = true })
+-- Float LocalSend and the fzf file picker
+rule({ class = "(Share|localsend)" }, { float = true, center = true })
+rule({ class = "localsend" }, { size = "1100 700" })
+rule({ class = "com.moonlight_stream.Moonlight" }, { fullscreen = true, idle_inhibit = "fullscreen" })
+rule({ class = "qemu" }, { tag = "-default-opacity", opacity = "1 1" })
+rule({ class = "com.libretro.RetroArch" }, { fullscreen = true, tag = "-default-opacity", opacity = "1 1", idle_inhibit = "fullscreen" })
+-- Float Steam
+rule({ class = "steam" }, { float = true, idle_inhibit = "fullscreen" })
+rule({ class = "steam", title = "Steam" }, { center = true, size = "1100 700" })
+rule({ class = "steam", title = "Friends List" }, { size = "460 800" })
+rule({ class = "steam.*" }, { tag = "-default-opacity", opacity = "1 1" })
+-- Prevent Telegram from stealing focus on new messages
+rule({ class = "org.telegram.desktop" }, { focus_on_activate = false })
+-- Webcam overlay for screen recording
+rule({ title = "WebcamOverlay" }, {
+  float = true, pin = true, no_initial_focus = true, no_dim = true, move = "100%-w-40 100%-w-40",
+})
+
 -- Default opacity, applied after the app rules have had a chance to opt out
 rule({ tag = "default-opacity" }, { opacity = "0.97 0.9" })
 
