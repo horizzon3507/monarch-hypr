@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# monarch:summary=Restart the Hyprland desktop shell components
+# monarch:examples=monarch shell restart
+
+for proc in quickshell mako swayosd-server hypridle hyprpaper; do
+  pkill -x "$proc" 2>/dev/null || true
+done
+for (( attempt = 0; attempt < 30; attempt++ )); do
+  pgrep -x quickshell >/dev/null 2>&1 || break
+  sleep 0.1
+done
+
+# These flags mirror live shell state; a fresh shell has neither toggle enabled.
+rm -f "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/monarch/caffeine" \
+  "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/monarch/nightlight"
+
+setsid --fork monarch-shell-start </dev/null >/dev/null 2>&1

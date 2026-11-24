@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# monarch:summary=Change volume or brightness with an on-screen indicator
+# monarch:args=<volume|brightness> <up|down|mute|max|min>
+# monarch:examples=monarch osd volume up | monarch osd brightness down
+
+case "${1:-}:${2:-}" in
+  volume:up) exec swayosd-client --output-volume raise ;;
+  volume:down) exec swayosd-client --output-volume lower ;;
+  volume:mute) exec swayosd-client --output-volume mute-toggle ;;
+  brightness:up) exec swayosd-client --brightness raise ;;
+  brightness:down) exec swayosd-client --brightness lower ;;
+  brightness:max) exec swayosd-client --brightness 100 ;;
+  brightness:min) exec swayosd-client --brightness 1 ;;
+  *)
+    echo "Usage: monarch osd <volume|brightness> <up|down|mute|max|min>" >&2
+    exit 1
+    ;;
+esac
