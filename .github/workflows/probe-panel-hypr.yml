@@ -1,9 +1,9 @@
-name: Probe bar in real Hyprland
+name: Probe panel in real Hyprland
 
 # Throwaway probe on a probe branch (not part of the product).
 on:
   push:
-    branches: [probe/bar-hypr]
+    branches: [probe/panel-hypr]
     paths: [".github/workflows/probe-bar-hypr.yml", "probe-hypr/**"]
 
 permissions:
@@ -16,7 +16,7 @@ jobs:
       image: archlinux:latest
       options: --privileged
     steps:
-      - run: pacman -Syu --noconfirm --needed hyprland quickshell mesa grim seatd gcc pkgconf wayland wayland-protocols wlr-protocols git sudo qt6-wayland ttf-dejavu noto-fonts python python-pillow
+      - run: pacman -Syu --noconfirm --needed hyprland quickshell mesa grim seatd gcc pkgconf wayland wayland-protocols wlr-protocols git sudo qt6-wayland wtype qrencode ttf-dejavu noto-fonts python python-pillow
       - uses: actions/checkout@v4
       - name: Build the virtual pointer helper
         run: |
@@ -30,10 +30,10 @@ jobs:
         run: |
           useradd -m tester; chmod 666 /dev/dri/* || true; (seatd -g tester &); sleep 1
           chown -R tester: "$GITHUB_WORKSPACE"
-          sudo -u tester bash "$GITHUB_WORKSPACE/probe-hypr/test-bar-hypr.sh" "$GITHUB_WORKSPACE/out" || true
+          sudo -u tester bash "$GITHUB_WORKSPACE/probe-hypr/test-panel-hypr.sh" "$GITHUB_WORKSPACE/out" || true
           cat "$GITHUB_WORKSPACE/out/results.txt"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: bar-hypr-out
+          name: panel-hypr-out
           path: out
