@@ -22,7 +22,8 @@ work_dir=/tmp/monarch-pkg-build
 local_source_dir=/tmp/monarch-local-source
 rm -rf "$work_dir" "$local_source_dir"
 mkdir -p "$work_dir" "$local_source_dir"
-cp -a /monarch-source/. "$local_source_dir/"
+# The monorepo checkout also holds iso/ and pkgs/; they must not ship in /usr/share/monarch.
+tar -C /monarch-source --exclude=./iso --exclude=./pkgs -cf - . | tar -C "$local_source_dir" -xf -
 printf '%s\n' "$MONARCH_LOCAL_PKGVER" >"$local_source_dir/version"
 
 if ! id builder &>/dev/null; then
