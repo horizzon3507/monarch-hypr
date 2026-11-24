@@ -25,3 +25,7 @@ The `iso/` and `pkgs/pkgbuilds/monarch/` imports are `git subtree` merges withou
 ## Not covered
 
 Other upstream packages (`monarch-welcome`, `monarch-nvim`, the keyring) are not built here. The ISO installs them from the upstream repository.
+
+## Branches
+
+`dev` is the working baseline. Until the Hyprland and Quickshell desktop is complete, that work lands on the `hyprland-desktop` integration branch, which is not a usable desktop on its own. It merges into `dev` once, as a merge commit, after the full package build and a real ISO boot test of the integrated tree.
