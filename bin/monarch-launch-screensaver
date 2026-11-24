@@ -14,16 +14,16 @@ if monarch-toggle-enabled screensaver-off && [[ $1 != "force" ]]; then
   exit 1
 fi
 
-focused=$(monarch-niri-monitor-focused)
+focused=$(monarch-hypr-monitor-focused)
 terminal=$(xdg-terminal-exec --print-id)
 
 count_screensavers() {
-  niri msg --json windows 2>/dev/null |
-    jq '[.[] | select(.app_id == "org.monarch.screensaver")] | length'
+  hyprctl clients -j 2>/dev/null |
+    jq '[.[] | select(.class == "org.monarch.screensaver")] | length'
 }
 
-for m in $(niri msg --json outputs 2>/dev/null | jq -r 'to_entries[].value.name'); do
-  niri msg action focus-monitor "$m" >/dev/null 2>&1
+for m in $(hyprctl monitors -j 2>/dev/null | jq -r '.[].name'); do
+  hyprctl dispatch "hl.dsp.focus({ monitor = \"$m\" })" >/dev/null 2>&1
   before=$(count_screensavers)
 
   case $terminal in
@@ -65,4 +65,4 @@ for m in $(niri msg --json outputs 2>/dev/null | jq -r 'to_entries[].value.name'
   done
 done
 
-[[ -n $focused ]] && niri msg action focus-monitor "$focused" >/dev/null 2>&1
+[[ -n $focused ]] && hyprctl dispatch "hl.dsp.focus({ monitor = \"$focused\" })" >/dev/null 2>&1

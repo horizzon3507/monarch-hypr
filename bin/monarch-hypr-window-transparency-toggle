@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# monarch:summary=Toggle window transparency on and off
+# monarch:group=hypr
+# monarch:hidden=true
+
+# Flips the "window-opaque" toggle flag (see monarch-toggle); the Hyprland Lua config
+# reads the flag when it loads, so a reload applies the change.
+
+set -uo pipefail
+
+monarch-toggle --enabled-notification "󰖯    Windows opaque" --disabled-notification "󰖯    Windows transparent" window-opaque || exit 1
+hyprctl reload >/dev/null 2>&1 || true

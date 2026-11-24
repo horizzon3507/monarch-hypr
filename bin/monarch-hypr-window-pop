@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# monarch:summary=Pop the active window out as a pinned, centered floating window (or put it back)
+# monarch:hidden=true
+
+active=$(hyprctl activewindow -j 2>/dev/null)
+[[ $(jq -r '.address // empty' <<<"$active") ]] || exit 0
+
+if [[ $(jq -r '.floating' <<<"$active") == "true" ]]; then
+  [[ $(jq -r '.pinned' <<<"$active") == "true" ]] && hyprctl dispatch "hl.dsp.window.pin({ action = \"toggle\" })" >/dev/null 2>&1
+  hyprctl dispatch "hl.dsp.window.float({ action = \"toggle\" })" >/dev/null 2>&1
+else
+  hyprctl dispatch "hl.dsp.window.float({ action = \"toggle\" })" >/dev/null 2>&1
+  hyprctl dispatch "hl.dsp.window.resize({ x = 875, y = 600, relative = false })" >/dev/null 2>&1
+  hyprctl dispatch "hl.dsp.window.center()" >/dev/null 2>&1
+  hyprctl dispatch "hl.dsp.window.pin({ action = \"toggle\" })" >/dev/null 2>&1
+fi

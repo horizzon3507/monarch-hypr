@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# monarch:summary=Close all open windows on the current Hyprland session.
+# monarch:hidden=true
+
+hyprctl clients -j 2>/dev/null | jq -r '.[].address' | while read -r address; do
+  hyprctl dispatch "hl.dsp.window.close({ window = \"address:$address\" })" >/dev/null 2>&1 || true
+done
+
+# Move back to workspace 1.
+hyprctl dispatch "hl.dsp.focus({ workspace = 1 })" >/dev/null 2>&1 || true
