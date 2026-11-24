@@ -157,7 +157,7 @@ function bluetoothText(adapterEnabled, connected) {
 
 // Panels the host knows. Names come from the IPC call, so anything else is
 // refused rather than loaded.
-var PANELS = ["wifi-qr"];
+var PANELS = ["wifi-qr", "network"];
 
 function panelName(name) {
     var n = String(name === undefined || name === null ? "" : name);
@@ -187,4 +187,52 @@ function parseWifiQr(text) {
 // A WPA/WEP network has a password to reveal, an open one does not.
 function wifiSecured(security) {
     return security !== "" && security !== "nopass";
+}
+
+// `monarch-wifi-panel list` prints one JSON object:
+//   {"enabled":bool,"present":bool,"networks":[{key,ssid,security,signal,
+//    connected,saved,uuid,device,connecting}, ...]}
+// Returns null for anything else. Fields are re-typed so the panel never binds
+// to a value of the wrong type; rows without a name are dropped.
+function parseWifiSnapshot(text) {
+    var data;
+    try { data = JSON.parse(text); } catch (e) { return null; }
+    if (!data || typeof data !== "object" || !Array.isArray(data.networks)) return null;
+    var rows = [];
+    for (var i = 0; i < data.networks.length; i++) {
+        var n = data.networks[i];
+        if (!n || typeof n.ssid !== "string" || n.ssid === "") continue;
+        rows.push({
+            key: String(n.key),
+            ssid: n.ssid,
+            security: typeof n.security === "string" ? n.security : "",
+            signal: clamp(Number(n.signal) || 0, 0, 100),
+            connected: n.connected === true,
+            saved: n.saved === true,
+            uuid: typeof n.uuid === "string" ? n.uuid : "",
+            device: typeof n.device === "string" ? n.device : "",
+            connecting: n.connecting === true
+        });
+    }
+    return { enabled: data.enabled === true, present: data.present === true, networks: rows };
+}
+
+// What a click on a row does. A connected network disconnects. A saved or open
+// network joins with what NetworkManager already has. An unsaved network that
+// needs a password or credentials cannot be joined from this panel yet.
+function wifiRowAction(net) {
+    if (!net || net.connecting) return "";
+    if (net.connected) return net.uuid !== "" && net.device !== "" ? "disconnect" : "";
+    if (net.saved || net.security === "open") return "join";
+    return "credentials";
+}
+
+// One-line status for the panel header.
+function wifiHeader(snapshot) {
+    if (snapshot === null) return "Wi-Fi status unavailable";
+    if (!snapshot.present) return "No Wi-Fi adapter";
+    if (!snapshot.enabled) return "Wi-Fi is off";
+    for (var i = 0; i < snapshot.networks.length; i++)
+        if (snapshot.networks[i].connected) return "Connected to " + snapshot.networks[i].ssid;
+    return snapshot.networks.length > 0 ? "Not connected" : "No networks in range";
 }
