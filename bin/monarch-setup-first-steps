@@ -12,19 +12,7 @@ export PATH="$runtime/bin:$PATH"
 state_home=${XDG_STATE_HOME:-$HOME/.local/state}
 export XDG_STATE_HOME="$state_home"
 state_dir="$state_home/monarch/first-steps"
-panel_id="monarch/first-steps:panel"
 mkdir -p "$state_dir"
-
-# The guide runs in the Quickshell shell inside a Hyprland session and in the
-# Noctalia plugin otherwise. MONARCH_FIRST_STEPS_SHELL=quickshell|noctalia forces
-# one; opening a guide never changes system state beyond the "shown" marker.
-use_quickshell() {
-  case ${MONARCH_FIRST_STEPS_SHELL:-} in
-    quickshell) return 0 ;;
-    noctalia) return 1 ;;
-  esac
-  [[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]]
-}
 
 # Name of the open Quickshell panel, "" when none; fails when the shell is not up.
 qs_active() {
@@ -32,37 +20,26 @@ qs_active() {
 }
 
 wait_for_shell() {
-  if use_quickshell; then
-    local attempt
-    for ((attempt = 0; attempt < ${MONARCH_FIRST_STEPS_WAIT:-600}; attempt++)); do
-      qs_active >/dev/null && return 0
-      sleep 0.5
-    done
-    echo "The Quickshell shell is not ready." >&2
-    return 1
-  fi
-  source "$runtime/install/reconcile/noctalia-wait.sh"
-  monarch_noctalia_wait 300 || { echo "Noctalia is not ready." >&2; return 1; }
+  local attempt
+  for ((attempt = 0; attempt < ${MONARCH_FIRST_STEPS_WAIT:-600}; attempt++)); do
+    qs_active >/dev/null && return 0
+    sleep 0.5
+  done
+  echo "The Quickshell shell is not ready." >&2
+  return 1
 }
 
-# True when the desktop is free of another panel (and, for Noctalia, unlocked).
+# True when the desktop is free of another panel.
 shell_idle() {
   local state
-  if use_quickshell; then
-    state=$(qs_active) || return 1
-    [[ -z $state ]]
-    return
-  fi
-  state=$(noctalia msg status) && jq -e '.locked == false and .panelOpen == false' >/dev/null <<< "$state"
+  state=$(qs_active) || return 1
+  [[ -z $state ]]
 }
 
 # Ask the guide to close itself, only if it is the open panel.
 dismiss_guide() {
-  if use_quickshell; then
-    [[ $(qs_active || true) != first-steps ]] || "$runtime/bin/monarch-panel" close >/dev/null 2>&1 || true
-    return 0
-  fi
-  noctalia msg plugin "$panel_id" all skip >/dev/null
+  [[ $(qs_active || true) != first-steps ]] || "$runtime/bin/monarch-panel" close >/dev/null 2>&1 || true
+  return 0
 }
 
 open_guide_quickshell() {
@@ -76,23 +53,8 @@ open_guide_quickshell() {
 }
 
 open_guide() {
-  local phase="welcome" context attempt
-  if use_quickshell; then
-    wait_for_shell
-    open_guide_quickshell
-    return
-  fi
-  [[ ! -f $state_dir/progress ]] || phase=$(<"$state_dir/progress")
-  context=$(jq -cn --arg root "$runtime" --arg stateHome "$state_home" --arg phase "$phase" \
-    '{root:$root,stateHome:$stateHome,phase:$phase}')
   wait_for_shell
-  noctalia msg plugins enable monarch/first-steps >/dev/null
-  for ((attempt = 0; attempt < 50; attempt++)); do
-    noctalia msg panel-open "$panel_id" "$context" >/dev/null 2>&1 && return 0
-    sleep 0.1
-  done
-  echo "The first-steps panel is unavailable." >&2
-  return 1
+  open_guide_quickshell
 }
 
 record() {
@@ -163,39 +125,7 @@ visit_quickshell() {
 }
 
 visit() {
-  local destination state active attempt route="install"
-  if use_quickshell; then
-    visit_quickshell "$1"
-    return
-  fi
-  case "$1" in
-    network) destination="monarch/network:panel" ;;
-    shortcuts) destination="monarch/menu:keybindings" ;;
-    appearance) destination="monarch/theme:theme" ;;
-    software|cyber) destination="monarch/menu:panel" ;;
-    *) return 1 ;;
-  esac
-  # Persistent plugin panels are separate from Noctalia's active built-in panel.
-  # Ask the entry to close itself; panel-close does not dismiss this guide.
-  noctalia msg plugin "$panel_id" all skip
-  if [[ $1 == "software" || $1 == "cyber" ]]; then
-    [[ $1 != "cyber" ]] || route="install.cyber"
-    if ! "$runtime/bin/monarch-menu" "$route"; then open_guide; return 1; fi
-  elif ! noctalia msg panel-open "$destination"; then
-    open_guide
-    return 1
-  fi
-  for ((attempt = 0; attempt < 3000; attempt++)); do
-    sleep 0.2
-    state=$(noctalia msg status) || return 0
-    jq -e '.locked == false' >/dev/null <<< "$state" || return 0
-    active=$(jq -r '.activePanelId // empty' <<< "$state")
-    [[ -z $active ]] && { open_guide; return; }
-    if [[ $1 == "network" && ( $active == monarch/network:* || $active == "monarch/wifi-qr:panel" ) ]]; then
-      continue
-    fi
-    [[ $active != "$destination" ]] && return 0
-  done
+  visit_quickshell "$1"
 }
 
 installer_args() {
