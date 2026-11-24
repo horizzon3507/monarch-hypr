@@ -15,7 +15,10 @@ for command in 'monarch-wifi-panel", "list' 'monarch-wifi-join' '"monarch-wifi-p
 done
 ! grep -q 'nmcli\|password-stdin\|TextInput' "$QS/NetworkPanel.qml" || fail "the panel collects no credentials and does not call nmcli"
 grep -q 'stale' "$QS/NetworkPanel.qml" && grep -q 'wifiRadioEnabled' "$QS/NetworkPanel.qml" || fail "the panel gates actions on a stale list"
-grep -q 'ElideNone' "$QS/NetworkPanel.qml" || fail "the full network name is reachable"
+grep -q 'ElideNone' "$QS/NetworkPanel.qml" && grep -q 'expanded = !row.expanded' "$QS/NetworkPanel.qml" || fail "the full network name is reachable through a separate control"
+! grep -q 'HoverHandler' "$QS/NetworkPanel.qml" || fail "the full name does not depend on hover"
+grep -q 'listError = ""' "$QS/NetworkPanel.qml" && grep -q 'noticeText = ""' "$QS/NetworkPanel.qml" || fail "a good refresh clears the obsolete notice and list error"
+grep -q 'Layout.rightMargin: 24' "$QS/NetworkPanel.qml" || fail "the header leaves room for the close button"
 pass "the network panel is registered, themed and uses the Monarch commands only"
 
 if ! command -v node >/dev/null 2>&1; then

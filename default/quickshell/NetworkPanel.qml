@@ -13,7 +13,13 @@ ColumnLayout {
     property var snapshot: null
     property bool loading: true
     property string busy: ""        // action in flight, "" when idle
-    property string errorText: ""
+    // Three message slots so a good refresh clears only what it made obsolete:
+    // a notice (stale or password hint) and a list error go away with the next
+    // good list; an action error stays until the next action starts.
+    property string noticeText: ""
+    property string listError: ""
+    property string actionError: ""
+    readonly property string errorText: noticeText !== "" ? noticeText : (actionError !== "" ? actionError : listError)
     // True when the last refresh failed: the list on screen is the last good
     // one and may not match the machine, so it is shown dimmed and nothing that
     // acts on it (join, disconnect, forget, radio) is allowed until a refresh works.
@@ -30,7 +36,7 @@ ColumnLayout {
 
     function act(kind, command) {
         if (busy !== "") return;
-        busy = kind; errorText = "";
+        busy = kind; actionError = ""; noticeText = "";
         action.kind = kind;
         action.command = command;
         action.running = true;
@@ -40,8 +46,8 @@ ColumnLayout {
         var what = Logic.wifiRowAction(net, stale);
         if (what === "join") act("join", ["monarch-wifi-join", net.ssid]);
         else if (what === "disconnect") act("disconnect", ["monarch-wifi-panel", "disconnect", net.device, net.uuid]);
-        else if (what === "" && stale) errorText = "The Wi-Fi state is out of date: rescan first";
-        else if (what === "credentials") errorText = net.ssid + " needs a password: use `monarch wifi connect` for now";
+        else if (what === "" && stale) noticeText = "The Wi-Fi state is out of date: rescan first";
+        else if (what === "credentials") noticeText = net.ssid + " needs a password: use `monarch wifi connect` for now";
     }
 
     Component.onCompleted: refresh(false)
@@ -54,12 +60,12 @@ ColumnLayout {
             root.loading = false;
             if (exitCode === 0) {
                 var parsed = Logic.parseWifiSnapshot(listOut.text);
-                if (parsed !== null) { root.snapshot = parsed; root.stale = false; return; }
+                if (parsed !== null) { root.snapshot = parsed; root.stale = false; root.listError = ""; root.noticeText = ""; return; }
             }
             // The last good list stays visible but stale.
             root.stale = true;
             var message = listErr.text.trim();
-            root.errorText = message !== "" ? message : "Could not read the Wi-Fi networks";
+            root.listError = message !== "" ? message : "Could not read the Wi-Fi networks";
         }
     }
 
@@ -71,7 +77,7 @@ ColumnLayout {
             root.busy = "";
             if (exitCode !== 0) {
                 var message = actionErr.text.trim();
-                root.errorText = message !== "" ? message : "Could not " + action.kind;
+                root.actionError = message !== "" ? message : "Could not " + action.kind;
             }
             root.refresh(false);
         }
@@ -85,6 +91,8 @@ ColumnLayout {
 
     RowLayout {
         Layout.preferredWidth: 380
+        // Keep the header clear of the host's close button in the card corner.
+        Layout.rightMargin: 24
         spacing: 8
 
         Text {
@@ -137,7 +145,9 @@ ColumnLayout {
             id: row
             required property var modelData
             width: rows.width
-            // The name elides in a narrow row; hovering the row wraps the full name.
+            // A long name elides; the "More" control wraps the full name. It is
+            // separate from the row click, so reading a name never joins.
+            property bool expanded: false
             height: Math.max(36, ssidText.implicitHeight + 16)
             opacity: root.stale ? 0.5 : 1.0
             radius: 6
@@ -156,9 +166,21 @@ ColumnLayout {
                     text: row.modelData.ssid
                     color: Theme.fg
                     font.pixelSize: 14
-                    elide: hover.hovered ? Text.ElideNone : Text.ElideRight
-                    wrapMode: hover.hovered ? Text.WrapAnywhere : Text.NoWrap
+                    elide: row.expanded ? Text.ElideNone : Text.ElideRight
+                    wrapMode: row.expanded ? Text.WrapAnywhere : Text.NoWrap
                     Layout.fillWidth: true
+                }
+                Text {
+                    visible: row.expanded || ssidText.truncated
+                    text: row.expanded ? "Less" : "More"
+                    color: Theme.accent
+                    font.pixelSize: 12
+                    MouseArea {
+                        anchors.fill: parent
+                        anchors.margins: -6
+                        z: 2
+                        onClicked: row.expanded = !row.expanded
+                    }
                 }
                 Text {
                     text: row.modelData.connecting ? "connecting" : (row.modelData.connected ? "connected" : (row.modelData.saved ? "saved" : ""))
@@ -188,8 +210,6 @@ ColumnLayout {
                     }
                 }
             }
-
-            HoverHandler { id: hover }
 
             MouseArea {
                 anchors.fill: parent
