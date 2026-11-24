@@ -41,7 +41,7 @@ ColumnLayout {
         onExited: function (exitCode) {
             root.loading = false;
             var parsed = exitCode === 0 ? Logic.parseUsage(fetchOut.text) : null;
-            if (parsed === null) { root.errorText = "Could not read the usage. Check that codexbar is installed."; return; }
+            if (parsed === null) { root.errorText = "Could not read the usage. codexbar may be missing or failing: run "codexbar usage" in a terminal to see why."; return; }
             root.providers = parsed.providers;
             if (!parsed.ok) root.errorText = "Some providers could not be read.";
         }
