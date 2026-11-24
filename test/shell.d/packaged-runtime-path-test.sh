@@ -87,7 +87,7 @@ grep -qF -- "--verify-config" "$hypr_home/hyprland-calls" ||
 printf '%s\n' '-- DP-1 disabled' >"$hypr_home/.config/hypr/monitors.lua"
 HOME="$hypr_home" MONARCH_PATH="$hypr_runtime" PATH="$test_tmp/bin:$PATH" \
   bash "$ROOT/bin/monarch-refresh-hypr" || fail "refresh hypr is idempotent"
-grep -qF 'DP-1, disable' "$hypr_home/.config/hypr/monitors.lua" ||
+grep -qF 'DP-1 disabled' "$hypr_home/.config/hypr/monitors.lua" ||
   fail "refresh hypr preserves user edits"
 if compgen -G "$hypr_home/.config/hypr/hyprland.lua.bak.*" >/dev/null; then
   fail "refresh hypr backs up an unchanged entry point"
