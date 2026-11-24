@@ -52,33 +52,63 @@ chmod +x $FIX/*; export PATH="$FIX:$ROOT/cand/bin:$PATH"
 export MONARCH_SHELL_DIR="$ROOT/cand/default/quickshell"
 QT_QPA_PLATFORM=wayland quickshell --path "$MONARCH_SHELL_DIR" > "$OUT/quickshell.log" 2>&1 &
 sleep 8
-active() { quickshell ipc --path "$MONARCH_SHELL_DIR" call panel active 2>&1 | tr -d '\n'; }
+active() { timeout 5 quickshell ipc --path "$MONARCH_SHELL_DIR" call panel active 2>&1 | tr -d '\n'; }
 shot() { grim "$OUT/$1.png" 2>>"$OUT/grim.log"; }
 layer() { hyprctl layers | grep -c 'namespace' ; }
 layers_list() { hyprctl layers | grep namespace | sed 's/.*namespace: //;s/,.*//' | tr '\n' ' '; }
 say "baseline layers: $(layers_list) active='$(active)'"
 click() { /tmp/vptr $1 $2 1280 720 click >> "$OUT/pointer.log" 2>&1; }
 move() { /tmp/vptr $1 $2 1280 720 >> "$OUT/pointer.log" 2>&1; }
-openp() { monarch-panel open wifi-qr >> "$OUT/ipc.log" 2>&1; sleep 2; }
+openp() { timeout 5 monarch-panel open wifi-qr >> "$OUT/ipc.log" 2>&1; sleep 2; }
 # A: open + Escape with NO click, 5 tries
 for i in 1 2 3 4 5; do
   openp; a1=$(active); L1=$(layers_list); [[ $i == 1 ]] && shot p-open
-  wtype -k Escape; sleep 1.5; a2=$(active)
+  timeout 5 wtype -k Escape; sleep 1.5; a2=$(active)
   say "A$i open+Escape(no click): active before='$a1' after='$a2' layers-open=[$L1] layers-after=[$(layers_list)]"
-  [[ -n $a2 ]] && monarch-panel close >/dev/null 2>&1; sleep 1
+  [[ -n $a2 ]] && timeout 5 monarch-panel close >/dev/null 2>&1; sleep 1
 done
 # B: open + click inside card (on the title area) then Escape, 5 tries
 for i in 1 2 3 4 5; do
-  openp; click 640 160; sleep 1; wtype -k Escape; sleep 1.5; a2=$(active)
-  say "B$i open+click+Escape: active after='$a2'"; [[ -n $a2 ]] && { [[ $i == 1 ]] && shot p-b-stuck; monarch-panel close >/dev/null 2>&1; }; sleep 1
+  openp; click 640 160; sleep 1; timeout 5 wtype -k Escape; sleep 1.5; a2=$(active)
+  say "B$i open+click+Escape: active after='$a2'"; [[ -n $a2 ]] && { [[ $i == 1 ]] && shot p-b-stuck; timeout 5 monarch-panel close >/dev/null 2>&1; }; sleep 1
 done
 # C: pointer close via the x button. Locate card from screenshot: find button by pixel scan later; use estimate first
 openp; shot p-c-open
 for xy in "799 147"; do set -- $xy; move $1 $2; sleep 1; click $1 $2; sleep 1.5; say "C x-click at $xy: active after='$(active)' layers=[$(layers_list)]"; shot p-c-after; done
-[[ -n $(active) ]] && monarch-panel close >/dev/null 2>&1
+[[ -n $(active) ]] && timeout 5 monarch-panel close >/dev/null 2>&1
 # D: keyboard release after close: panel layer must be gone; bar workspace dispatch still ok; keystroke goes nowhere in panel
 sleep 1; say "D after close: layers=[$(layers_list)] hyprctl activewindow: $(hyprctl activewindow | head -1)"
 # E: reveal path with real click needs the reveal button; just record password calls
 say "fixture calls: $(sort $CALLS | uniq -c | tr '\n' ';')"
 grep -ciE 'typeerror|referenceerror' "$OUT/quickshell.log" | xargs -I{} echo "TypeError/ReferenceError lines: {}" | tee -a "$res"
+# E/F: valid keyboard receiver. A normal toplevel (quickshell FloatingWindow) logs every key it gets.
+mkdir -p /tmp/rx; cat > /tmp/rx/shell.qml <<'QML'
+import QtQuick
+import Quickshell
+FloatingWindow {
+  id: w; visible: true; implicitWidth: 300; implicitHeight: 200; color: "#223344"
+  Item { anchors.fill: parent; focus: true; Component.onCompleted: forceActiveFocus()
+    Keys.onPressed: function(e) { console.log("RXKEY " + e.key + " text=" + e.text) } }
+  onActiveChanged: console.log("RXWIN active=" + w.active)
+}
+QML
+QT_QPA_PLATFORM=wayland quickshell --path /tmp/rx > "$OUT/rx.log" 2>&1 &
+RXPID=$!; sleep 5; shot e-rx-up
+hyprctl clients | grep -E 'class|title|focus' | head -4 | tee -a "$res"
+rxn() { grep -c 'RXKEY' "$OUT/rx.log"; }
+n0=$(rxn); timeout 5 wtype a; sleep 1; n1=$(rxn)
+say "E1 baseline (no panel): receiver keys $n0 -> $n1 (VALID receiver iff it increased)"
+openp; a=$(active); timeout 5 wtype a; sleep 1; n2=$(rxn); say "E2 panel open (active='$a'): receiver keys $n1 -> $n2 (exclusive focus => should not increase)"
+timeout 5 wtype -k Escape; sleep 1.5; say "E3 after Escape: panel active='$(active)'"
+[[ -n $(active) ]] && { move 798 147; sleep 1; click 798 147; sleep 1.5; say "E3b closed by x instead: active='$(active)'"; }
+n3=$(rxn); timeout 5 wtype a; sleep 1; n4=$(rxn); say "F after close: receiver keys $n3 -> $n4 (should increase = keyboard released)"; shot f-after
+grep RXWIN "$OUT/rx.log" | tail -6 | tee -a "$res"
+kill $RXPID 2>/dev/null
+# G: H2's diagnostic-only PANELDBG host (NOT production code), open + Escape with no click, 3 tries
+pkill -f "quickshell --path $MONARCH_SHELL_DIR"; sleep 2
+export MONARCH_SHELL_DIR="$ROOT/dbg/quickshell"; export PATH="$ROOT/cand/bin:$PATH"
+QT_QPA_PLATFORM=wayland quickshell --path "$MONARCH_SHELL_DIR" > "$OUT/quickshell-dbg.log" 2>&1 &
+sleep 8
+for i in 1 2 3; do openp; timeout 5 wtype -k Escape; sleep 1.5; say "G$i debug host open+Escape(no click): active after='$(active)'"; [[ -n $(active) ]] && timeout 5 monarch-panel close >/dev/null 2>&1; sleep 1; done
+grep PANELDBG "$OUT/quickshell-dbg.log" | sed 's/\x1b\[[0-9;]*m//g' | head -30 | tee -a "$res"
 kill $HPID 2>/dev/null; sleep 1; echo done
