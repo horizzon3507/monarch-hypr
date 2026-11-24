@@ -1,0 +1,29 @@
+name: Probe Hyprland runtime
+
+# Throwaway probe on a probe branch: can a real Hyprland start on a hosted runner?
+on:
+  push:
+    branches: [probe/hypr-runtime]
+    paths: [".github/workflows/probe-hypr-runtime.yml", "probe-hypr/**"]
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+      options: --privileged
+    steps:
+      - run: pacman -Syu --noconfirm --needed hyprland quickshell mesa grim git sudo qt6-wayland pciutils
+      - uses: actions/checkout@v4
+      - run: |
+          useradd -m tester; chown -R tester: "$GITHUB_WORKSPACE"
+          sudo -u tester bash "$GITHUB_WORKSPACE/probe-hypr/probe.sh" /tmp/probe-out || true
+          find /tmp/probe-out -name status -exec sh -c 'echo "$1: $(cat $1)"' _ {} \;
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: probe-out
+          path: /tmp/probe-out
