@@ -17,6 +17,9 @@ done
 [[ $(grep -c 'action.running = true' "$P") == 1 ]] || fail "one place starts the action process"
 awk '/function act\(/{f=1} f&&/mayMutate\(\)/{ok=1} f&&/action.running = true/{exit !ok}' "$P" || fail "act() checks the gate before it runs"
 ! grep -Eq 'onClicked:.*action\.running' "$P" || fail "no click handler starts a process directly"
+grep -q 'busyNotice = ""' "$P" && [[ $(grep -c 'busyNotice = "Busy' "$P") == 1 ]] || fail "the busy hint is its own message and is cleared once things settle"
+grep -q 'function scrollBy' "$P" && grep -q 'scrollBy' "$QS/PanelHost.qml" || fail "the list scrolls from the keyboard through the host"
+grep -q 'visible: rows.contentHeight > rows.height' "$P" || fail "a scroll track shows when the list overflows"
 grep -q 'Layout.rightMargin: 24' "$P" || fail "the header leaves room for the close button"
 grep -q 'monarch-panel.*theme\|network, theme' "$ROOT/bin/monarch-panel" || fail "monarch-panel lists the theme panel"
 
