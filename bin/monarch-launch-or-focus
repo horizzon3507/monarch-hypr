@@ -10,10 +10,10 @@ fi
 
 WINDOW_PATTERN=$1
 shift
-WINDOW_ID=$(niri msg --json windows 2>/dev/null | jq -r --arg p "$WINDOW_PATTERN" '.[]|select(((.app_id // "")|test("\\b" + $p + "\\b";"i")) or ((.title // "")|test("\\b" + $p + "\\b";"i")))|.id' | head -n1)
+WINDOW_ID=$(hyprctl clients -j 2>/dev/null | jq -r --arg p "$WINDOW_PATTERN" '.[]|select(((.class // "")|test("\\b" + $p + "\\b";"i")) or ((.title // "")|test("\\b" + $p + "\\b";"i")))|.address' | head -n1)
 
 if [[ -n $WINDOW_ID ]]; then
-  niri msg action focus-window --id "$WINDOW_ID"
+  hyprctl dispatch "hl.dsp.focus({ window = \"address:$WINDOW_ID\" })" >/dev/null
   exit
 fi
 

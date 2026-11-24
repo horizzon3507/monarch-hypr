@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# monarch:summary=Toggle window gaps on and off
+# monarch:group=hypr
+# monarch:hidden=true
+
+# Flips the "window-no-gaps" toggle flag (see monarch-toggle); the Hyprland Lua config
+# reads the flag when it loads, so a reload applies the change.
+
+set -uo pipefail
+
+monarch-toggle --enabled-notification "󰖲    Window gaps off" --disabled-notification "󰖲    Window gaps on" window-no-gaps || exit 1
+hyprctl reload >/dev/null 2>&1 || true
