@@ -326,6 +326,10 @@ write_stub setpriv 'shift 5; exec "$@"'
 write_stub systemd-inhibit 'printf "%s\n" "$$" >"$INHIBIT_PID_FILE"; while [[ $1 == --* ]]; do shift; done; exec "$@"'
 write_stub pkexec 'exec "$@"'
 caffeine_state="$runtime_dir/monarch/caffeine"
+# Caffeine is a held idle inhibitor: its command line must keep naming
+# systemd-inhibit, as the real tool does by forking its child, so this stub runs
+# the command instead of exec-ing it.
+write_stub systemd-inhibit 'while [[ $1 == --* ]]; do shift; done; "$@"'
 XDG_RUNTIME_DIR="$runtime_dir" PATH="$stub_bin:$ROOT/bin:$PATH" \
   "$ROOT/bin/monarch-toggle-idle" claim update-owner
 [[ $(<"$caffeine_state") == "update-owner" ]] || fail "Caffeine claim records its owner"
@@ -337,6 +341,7 @@ XDG_RUNTIME_DIR="$runtime_dir" PATH="$stub_bin:$ROOT/bin:$PATH" \
 [[ -f $caffeine_state ]] || fail "stale Caffeine owner released a user choice"
 XDG_RUNTIME_DIR="$runtime_dir" PATH="$stub_bin:$ROOT/bin:$PATH" \
   "$ROOT/bin/monarch-toggle-idle" allow-idle
+write_stub systemd-inhibit 'printf "%s\n" "$$" >"$INHIBIT_PID_FILE"; while [[ $1 == --* ]]; do shift; done; exec "$@"'
 pass "Caffeine ownership preserves a newer explicit user choice"
 
 write_stub monarch-toggle-idle '
