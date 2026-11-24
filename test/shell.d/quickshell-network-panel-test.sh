@@ -16,6 +16,8 @@ done
 ! grep -q 'nmcli\|password-stdin\|TextInput' "$QS/NetworkPanel.qml" || fail "the panel collects no credentials and does not call nmcli"
 grep -q 'stale' "$QS/NetworkPanel.qml" && grep -q 'wifiRadioEnabled' "$QS/NetworkPanel.qml" || fail "the panel gates actions on a stale list"
 grep -q 'ElideNone' "$QS/NetworkPanel.qml" && grep -q 'expanded = !row.expanded' "$QS/NetworkPanel.qml" || fail "the full network name is reachable through a separate control"
+grep -q 'readonly property bool settled' "$QS/NetworkPanel.qml" && grep -q 'if (!settled)' "$QS/NetworkPanel.qml" || fail "actions wait for an in-flight refresh or action"
+grep -Eq 'visible: true' "$QS/NetworkPanel.qml" || fail "Rescan is always reachable"
 ! grep -q 'HoverHandler' "$QS/NetworkPanel.qml" || fail "the full name does not depend on hover"
 grep -q 'listError = ""' "$QS/NetworkPanel.qml" && grep -q 'noticeText = ""' "$QS/NetworkPanel.qml" || fail "a good refresh clears the obsolete notice and list error"
 grep -q 'Layout.rightMargin: 24' "$QS/NetworkPanel.qml" || fail "the header leaves room for the close button"

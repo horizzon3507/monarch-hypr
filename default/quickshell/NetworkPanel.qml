@@ -27,8 +27,13 @@ ColumnLayout {
 
     readonly property string header: Logic.wifiHeader(stale ? null : snapshot)
 
+    // Nothing mutates while a read or another action is in flight: a refresh
+    // that started before an action would otherwise land after it and show the
+    // state from before the change.
+    readonly property bool settled: !list.running && !radio.running && busy === ""
+
     function refresh(rescan) {
-        if (list.running) return;
+        if (list.running || busy !== "" || radio.running) return;
         loading = true;
         list.command = rescan ? ["monarch-wifi-panel", "list", "--rescan"] : ["monarch-wifi-panel", "list"];
         list.running = true;
@@ -43,6 +48,7 @@ ColumnLayout {
     }
 
     function activate(net) {
+        if (!settled) { noticeText = "Wi-Fi is busy, try again in a moment"; return; }
         var what = Logic.wifiRowAction(net, stale);
         if (what === "join") act("join", ["monarch-wifi-join", net.ssid]);
         else if (what === "disconnect") act("disconnect", ["monarch-wifi-panel", "disconnect", net.device, net.uuid]);
@@ -86,7 +92,7 @@ ColumnLayout {
     Process {
         id: radio
         command: ["monarch-toggle-wifi", "toggle"]
-        onExited: root.refresh(false)
+        onExited: Qt.callLater(function () { root.refresh(false); })
     }
 
     RowLayout {
@@ -110,13 +116,15 @@ ColumnLayout {
             font.pixelSize: 13
             MouseArea {
                 anchors.fill: parent
-                enabled: Logic.wifiRadioEnabled(root.snapshot, root.stale)
+                enabled: Logic.wifiRadioEnabled(root.snapshot, root.stale) && root.settled
                 onClicked: radio.running = true
             }
-            opacity: Logic.wifiRadioEnabled(root.snapshot, root.stale) ? 1.0 : 0.4
+            opacity: Logic.wifiRadioEnabled(root.snapshot, root.stale) && root.settled ? 1.0 : 0.4
         }
         Text {
-            visible: root.snapshot !== null && root.snapshot.present && root.snapshot.enabled
+            // Also shown with no adapter or a failed read, so a hot-plugged
+            // adapter or a recovered helper can be picked up without reopening.
+            visible: true
             text: root.loading ? "Scanning..." : "Rescan"
             color: Theme.accent
             opacity: root.loading ? 0.6 : 1.0
