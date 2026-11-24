@@ -25,7 +25,7 @@ fi
 out=$(QS="$QS" node -e '
 const fs = require("fs");
 const src = fs.readFileSync(process.env.QS + "/ShellLogic.js", "utf8").replace(".pragma library", "");
-const L = new Function(src + "; return {panelName, parseUsage, usageColor, providerName};")();
+const L = new Function(src + "; return {panelName, parseUsage, usageColor, providerName, usageCadence};")();
 const out = [];
 out.push(L.panelName("usage") === "usage");
 const ok = JSON.stringify({ok: true, providers: [
@@ -46,7 +46,10 @@ out.push(L.parseUsage(JSON.stringify({ok: false, providers: []})) === null);
 out.push(L.parseUsage(JSON.stringify({ok: true, providers: []})).providers.length === 0);
 out.push(L.parseUsage(JSON.stringify({ok: false, providers: [{provider: "codex"}]})).ok === false);
 out.push(L.usageColor(95) === "error" && L.usageColor(75) === "warn" && L.usageColor(10) === "ok");
+// Documented CodexBar payload: array of providers, usedPercent 0-100, windowMinutes, identity.loginMethod.
+const real = L.parseUsage(JSON.stringify({ok: true, providers: [{provider: "codex", source: "cli", usage: {primary: {usedPercent: 28, windowMinutes: 300, resetsAt: "2026-07-17T20:00:00Z"}, secondary: {usedPercent: 59, windowMinutes: 10080}, identity: {loginMethod: "plus"}}}]}));
+out.push(real.providers[0].windows[0].title === "5 h" && real.providers[0].windows[1].title === "Weekly" && real.providers[0].plan === "plus");
 console.log(out.map(Boolean).join(" "));
 ')
-[[ $out == "true true true true true true true true true true true" ]] || fail "usage panel logic" "$out"
+[[ $out == "true true true true true true true true true true true true" ]] || fail "usage panel logic" "$out"
 pass "usage parsing behaves"

@@ -552,13 +552,24 @@ function usageReset(t) {
     return String(t).replace(/^(\d{4}-\d\d-\d\d)T(\d\d:\d\d):\d\dZ$/, "$1 $2 UTC");
 }
 
+// Cadence label from the documented `windowMinutes` when no label is given.
+function usageCadence(minutes) {
+    var m = parseFloat(minutes);
+    if (isNaN(m) || m <= 0) return "";
+    if (m === 10080) return "Weekly";
+    if (m === 1440) return "Daily";
+    if (m % 1440 === 0) return (m / 1440) + " days";
+    if (m % 60 === 0) return (m / 60) + " h";
+    return m + " min";
+}
+
 function usageWindows(p) {
     var usage = p.usage || {}, labels = p.rateWindowLabels || {}, rows = [], seen = [];
     function add(key, w, label) {
         if (!w || typeof w !== "object" || w.usageKnown === false || seen.indexOf(w) >= 0 || isNaN(parseFloat(w.usedPercent))) return;
         seen.push(w);
         rows.push({
-            title: String(label || labels[key] || w.title || w.label || key),
+            title: String(label || labels[key] || w.title || w.label || usageCadence(w.windowMinutes) || key),
             used: Math.max(0, Math.min(100, parseFloat(w.usedPercent))),
             reset: w.resetsAt ? usageReset(w.resetsAt) : ""
         });
@@ -586,7 +597,7 @@ function usageProvider(p) {
     return {
         key: String(p.provider || p.id || "unknown") + ":" + String(p.account || ""),
         name: providerName(p),
-        plan: String(identity.plan || identity.accountEmail || p.source || ""),
+        plan: String(identity.plan || identity.loginMethod || identity.accountEmail || p.source || ""),
         issue: issue,
         windows: windows,
         lines: lines,
