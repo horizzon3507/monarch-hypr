@@ -11,7 +11,7 @@ monarch_install_packaged_runtime() {
     etc/sudoers.d/monarch-tzupdate
     usr/lib/systemd/system-sleep/unmount-fuse
     usr/local/share/wayland-sessions/monarch.desktop
-    usr/share/sddm/hyprland.conf
+    usr/share/sddm/hyprland.lua
   )
   local -a legacy_trees=(
     usr/share/plymouth/themes/monarch

@@ -1,0 +1,1 @@
+-- Your input overrides. Loaded after the Monarch defaults. See https://wiki.hypr.land/configuring/core/config-options/

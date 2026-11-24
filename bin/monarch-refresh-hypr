@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# monarch:summary=Install the Monarch Hyprland entry-point at ~/.config/hypr/hyprland.conf, bootstrap the user-owned files, and reload a running Hyprland.
+# monarch:summary=Install the Monarch Hyprland entry-point at ~/.config/hypr/hyprland.lua, bootstrap the user-owned files, and reload a running Hyprland.
 # monarch:group=refresh
 # monarch:name=hypr
 
@@ -8,10 +8,10 @@ set -euo pipefail
 
 MONARCH_ROOT="${MONARCH_PATH:-/usr/share/monarch}"
 MONARCH_PATH="$MONARCH_ROOT"
-SOURCE="$MONARCH_ROOT/default/hypr/hyprland.conf"
+SOURCE="$MONARCH_ROOT/default/hypr/hyprland.lua"
 CONFIG_DIR="$HOME/.config/hypr"
-TARGET="$CONFIG_DIR/hyprland.conf"
-USER_FILES=(monitors.conf input.conf bindings.conf looknfeel.conf autostart.conf)
+TARGET="$CONFIG_DIR/hyprland.lua"
+USER_FILES=(monitors.lua input.lua bindings.lua looknfeel.lua autostart.lua)
 
 mkdir -p "$CONFIG_DIR"
 
@@ -27,11 +27,11 @@ for file in "${USER_FILES[@]}"; do
   fi
 done
 
-# Generate keyboard.conf before validating: it is part of the include chain.
+# Generate keyboard.lua before validating: it is part of the include chain.
 if [[ -f $MONARCH_ROOT/install/user/detect-keyboard-layout.sh ]]; then
   bash "$MONARCH_ROOT/install/user/detect-keyboard-layout.sh"
-elif [[ ! -f $CONFIG_DIR/keyboard.conf ]]; then
-  : >"$CONFIG_DIR/keyboard.conf"
+elif [[ ! -f $CONFIG_DIR/keyboard.lua ]]; then
+  : >"$CONFIG_DIR/keyboard.lua"
 fi
 
 rendered="$(mktemp)"

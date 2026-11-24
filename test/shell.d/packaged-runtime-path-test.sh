@@ -71,25 +71,25 @@ if ! HOME="$hypr_home" MONARCH_PATH="$hypr_runtime" PATH="$test_tmp/bin:$PATH" \
   bash "$ROOT/bin/monarch-refresh-hypr"; then
   fail "refresh hypr runs against the packaged runtime fixture"
 fi
-hypr_target="$hypr_home/.config/hypr/hyprland.conf"
-grep -qF "source = $hypr_runtime/default/hypr/envs.conf" "$hypr_target" ||
+hypr_target="$hypr_home/.config/hypr/hyprland.lua"
+grep -qF "local root = \"$hypr_runtime\"" "$hypr_target" ||
   fail "refresh hypr expands the selected runtime path"
 if grep -qF '@MONARCH_PATH@' "$hypr_target"; then
   fail "refresh hypr leaves an unexpanded runtime placeholder"
 fi
 for user_file in monitors input bindings looknfeel autostart keyboard; do
-  [[ -f $hypr_home/.config/hypr/$user_file.conf ]] ||
-    fail "refresh hypr seeds $user_file.conf so the include chain resolves"
+  [[ -f $hypr_home/.config/hypr/$user_file.lua ]] ||
+    fail "refresh hypr seeds $user_file.lua so the config loads"
 done
 grep -qF -- "--verify-config" "$hypr_home/hyprland-calls" ||
   fail "refresh hypr validates the assembled config"
 
-printf '%s\n' 'monitor = DP-1, disable' >"$hypr_home/.config/hypr/monitors.conf"
+printf '%s\n' '-- DP-1 disabled' >"$hypr_home/.config/hypr/monitors.lua"
 HOME="$hypr_home" MONARCH_PATH="$hypr_runtime" PATH="$test_tmp/bin:$PATH" \
   bash "$ROOT/bin/monarch-refresh-hypr" || fail "refresh hypr is idempotent"
-grep -qF 'DP-1, disable' "$hypr_home/.config/hypr/monitors.conf" ||
+grep -qF 'DP-1, disable' "$hypr_home/.config/hypr/monitors.lua" ||
   fail "refresh hypr preserves user edits"
-if compgen -G "$hypr_home/.config/hypr/hyprland.conf.bak.*" >/dev/null; then
+if compgen -G "$hypr_home/.config/hypr/hyprland.lua.bak.*" >/dev/null; then
   fail "refresh hypr backs up an unchanged entry point"
 fi
 

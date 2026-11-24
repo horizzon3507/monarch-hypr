@@ -1,0 +1,1 @@
+-- Extra programs to launch on login, for example: monarch.autostart("uwsm-app -- my-service")
