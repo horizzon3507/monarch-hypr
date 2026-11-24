@@ -40,13 +40,14 @@ RowLayout {
             radius: 4
             color: focused ? Theme.accent : (urgent ? Theme.error : "transparent")
             border.width: focused || urgent ? 0 : 1
-            border.color: ws !== null ? Theme.outline : Theme.surfaceVariant
+            border.color: ws !== null ? Theme.fg : Theme.outline
 
             Text {
                 anchors.centerIn: parent
                 text: slot.modelData
                 font.pixelSize: root.fontSize
-                color: slot.focused || slot.urgent ? Theme.bg : (slot.ws !== null ? Theme.fg : Theme.outline)
+                color: slot.focused || slot.urgent ? Theme.bg : Theme.fg
+                opacity: slot.focused || slot.urgent || slot.ws !== null ? 1.0 : 0.6
             }
 
             MouseArea {

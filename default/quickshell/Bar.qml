@@ -31,6 +31,14 @@ Variants {
             precision: SystemClock.Minutes
         }
 
+        // Centered on the bar itself, so the side widgets' widths do not move it.
+        Text {
+            anchors.centerIn: parent
+            text: Logic.clockText(clock.date)
+            font.pixelSize: bar.fontSize
+            color: Theme.fg
+        }
+
         RowLayout {
             anchors.fill: parent
             anchors.leftMargin: 10
@@ -39,14 +47,6 @@ Variants {
 
             Workspaces {
                 fontSize: bar.fontSize
-            }
-
-            Item { Layout.fillWidth: true }
-
-            Text {
-                text: Logic.clockText(clock.date)
-                font.pixelSize: bar.fontSize
-                color: Theme.fg
             }
 
             Item { Layout.fillWidth: true }
