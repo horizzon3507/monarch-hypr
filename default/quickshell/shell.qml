@@ -2,9 +2,11 @@
 import QtQuick
 import Quickshell
 
-// Monarch shell entry point. Surfaces (bar, panels) attach here as they land.
+// Monarch shell entry point. The bar attaches here; panels land later.
 ShellRoot {
     Component.onCompleted: console.log("monarch-shell started")
+
+    Bar {}
 
     // Log applied state after FileView has loaded (and again on every reload),
     // so tests observe the real values rather than the startup defaults.

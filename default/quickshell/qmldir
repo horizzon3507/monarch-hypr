@@ -1,2 +1,6 @@
 singleton Settings 1.0 Settings.qml
 singleton Theme 1.0 Theme.qml
+Bar 1.0 Bar.qml
+Workspaces 1.0 Workspaces.qml
+Indicators 1.0 Indicators.qml
+Tray 1.0 Tray.qml
