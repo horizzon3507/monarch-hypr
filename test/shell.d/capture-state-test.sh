@@ -65,18 +65,18 @@ printf '%s\n' "$@" >"$CAPTURE_CASE/notification"
 STUB
 chmod +x "$test_tmp/bin/"*
 
-cat >"$test_tmp/bin/noctalia" <<'STUB'
+cat >"$test_tmp/bin/monarch-shell-refresh" <<'STUB'
 #!/bin/bash
-[[ $* == "msg plugin monarch/indicators:screen-recording all refresh" ]] || exit 99
+[[ $* == "recording" ]] || exit 99
 if [[ -f $CAPTURE_CASE/recorder.pid ]]; then
   [[ -s ${XDG_RUNTIME_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/monarch}/monarch-screenrecord-filename ]] || exit 98
   echo started >>"$CAPTURE_CASE/events"
 else
   echo stopped >>"$CAPTURE_CASE/events"
 fi
-exit 1
+exit 0
 STUB
-chmod 755 "$test_tmp/bin/noctalia"
+chmod 755 "$test_tmp/bin/monarch-shell-refresh"
 
 run_capture() {
   local name=$1 state_dir=$2

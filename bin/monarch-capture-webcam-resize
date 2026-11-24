@@ -33,19 +33,23 @@ app_id=$(jq -r '.app_id // empty' <<<"$state")
 
 window=""
 for ((attempt = 0; attempt < 60; attempt++)); do
-  window=$(niri msg --json windows 2>/dev/null | jq -cer --arg app_id "$app_id" --argjson pid "$webcam_pid" '
-    first(.[] | select(.app_id == $app_id and .pid == $pid)) // empty' 2>/dev/null) || true
+  window=$(hyprctl clients -j 2>/dev/null | jq -cer --arg app_id "$app_id" --argjson pid "$webcam_pid" '
+    first(.[] | select(.class == $app_id and .pid == $pid)) // empty' 2>/dev/null) || true
   [[ -n $window ]] && break
   sleep 0.05
 done
 [[ -n $window ]] || exit 1
 
 read -r window_id current_width current_height < <(
-  jq -r '[.id, .layout.window_size[0], .layout.window_size[1]] | @tsv' <<<"$window"
+  jq -r '[.address, .size[0], .size[1]] | @tsv' <<<"$window"
 )
-[[ $window_id =~ ^[0-9]+$ && $current_width =~ ^[0-9]+$ && $current_height =~ ^[0-9]+$ ]] || exit 1
+[[ $window_id =~ ^0x[0-9a-fA-F]+$ && $current_width =~ ^[0-9]+$ && $current_height =~ ^[0-9]+$ ]] || exit 1
 
-outputs=$(niri msg --json outputs 2>/dev/null)
+# Outputs keyed by name with a "logical" rectangle, from Hyprland's monitor list.
+outputs=$(monarch-hypr-geometry monitors | jq -Rn '
+  [inputs | split("\t") | {key: .[0], value: {name: .[0],
+    logical: {x: (.[1]|tonumber), y: (.[2]|tonumber), width: (.[3]|tonumber), height: (.[4]|tonumber)},
+    focused: (.[5] == "true")}}] | from_entries')
 monitor=""
 anchor_x=0
 anchor_y=0
@@ -81,7 +85,7 @@ elif [[ $target == monitor:* ]]; then
 fi
 
 if [[ -z $monitor ]]; then
-  output=$(niri msg --json focused-output 2>/dev/null)
+  output=$(jq -c 'first(to_entries[] | .value | select(.focused)) // {}' <<<"$outputs")
   monitor=$(jq -r '.name // empty' <<<"$output")
   anchor_width=$(jq -r '.logical.width // 0' <<<"$output")
   anchor_height=$(jq -r '.logical.height // 0' <<<"$output")
@@ -145,28 +149,26 @@ target_y=$((anchor_y + anchor_height - target_height - MARGIN))
 ((target_x < anchor_x + MARGIN)) && target_x=$((anchor_x + MARGIN))
 ((target_y < anchor_y + MARGIN)) && target_y=$((anchor_y + MARGIN))
 
-niri msg action move-window-to-monitor --id "$window_id" "$monitor" >/dev/null
-niri msg action set-window-width --id "$window_id" "$target_width" >/dev/null
-niri msg action set-window-height --id "$window_id" "$target_height" >/dev/null
-niri_x=$target_x
-niri_y=$target_y
-niri msg action move-floating-window --id "$window_id" --x "$niri_x" --y "$niri_y" >/dev/null
+# Hyprland positions are global: target_x/target_y are relative to the monitor,
+# so add its origin back. Sizes and moves go through the window's address.
+origin_x=$(jq -r --arg m "$monitor" '.[$m].logical.x // 0' <<<"$outputs")
+origin_y=$(jq -r --arg m "$monitor" '.[$m].logical.y // 0' <<<"$outputs")
+global_x=$((origin_x + target_x))
+global_y=$((origin_y + target_y))
+hyprctl dispatch "hl.dsp.window.resize({ x = $target_width, y = $target_height, relative = false, window = \"address:$window_id\" })" >/dev/null
+hyprctl dispatch "hl.dsp.window.move({ x = $global_x, y = $global_y, relative = false, window = \"address:$window_id\" })" >/dev/null
 
 stable=0
 for ((attempt = 0; attempt < 40; attempt++)); do
-  read -r width height x y < <(niri msg --json windows 2>/dev/null | jq -r --argjson id "$window_id" '
-    first(.[] | select(.id == $id)) |
-    [.layout.window_size[0], .layout.window_size[1], .layout.tile_pos_in_workspace_view[0], .layout.tile_pos_in_workspace_view[1]] |
-    map(floor) | @tsv' 2>/dev/null)
-  if [[ $width == "$target_width" && $height == "$target_height" && $x == "$target_x" && $y == "$target_y" ]]; then
+  read -r width height x y < <(hyprctl clients -j 2>/dev/null | jq -r --arg id "$window_id" '
+    first(.[] | select(.address == $id)) |
+    [.size[0], .size[1], .at[0], .at[1]] | map(floor) | @tsv' 2>/dev/null)
+  if [[ $width == "$target_width" && $height == "$target_height" && $x == "$global_x" && $y == "$global_y" ]]; then
     ((++stable >= 3)) && exit 0
   else
     stable=0
-    if [[ $x =~ ^-?[0-9]+$ && $y =~ ^-?[0-9]+$ ]]; then
-      niri_x=$((niri_x + target_x - x))
-      niri_y=$((niri_y + target_y - y))
-      niri msg action move-floating-window --id "$window_id" --x "$niri_x" --y "$niri_y" >/dev/null
-    fi
+    hyprctl dispatch "hl.dsp.window.resize({ x = $target_width, y = $target_height, relative = false, window = \"address:$window_id\" })" >/dev/null
+    hyprctl dispatch "hl.dsp.window.move({ x = $global_x, y = $global_y, relative = false, window = \"address:$window_id\" })" >/dev/null
   fi
   sleep 0.05
 done

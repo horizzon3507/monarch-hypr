@@ -38,24 +38,17 @@ FILEPATH="$OUTPUT_DIR/$FILENAME"
 TENSAKU=0
 [[ $SCREENSHOT_EDITOR == tensaku ]] && TENSAKU=1
 
-# Niri reports outputs and windows in logical pixels via its IPC.
-# format_output_geo: "<x>,<y> <w>x<h>" (already scale-adjusted by niri).
-JQ_OUTPUT_GEO='
-  def format_geo:
-    (.logical.x // 0) as $x | (.logical.y // 0) as $y |
-    (.logical.width // 0) as $w | (.logical.height // 0) as $h |
-    "\($x),\($y) \($w)x\($h)";
-'
+# monarch-hypr-geometry reports outputs and windows in logical pixels, the space
+# slurp uses, as "<x>,<y> <w>x<h>".
+output_geo() {
+  monarch-hypr-geometry monitors | awk -F'\t' -v only="${1:-}" '
+    only == "" || $1 == only { printf "%s,%s %sx%s\n", $2, $3, $4, $5 }'
+}
 
 get_rectangles() {
-  local focused_output
-  focused_output=$(niri msg --json focused-output 2>/dev/null | jq -r '.name // empty')
-  # Outputs whose logical position overlaps the focused workspace.
-  niri msg --json outputs 2>/dev/null | jq -r --arg out "$focused_output" "${JQ_OUTPUT_GEO} to_entries[] | .value | select(.name == \$out) | format_geo"
-  # Windows on the focused workspace.
-  local focused_workspace
-  focused_workspace=$(niri msg --json workspaces 2>/dev/null | jq -r '.[] | select(.is_focused == true) | .id')
-  niri msg --json windows 2>/dev/null | jq -r --arg ws "$focused_workspace" '.[] | select(.workspace_id == ($ws | tonumber)) | select(.layout.pos_in_scrolling_layout != null) | "\(.layout.pos_in_scrolling_layout[0]),\(.layout.pos_in_scrolling_layout[1]) \(.layout.window_size[0])x\(.layout.window_size[1])"'
+  # The focused output, then the windows on its workspace.
+  output_geo "$(monarch-hypr-geometry focused)"
+  monarch-hypr-geometry windows
 }
 
 # Tensaku's capture overlay freezes the screen and folds region, window and
@@ -78,7 +71,7 @@ windows)
   SELECTION=$(get_rectangles | slurp -r 2>/dev/null)
   ;;
 fullscreen)
-  SELECTION=$(niri msg --json focused-output 2>/dev/null | jq -r "${JQ_OUTPUT_GEO} . | format_geo")
+  SELECTION=$(output_geo "$(monarch-hypr-geometry focused)" | head -n1)
   ;;
 smart | *)
   RECTS=$(get_rectangles)

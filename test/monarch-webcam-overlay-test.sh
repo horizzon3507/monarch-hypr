@@ -16,39 +16,45 @@ printf '100\n' >"$MOCK_NIRI_STATE.height"
 printf '0\n' >"$MOCK_NIRI_STATE.x"
 printf '0\n' >"$MOCK_NIRI_STATE.y"
 
-cat >"$TMP/bin/niri" <<'EOF'
+cat >"$TMP/bin/hyprctl" <<'EOF'
 #!/bin/bash
 
-if [[ $* == "msg --json windows" ]]; then
+if [[ $* == "clients -j" ]]; then
   width=$(<"$MOCK_NIRI_STATE.width")
   height=$(<"$MOCK_NIRI_STATE.height")
   x=$(<"$MOCK_NIRI_STATE.x")
   y=$(<"$MOCK_NIRI_STATE.y")
   app_id=$(jq -r '.app_id' "${XDG_RUNTIME_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/monarch}/monarch-screenrecord-webcam-$UID.json")
   jq -cn --arg app_id "$app_id" --argjson width "$width" --argjson height "$height" --argjson x "$x" --argjson y "$y" \
-    '[{id: 42, pid: 123, app_id: $app_id, layout: {window_size: [$width, $height], tile_pos_in_workspace_view: [$x, $y]}}]'
-elif [[ $* == "msg --json outputs" ]]; then
-  jq -cn '{DP1: {name: "DP-1", logical: {x: 0, y: 0, width: 1920, height: 1080, scale: 1.0}}}'
-elif [[ $* == "msg --json focused-output" ]]; then
-  jq -cn '{name: "DP-1", logical: {x: 0, y: 0, width: 1920, height: 1080, scale: 1.0}}'
-elif [[ $1 == "msg" && $2 == "action" ]]; then
-  printf '%s\n' "${*:3}" >>"$MOCK_NIRI_LOG"
-  case $3 in
-  set-window-width) printf '%s\n' "${!#}" >"$MOCK_NIRI_STATE.width" ;;
-  set-window-height) printf '%s\n' "${!#}" >"$MOCK_NIRI_STATE.height" ;;
-  move-floating-window)
-    while (($#)); do
-      case $1 in
-      --x) printf '%s\n' "$2" >"$MOCK_NIRI_STATE.x"; shift 2 ;;
-      --y) printf '%s\n' "$2" >"$MOCK_NIRI_STATE.y"; shift 2 ;;
-      *) shift ;;
-      esac
-    done
+    '[{address: "0x2a", pid: 123, class: $app_id, size: [$width, $height], at: [$x, $y]}]'
+elif [[ $* == "monitors -j" ]]; then
+  jq -cn '[{name: "DP-1", x: 0, y: 0, width: 1920, height: 1080, scale: 1.0, transform: 0, focused: true, activeWorkspace: {id: 1}}]'
+elif [[ $1 == "dispatch" ]]; then
+  expr=$2
+  [[ $expr =~ x\ =\ (-?[0-9]+),\ y\ =\ (-?[0-9]+),\ relative\ =\ false,\ window\ =\ \"address:0x2a\" ]] || exit 1
+  a=${BASH_REMATCH[1]} b=${BASH_REMATCH[2]}
+  case $expr in
+  hl.dsp.window.resize\(*)
+    printf 'resize %s %s\n' "$a" "$b" >>"$MOCK_NIRI_LOG"
+    printf '%s\n' "$a" >"$MOCK_NIRI_STATE.width"
+    printf '%s\n' "$b" >"$MOCK_NIRI_STATE.height"
     ;;
+  hl.dsp.window.move\(*)
+    printf 'move %s %s\n' "$a" "$b" >>"$MOCK_NIRI_LOG"
+    printf '%s\n' "$a" >"$MOCK_NIRI_STATE.x"
+    printf '%s\n' "$b" >"$MOCK_NIRI_STATE.y"
+    ;;
+  *) exit 1 ;;
   esac
 fi
 EOF
-chmod +x "$TMP/bin/niri"
+chmod +x "$TMP/bin/hyprctl"
+PATH="$TMP/bin:$PATH"
+cat >"$TMP/bin/monarch-hypr-geometry" <<EOF
+#!/bin/bash
+exec "$ROOT/bin/monarch-hypr-geometry" "\$@"
+EOF
+chmod +x "$TMP/bin/monarch-hypr-geometry"
 
 cat >"$TMP/bin/v4l2-ctl" <<'EOF'
 #!/bin/bash
@@ -69,31 +75,36 @@ run_resize() {
 
 jq -cn '{target: "monitor:DP-1", shape: "circle", app_id: "org.monarch.webcam-overlay.circle", pid: 123}' >"$TMP/runtime/monarch-screenrecord-webcam-$UID.json"
 run_resize medium
-grep -Fqx 'set-window-width --id 42 270' "$MOCK_NIRI_LOG"
-grep -Fqx 'set-window-height --id 42 270' "$MOCK_NIRI_LOG"
-grep -Fqx 'move-floating-window --id 42 --x 1610 --y 770' "$MOCK_NIRI_LOG"
+W=270
+H=270
+grep -Fqx "resize $W $H" "$MOCK_NIRI_LOG"
+grep -Fqx "move 1610 770" "$MOCK_NIRI_LOG"
 
 : >"$MOCK_NIRI_LOG"
 jq -cn '{target: "region:800x600+200+100", shape: "circle", app_id: "org.monarch.webcam-overlay.circle", pid: 123}' >"$TMP/runtime/monarch-screenrecord-webcam-$UID.json"
 run_resize reset
-grep -Fqx 'set-window-width --id 42 150' "$MOCK_NIRI_LOG"
-grep -Fqx 'set-window-height --id 42 150' "$MOCK_NIRI_LOG"
-grep -Fqx 'move-floating-window --id 42 --x 810 --y 510' "$MOCK_NIRI_LOG"
+W=150
+H=150
+grep -Fqx "resize $W $H" "$MOCK_NIRI_LOG"
+grep -Fqx "move 810 510" "$MOCK_NIRI_LOG"
 
 : >"$MOCK_NIRI_LOG"
 jq -cn '{target: "region:800x600+200+100", shape: "rectangle", app_id: "org.monarch.webcam-overlay.rectangle", pid: 123}' >"$TMP/runtime/monarch-screenrecord-webcam-$UID.json"
 run_resize large
-grep -Fqx 'set-window-width --id 42 180' "$MOCK_NIRI_LOG"
-grep -Fqx 'set-window-height --id 42 203' "$MOCK_NIRI_LOG"
-grep -Fqx 'move-floating-window --id 42 --x 780 --y 457' "$MOCK_NIRI_LOG"
+W=180
+H=203
+grep -Fqx "resize $W $H" "$MOCK_NIRI_LOG"
+grep -Fqx "move 780 457" "$MOCK_NIRI_LOG"
 
 : >"$MOCK_NIRI_LOG"
 mkdir -p "$TMP/state/monarch"
 jq -cn '{target: "region:800x600+200+100", shape: "circle", app_id: "org.monarch.webcam-overlay.circle", pid: 123}' >"$TMP/state/monarch/monarch-screenrecord-webcam-$UID.json"
 env -u XDG_RUNTIME_DIR HOME="$TMP" XDG_STATE_HOME="$TMP/state" PATH="$TMP/bin:/usr/bin" \
   "$ROOT/bin/monarch-capture-webcam-resize" reset
-grep -Fqx 'set-window-width --id 42 150' "$MOCK_NIRI_LOG"
-grep -Fqx 'move-floating-window --id 42 --x 810 --y 510' "$MOCK_NIRI_LOG"
+W=150
+H=150
+grep -Fqx "resize $W $H" "$MOCK_NIRI_LOG"
+grep -Fqx "move 810 510" "$MOCK_NIRI_LOG"
 
 env -u XDG_RUNTIME_DIR HOME="$TMP" XDG_STATE_HOME="$TMP/unused-state" PATH="$TMP/bin:/usr/bin" \
   "$ROOT/bin/monarch-capture-webcam-resize" medium
@@ -119,13 +130,6 @@ if PATH="$TMP/bin:/usr/bin" "$ROOT/bin/monarch-capture-screenrecording-with-webc
   exit 1
 fi
 
-grep -Fq 'match app-id="org.monarch.webcam-overlay.circle"' "$ROOT/default/niri/windows.kdl"
-grep -Fq 'geometry-corner-radius 9999' "$ROOT/default/niri/windows.kdl"
-grep -Fq 'clip-to-geometry true' "$ROOT/default/niri/windows.kdl"
-grep -Fq 'open-focused false' "$ROOT/default/niri/windows.kdl"
-grep -Fq 'opacity 1.0' "$ROOT/default/niri/windows.kdl"
 grep -Fq -- '--wayland-app-id="$app_id"' "$ROOT/bin/monarch-capture-screenrecording"
-grep -Fq 'monarch-capture-webcam-resize" "smaller"' "$ROOT/default/niri/binds.kdl"
-grep -Fq 'monarch-capture-webcam-resize" "larger"' "$ROOT/default/niri/binds.kdl"
 
 echo "Webcam overlay sizing, placement, identity and shape checks pass"
