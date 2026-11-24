@@ -2,9 +2,5 @@
 
 # monarch:summary=Open the power profile controls.
 
-# Hyprland: the power profile rows of the Monarch menu. Otherwise the Noctalia
-# control center.
-if [[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]]; then
-  exec monarch-menu setup.power
-fi
-exec noctalia msg panel-toggle control-center power
+# The power profile rows of the Monarch menu.
+exec monarch-menu setup.power

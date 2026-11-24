@@ -83,11 +83,6 @@ run_first_run_step "install agent setup post-update hook" \
 
 run_first_run_step "enable user systemd units" \
   bash "$MONARCH_PATH/install/user/first-run/enable-user-units.sh"
-# The Noctalia plugins have no role in a Hyprland session.
-if [[ -z ${HYPRLAND_INSTANCE_SIGNATURE:-} ]]; then
-  run_first_run_step "enable Monarch Noctalia plugins" \
-    bash "$MONARCH_PATH/install/user/first-run/enable-noctalia-plugins.sh"
-fi
 run_first_run_step "set GNOME theme" \
   bash "$MONARCH_PATH/install/user/first-run/gnome-theme.sh"
 run_first_run_step "set GTK primary paste" \

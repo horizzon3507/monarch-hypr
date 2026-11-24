@@ -14,10 +14,6 @@ if gum confirm "Are you sure you want to restore the user-removable Monarch soft
   mapfile -t packages < <(grep -vE '^[[:space:]]*(#|$)' "$MONARCH_PATH/install/monarch-preinstalls.packages")
   monarch-pkg-add "${packages[@]}"
 
-  if [[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]]; then
-    monarch-restart-shell
-  else
-    monarch-restart-noctalia
-  fi
+  monarch-restart-shell
   monarch-state clear preinstalls-removed
 fi

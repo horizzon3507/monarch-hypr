@@ -2,10 +2,7 @@
 
 # monarch:summary=Open the network panel (Wi-Fi controls).
 
-# Hyprland: the shell's network panel, or the terminal network UI when the
-# shell does not answer. Otherwise the Noctalia control center.
-if [[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]]; then
-  monarch-panel toggle network 2>/dev/null && exit 0
-  exec monarch-launch-tui impala
-fi
-exec noctalia msg panel-toggle control-center network
+# The shell's network panel, or the terminal network UI when the shell does not
+# answer.
+monarch-panel toggle network 2>/dev/null && exit 0
+exec monarch-launch-tui impala
