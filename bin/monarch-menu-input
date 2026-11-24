@@ -9,29 +9,9 @@
 set -euo pipefail
 
 prompt="${1:-}"
+[[ -n $prompt ]] || prompt=$(jq -r '.["menu.input"] // "Input"' < <("${BASH_SOURCE[0]%/*}/monarch-menu" --strings))
 
-selection_file=$(mktemp)
-done_file=$(mktemp)
-rm -f "$done_file"
-trap 'rm -f "$selection_file" "$done_file"' EXIT
-
-payload=$(jq -nc \
-  --argjson strings "$("${BASH_SOURCE[0]%/*}/monarch-menu" --strings)" \
-  --arg mode input \
-  --arg prompt "$prompt" \
-  --arg selectionFile "$selection_file" \
-  --arg doneFile "$done_file" \
-  '{mode: $mode, selectionFile: $selectionFile, doneFile: $doneFile, strings: $strings}
-   + (if $prompt == "" then {} else {prompt: $prompt} end)')
-
-noctalia msg panel-open monarch/menu:input "$payload" >/dev/null
-
-while [[ ! -e $done_file ]]; do
-  sleep 0.05
-done
-
-if [[ -s $selection_file ]]; then
-  cat "$selection_file"
-else
-  exit 1
-fi
+# Walker's input-only dmenu returns what was typed.
+text=$(walker --dmenu --inputonly --placeholder "${prompt:-Input}" </dev/null) || exit 1
+[[ -n $text ]] || exit 1
+printf '%s' "$text"

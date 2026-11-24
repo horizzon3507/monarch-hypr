@@ -320,24 +320,19 @@ class InternationalizationTests(unittest.TestCase):
     def test_input_default_is_localized_and_custom_prompts_are_preserved(self):
         tools = self.home / "tools"
         tools.mkdir()
-        noctalia = tools / "noctalia"
-        noctalia.write_text('#!/bin/bash\n'
-                           'printf "%s" "$4" > "$HOME/input-payload"\n'
-                           'printf "answer" > "$(jq -r .selectionFile <<< "$4")"\n'
-                           'touch "$(jq -r .doneFile <<< "$4")"\n')
-        noctalia.chmod(0o755)
+        walker = tools / "walker"
+        walker.write_text('#!/bin/bash\n'
+                          'printf "%s" "$*" > "$HOME/input-payload"\n'
+                          'printf "answer"\n')
+        walker.chmod(0o755)
         for language, default in (("en", "Input"), ("fr", "Saisie")):
             env = {**self.env, "MONARCH_LANGUAGE": language,
                    "PATH": str(tools) + ":" + os.environ["PATH"]}
             for args in ((), ("",), ("Input",), ("My custom prompt",)):
                 result = self.run_command("monarch-menu-input", *args, env=env)
                 self.assertEqual(result.stdout, "answer")
-                payload = json.loads((self.home / "input-payload").read_text())
-                self.assertEqual(payload["strings"]["menu.input"], default)
-                if args and args[0]:
-                    self.assertEqual(payload["prompt"], args[0])
-                else:
-                    self.assertNotIn("prompt", payload)
+                payload = (self.home / "input-payload").read_text()
+                self.assertIn("--placeholder " + (args[0] if args and args[0] else default), payload)
 
     def test_standalone_and_cached_helper_have_identical_output(self):
         for language in ("en", "fr"):

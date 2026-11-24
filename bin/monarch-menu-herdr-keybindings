@@ -242,7 +242,6 @@ case $output_format in
     output_keybindings_json
     ;;
   panel)
-    payload=$(jq -nc --arg kind herdr --arg config "$config_file" '{kind: $kind, config: $config}')
-    noctalia msg panel-toggle monarch/menu:keybindings "$payload"
+    output_keybindings | walker --dmenu --placeholder "Herdr key bindings" >/dev/null
     ;;
 esac

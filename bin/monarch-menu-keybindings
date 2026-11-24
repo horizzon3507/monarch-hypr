@@ -1,279 +1,37 @@
 #!/bin/bash
 
-# monarch:summary=Display searchable Niri keybindings in the Monarch panel.
+# monarch:summary=Show the active Hyprland key bindings, searchable in Walker
+# monarch:args=[--print|--json]
+# monarch:examples=monarch menu keybindings | monarch menu keybindings --print
 
-declare -A KEYCODE_SYM_MAP
+# Reads the live bindings from Hyprland (`hyprctl binds -j`), so it shows what
+# the compositor actually has loaded, including the user's own bindings.lua.
+# Bindings without a description are skipped: the description is the label.
 
-build_keymap_cache() {
-  local keymap
-  keymap="$(xkbcli compile-keymap)" || {
-    echo "Failed to compile keymap" >&2
-    return 1
-  }
+set -uo pipefail
 
-  while IFS=, read -r code sym; do
-    [[ -z $code || -z $sym ]] && continue
-    KEYCODE_SYM_MAP["$code"]="$sym"
-  done < <(
-    awk '
-      BEGIN { sec = "" }
-      /xkb_keycodes/ { sec = "codes"; next }
-      /xkb_symbols/  { sec = "syms";  next }
-      sec == "codes" {
-        if (match($0, /<([A-Za-z0-9_]+)>\s*=\s*([0-9]+)\s*;/, m)) code_by_name[m[1]] = m[2]
-      }
-      sec == "syms" {
-        if (match($0, /key\s*<([A-Za-z0-9_]+)>\s*\{\s*\[\s*([^, \]]+)/, m)) sym_by_name[m[1]] = m[2]
-      }
-      END {
-        for (k in code_by_name) {
-          c = code_by_name[k]
-          s = sym_by_name[k]
-          if (c != "" && s != "" && s != "NoSymbol") print c "," s
-        }
-      }
-    ' <<<"$keymap"
-  )
-}
-
-lookup_keycode_cached() {
-  printf '%s\n' "${KEYCODE_SYM_MAP[$1]}"
-}
-
-parse_keycodes() {
-  local start end elapsed
-  [[ ${DEBUG:-0} == "1" ]] && start=$(date +%s.%N)
-  while IFS= read -r line; do
-    if [[ $line =~ code:([0-9]+) ]]; then
-      code="${BASH_REMATCH[1]}"
-      if [[ $code == "201" ]]; then
-        echo "${line/SUPER SHIFT,code:201/,COPILOT KEY}"
-      else
-        symbol=$(lookup_keycode_cached "$code" "$XKB_KEYMAP_CACHE")
-        echo "${line/code:${code}/$symbol}"
-      fi
-    elif [[ $line =~ mouse:([0-9]+) ]]; then
-      code="${BASH_REMATCH[1]}"
-
-      case "$code" in
-        272) symbol="LEFT MOUSE BUTTON" ;;
-        273) symbol="RIGHT MOUSE BUTTON" ;;
-        274) symbol="MIDDLE MOUSE BUTTON" ;;
-        *)   symbol="mouse:${code}" ;;
-      esac
-
-      echo "${line/mouse:${code}/$symbol}"
-    else
-      echo "$line"
-    fi
-  done
-
-  if [[ $DEBUG == "1" ]]; then
-    end=$(date +%s.%N)
-    # fall back to awk if bc is missing
-    if command -v bc >/dev/null 2>&1; then
-      elapsed=$(echo "$end - $start" | bc)
-    else
-      elapsed=$(awk -v s="$start" -v e="$end" 'BEGIN{printf "%.6f", (e - s)}')
-    fi
-    echo "[DEBUG] parse_keycodes elapsed: ${elapsed}s" >&2
-  fi
-}
-
-# Fetch dynamic keybindings from Niri.
-#
-# Niri does not expose binds via IPC (yet), so we parse the live config file.
-# Each line of the form `<KEY-CHORD> { <action> "<args>"; }` inside a `binds {}`
-# block is converted into the same comma-separated layout the rest of this
-# script expects: modifiers,key,description,dispatcher,arg
-dynamic_bindings() {
-  local config="$HOME/.config/niri/config.kdl"
-  [[ -f $config ]] || return 0
-
-  # config.kdl is just a list of includes; the actual `binds {}` block lives in
-  # binds.kdl, and the user may add more in user.kdl. Niri merges binds across
-  # all included files, so resolve the top-level includes and scan each one
-  # (plus config.kdl itself, in case binds are ever inlined there).
-  local -a files=("$config")
-  local inc path dir="${config%/*}"
-  while IFS= read -r inc; do
-    path="${inc#*\"}"
-    path="${path%\"*}"
-    path="${path/#\~/$HOME}"
-    [[ $path == ./* ]] && path="$dir/${path#./}"
-    [[ -f $path ]] && files+=("$path")
-  done < <(grep -E '^[[:space:]]*include[[:space:]]+"' "$config")
-
-  awk '
-    FNR == 1 { in_binds = 0; depth = 0 }
-    /^binds\s*\{/ { in_binds = 1; depth = 1; next }
-    in_binds {
-      # Track brace depth so nested blocks (e.g. options on the binding itself)
-      # do not confuse us.
-      n_open = gsub(/\{/, "{")
-      n_close = gsub(/\}/, "}")
-      depth += n_open - n_close
-      if (depth <= 0) { in_binds = 0; next }
-    }
-    !in_binds { next }
-    /hotkey-overlay-title=/ {
-      # Pull "<modifiers>+<key>" left of the first space.
-      key_chord = $1
-      # Extract the hotkey-overlay-title="…" value as the description.
-      title = $0
-      sub(/.*hotkey-overlay-title="/, "", title)
-      sub(/".*/, "", title)
-      # Extract the action: text between the first "{" and "}".
-      action = $0
-      sub(/^[^{]*\{[[:space:]]*/, "", action)
-      sub(/;[[:space:]]*\}.*$/, "", action)
-      # Split modifiers on "+", treat the last token as the key.
-      n = split(key_chord, parts, /\+/)
-      key = parts[n]
-      mods = ""
-      for (i = 1; i < n; i++) {
-        token = toupper(parts[i])
-        if (token == "MOD") token = "SUPER"
-        mods = (mods == "") ? token : mods " " token
-      }
-      # description, dispatcher, arg: only description is meaningful here.
-      printf "%s,%s,%s,,\n", mods, key, title
-    }
-  ' "${files[@]}"
-}
-
-# Hardcoded bindings, like the copy-url extension and such
-static_bindings() {
-    echo "SHIFT ALT,L,Copy URL from Web App,extension,copy-url"
-}
-
-# Parse and format keybindings
-#
-# `awk` does the heavy lifting:
-# - Set the field separator to a comma ','.
-# - Joins the key combination (e.g., "SUPER + Q").
-# - Joins the command that the key executes.
-# - Prints everything in a nicely aligned format.
-parse_bindings() {
-  awk -F, '
-{
-    # Combine the modifier and key (first two fields)
-    key_combo = $1 " + " $2;
-
-    # Clean up: strip leading "+" if present, trim spaces
-    gsub(/^[ \t]*\+?[ \t]*/, "", key_combo);
-    gsub(/[ \t]+$/, "", key_combo);
-
-    # Use description, if set
-    action = $3;
-
-    if (action == "") {
-        # Reconstruct the command from the remaining fields
-        for (i = 4; i <= NF; i++) {
-            action = action $i (i < NF ? "," : "");
-        }
-
-        # Clean up trailing commas, remove leading "exec, ", and trim
-        sub(/,$/, "", action);
-        gsub(/(^|,)[[:space:]]*exec[[:space:]]*,?/, "", action);
-        gsub(/^[ \t]+|[ \t]+$/, "", action);
-        gsub(/[ \t]+/, " ", key_combo);  # Collapse multiple spaces to one
-    }
-
-    if (action != "") {
-        if (!(action in seen)) {
-            seen[action] = 1;
-            order[++count] = action;
-            combos[action] = key_combo;
-        } else if (index(" / " combos[action] " / ", " / " key_combo " / ") == 0) {
-            if (length(key_combo) < length(combos[action])) {
-                combos[action] = key_combo " / " combos[action];
-            } else {
-                combos[action] = combos[action] " / " key_combo;
-            }
-        }
-    }
-}
-END {
-    for (i = 1; i <= count; i++) {
-        action = order[i];
-        printf "%-25s  →  %s\n", combos[action], action;
-    }
-}'
-}
-
-prioritize_entries() {
-  awk '
-  {
-    line = $0
-    prio = 50
-    if (match(line, /Terminal/)) prio = 0
-    if (match(line, /Herdr/)) prio = 1
-    if (match(line, /Browser/) && !match(line, /Browser[[:space:]]*\(/) && !match(line, /SUPER SHIFT.*\+.*B.*→.*Browser/)) prio = 2
-    if (match(line, /File manager/) && !match(line, /File manager \(cwd\)/))  prio = 3
-    if (match(line, /Launch apps/))  prio = 4
-    if (match(line, /Monarch menu/))  prio = 5
-    if (match(line, /System menu/))  prio = 6
-    if (match(line, /Theme menu/))  prio = 7
-    if (match(line, /Full screen/))  prio = 8
-    if (match(line, /Full width/))  prio = 9
-    if (match(line, /Close window/))  prio = 10
-    if (match(line, /Close all windows/))  prio = 11
-    if (match(line, /Lock system/))  prio = 12
-    if (match(line, /Toggle window floating/))  prio = 13
-    if (match(line, /Toggle window split/))  prio = 14
-    if (match(line, /Pop window/))  prio = 15
-    if (match(line, /Universal/))  prio = 16
-    if (match(line, /Clipboard/))  prio = 17
-    if (match(line, /Audio controls/))  prio = 18
-    if (match(line, /Bluetooth controls/))  prio = 19
-    if (match(line, /Wifi controls/))  prio = 20
-    if (match(line, /Emoji picker/))  prio = 21
-    if (match(line, /Color picker/))  prio = 22
-    if (match(line, /Screenshot/))  prio = 23
-    if (match(line, /Screenrecording/))  prio = 24
-    if (match(line, /SUPER SHIFT.*\+.*B.*→.*Browser/)) prio = 25
-    if (match(line, /File manager \(cwd\)/))  prio = 26
-    if (match(line, /(Switch|Next|Former|Previous).*workspace/))  prio = 27
-    if (match(line, /Move window to workspace/))  prio = 28
-    if (match(line, /Move window silently to workspace/))  prio = 29
-    if (match(line, /Swap window/))  prio = 30
-    if (match(line, /Focus/))  prio = 31
-    if (match(line, /Move window$/))  prio = 32
-    if (match(line, /Resize window/))  prio = 33
-    if (match(line, /Expand window/))  prio = 34
-    if (match(line, /Shrink window/))  prio = 35
-    if (match(line, /scratchpad/))  prio = 36
-    if (match(line, /notification/))  prio = 37
-    if (match(line, /Toggle window transparency/))  prio = 38
-    if (match(line, /Toggle workspace gaps/))  prio = 39
-    if (match(line, /Toggle nightlight/))  prio = 40
-    if (match(line, /Toggle locking/))  prio = 41
-    if (match(line, /group/))  prio = 94
-    if (match(line, /Scroll active workspace/))  prio = 95
-    if (match(line, /Cycle to/))  prio = 96
-    if (match(line, /Reveal active/))  prio = 97
-    if (match(line, /Apple Display/))  prio = 98
-    if (match(line, /XF86/))  prio = 99
-
-    # print "priority<TAB>line"
-    printf "%d\t%s\n", prio, line
-  }' |
-  sort -k1,1n -k2,2 |
-  cut -f2-
+# Hyprland reports the modifier mask as a bit set.
+modifier_names() {
+  local mask=$1 out=()
+  ((mask & 64)) && out+=(SUPER)
+  ((mask & 8)) && out+=(ALT)
+  ((mask & 4)) && out+=(CTRL)
+  ((mask & 1)) && out+=(SHIFT)
+  local IFS=' '
+  echo "${out[*]}"
 }
 
 output_keybindings() {
-  build_keymap_cache
-
-  {
-    dynamic_bindings
-    static_bindings
-  } |
-    sort -u |
-    parse_keycodes |
-    parse_bindings |
-    prioritize_entries
+  local rows mask key description mods shortcut
+  rows=$(hyprctl binds -j 2>/dev/null | jq -r '
+    .[] | select((.description // "") != "")
+    | [(.modmask // 0), (.key // .keycode // ""), .description] | @tsv') || return 1
+  while IFS=$'\t' read -r mask key description; do
+    [[ -n $description ]] || continue
+    mods=$(modifier_names "$mask")
+    shortcut="${mods:+$mods + }$key"
+    printf '%s  →  %s\n' "$shortcut" "$description"
+  done <<<"$rows" | sort -u
 }
 
 output_keybindings_json() {
@@ -282,21 +40,20 @@ output_keybindings_json() {
     | map(
         capture("^(?<shortcut>.*?)  →  (?<label>.*)$")?
         | select(.)
-        | .shortcut |= sub("[[:space:]]+$"; "")
         | . + {searchText: (.label + " " + .shortcut)}
       )
   '
 }
 
 case ${1:-} in
-  --print|-p)
+  --print | -p)
     output_keybindings
     ;;
   --json)
     output_keybindings_json
     ;;
   "")
-    noctalia msg panel-toggle monarch/menu:keybindings '{"kind":"niri"}'
+    output_keybindings | walker --dmenu --placeholder "Key bindings" >/dev/null
     ;;
   *)
     echo "Usage: monarch-menu-keybindings [--print|--json]" >&2
