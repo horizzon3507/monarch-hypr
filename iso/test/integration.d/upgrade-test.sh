@@ -24,16 +24,16 @@ session_environment='
   export XDG_RUNTIME_DIR=/run/user/$(id -u)
   export DBUS_SESSION_BUS_ADDRESS=unix:path=$XDG_RUNTIME_DIR/bus
   export WAYLAND_DISPLAY=$(systemctl --user show-environment | sed -n "s/^WAYLAND_DISPLAY=//p" | head -n1)
-  export NIRI_SOCKET=$(monarch-hw-niri-socket 2>/dev/null)'
+  export HYPRLAND_INSTANCE_SIGNATURE=$(ls -t "$XDG_RUNTIME_DIR"/hypr 2>/dev/null | head -n1)'
 
 desktop_ready() {
   local command="
     while true; do
       $session_environment
       "'
-      if [[ -n $NIRI_SOCKET && -n $WAYLAND_DISPLAY ]] &&
-        niri msg --json outputs | jq -e "length > 0" &&
-        noctalia msg status && noctalia config validate; then
+      if [[ -n $HYPRLAND_INSTANCE_SIGNATURE && -n $WAYLAND_DISPLAY ]] &&
+        hyprctl monitors -j | jq -e "length > 0" &&
+        pgrep -u "$(id -u)" -x quickshell >/dev/null; then
         exit 0
       fi
       sleep 2
@@ -48,7 +48,7 @@ desktop_shot() {
   local directory command
   directory=$(ssh_guest 'mktemp -d /tmp/monarch-upgrade-shot.XXXXXX')
   command="$session_environment
-    niri msg action screenshot-screen --path $(printf %q "$directory/screen.png")
+    grim $(printf %q "$directory/screen.png")
     for ((i=0; i<50; i++)); do
       test -s $(printf %q "$directory/screen.png") && exit 0
       sleep 0.1
@@ -75,13 +75,13 @@ ssh_guest 'pacman -Q' >"$RUN_DIR/packages-before.txt"
 # -y does not supply a sudo password: avoid confusing authentication with the
 # reboot-confirmation regression, even when the updater invalidates its cache.
 ssh_sudo "mkdir -p /etc/sddm.conf.d
-  printf '%s\n' '[Autologin]' 'User=$GUEST_USER' 'Session=niri.desktop' 'Relogin=false' > /etc/sddm.conf.d/98-monarch-upgrade-test.conf
+  printf '%s\n' '[Autologin]' 'User=$GUEST_USER' 'Session=monarch.desktop' 'Relogin=false' > /etc/sddm.conf.d/98-monarch-upgrade-test.conf
   printf '%s\n' 'Defaults:$GUEST_USER verifypw=never' '$GUEST_USER ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/99-monarch-upgrade-test
   chmod 0440 /etc/sudoers.d/99-monarch-upgrade-test
   visudo -cf /etc/sudoers.d/99-monarch-upgrade-test && systemctl restart sddm"
 if ! desktop_ready before; then
   diagnostics desktop-before
-  echo "The initial Niri/Noctalia session did not become ready" >&2
+  echo "The initial Hyprland/Quickshell session did not become ready" >&2
   exit 1
 fi
 desktop_shot before
@@ -135,7 +135,7 @@ ssh_guest 'systemctl --failed --no-legend --plain' >"$RUN_DIR/failed-units.txt"
 check "No system units failed after the upgrade" test ! -s "$RUN_DIR/failed-units.txt"
 if ! desktop_ready after; then
   diagnostics desktop-after
-  echo "The upgraded Niri/Noctalia session did not become ready" >&2
+  echo "The upgraded Hyprland/Quickshell session did not become ready" >&2
   exit 1
 fi
 ssh_sudo 'journalctl -b --no-pager' >"$RUN_DIR/journal.log"
