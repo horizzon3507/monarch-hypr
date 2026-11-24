@@ -114,6 +114,19 @@ g "monarch restart shell" ssh_guest 'u=$(id -u); export XDG_RUNTIME_DIR=/run/use
 sleep 10
 g "after restart" ssh_guest 'pgrep -a "hyprpaper|quickshell|mako|swayosd|hypridle" || echo none'
 capture_console "success-after-shell-restart"
+# Night light (hyprsunset), only when the installed system has the package.
+if ssh_guest 'pacman -Q hyprsunset' >/dev/null 2>&1; then
+  g "hyprsunset package" ssh_guest 'pacman -Q hyprsunset; hyprsunset --version 2>&1 | head -2'
+  NL='u=$(id -u); export XDG_RUNTIME_DIR=/run/user/$u; export HYPRLAND_INSTANCE_SIGNATURE=$(ls "$XDG_RUNTIME_DIR/hypr" 2>/dev/null | head -1)'
+  g "nightlight toggle (monarch) on" ssh_guest "$NL; timeout 40 monarch toggle nightlight 2>&1 | tail -5; sleep 3; pgrep -a hyprsunset || echo 'hyprsunset not running'"
+  g "nightlight status after on" ssh_guest "$NL; timeout 20 hyprctl hyprsunset identity get 2>&1 | head -3; systemctl --user status --no-pager 2>&1 | grep -i hyprsunset | head -3"
+  capture_console "success-nightlight-on"
+  g "nightlight toggle off" ssh_guest "$NL; timeout 40 monarch toggle nightlight 2>&1 | tail -5; sleep 2; timeout 20 hyprctl hyprsunset identity get 2>&1 | head -3"
+  capture_console "success-nightlight-off"
+  g "nightlight raw IPC (4000, identity true, get)" ssh_guest "$NL; hyprctl hyprsunset temperature 4000 2>&1; hyprctl hyprsunset identity get 2>&1; hyprctl hyprsunset identity true 2>&1; hyprctl hyprsunset identity get 2>&1"
+else
+  note "nightlight: hyprsunset not installed on this ISO, check skipped"
+fi
 ssh_sudo 'journalctl -b --no-pager' >"$OUT/journal-cold-boot.log" 2>/dev/null
 g "journal: sddm/uwsm/hyprland/quickshell (last 60)" bash -c "grep -iE 'sddm|uwsm|hyprland|quickshell' '$OUT/journal-cold-boot.log' | tail -60"
 note "RESULT: install, reboot and cold boot reached SSH. Read report.txt and the screenshots for the session outcome; no desktop claim is made by this script."
