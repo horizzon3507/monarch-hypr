@@ -216,3 +216,4 @@ test/shell.d/menu-panel-rows-test.sh	desktop-shell	medium	isolated
 test/shell.d/retire-routes-test.sh	desktop-shell	medium	isolated
 test/shell.d/toggle-idle-inhibitor-test.sh	desktop-shell	medium	isolated
 test/shell.d/menu-provider-leaf-test.sh	desktop-shell	medium	isolated
+test/shell.d/theme-apply-first-boot-wallpaper-test.sh	desktop-shell	medium	isolated
