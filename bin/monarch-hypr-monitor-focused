@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# monarch:summary=Print the name of the currently focused Hyprland monitor.
+# monarch:hidden=true
+
+hyprctl monitors -j 2>/dev/null | jq -r '.[] | select(.focused) | .name' | head -n1

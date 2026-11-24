@@ -15,7 +15,7 @@ fail() {
 }
 
 export PATH="$TMP/bin:$ROOT/bin:/usr/bin"
-export NIRI_CALLS="$TMP/niri-calls" MIRROR_CALLS="$TMP/mirror-calls"
+export HYPR_CALLS="$TMP/hypr-calls" MIRROR_CALLS="$TMP/mirror-calls"
 export OUTPUTS_JSON="$TMP/outputs.json" FOCUSED=LVDS-1
 
 for connector in eDP-1 LVDS-1 DSI-1; do
@@ -75,14 +75,22 @@ write_connectors DSI-1 connected HDMI-A-1 disconnected
 has_external_monitor && fail "a disconnected HDMI output must not count"
 pass "disconnected external outputs are ignored"
 
-cat >"$TMP/bin/niri" <<'STUB'
+cat >"$TMP/bin/hyprctl" <<'STUB'
 #!/bin/bash
-printf '%s\n' "$*" >>"$NIRI_CALLS"
-if [[ $* == "msg --json outputs" ]]; then
+printf '%s\n' "$*" >>"$HYPR_CALLS"
+if [[ $* == "monitors all -j" || $* == "monitors -j" ]]; then
   cat "$OUTPUTS_JSON"
-elif [[ $* == "msg --json focused-output" ]]; then
-  printf '{"name":"%s"}\n' "$FOCUSED"
 fi
+STUB
+
+cat >"$TMP/bin/monarch-hypr-output-set" <<'STUB'
+#!/bin/bash
+printf 'output-set %s\n' "$*" >>"$HYPR_CALLS"
+STUB
+
+cat >"$TMP/bin/monarch-hypr-monitor-focused" <<'STUB'
+#!/bin/bash
+printf '%s\n' "$FOCUSED"
 STUB
 
 cat >"$TMP/bin/notify-send" <<'STUB'
@@ -108,20 +116,20 @@ STUB
 chmod +x "$TMP"/bin/*
 
 write_outputs() {
-  printf '{"%s":{"current_mode":0},"%s":{"current_mode":0}}\n' \
+  printf '[{"name":"%s","disabled":false,"focused":true},{"name":"%s","disabled":false,"focused":false}]\n' \
     "$1" "$2" >"$OUTPUTS_JSON"
 }
 
 write_outputs LVDS-1 HDMI-A-1
-: >"$NIRI_CALLS"
-"$ROOT/bin/monarch-niri-monitor-internal" on
-grep -Fxq 'msg output LVDS-1 on' "$NIRI_CALLS" ||
+: >"$HYPR_CALLS"
+"$ROOT/bin/monarch-hypr-monitor-internal" on
+grep -Fxq 'output-set LVDS-1 power on' "$HYPR_CALLS" ||
   fail "the laptop-display toggle must select LVDS-1"
 pass "the laptop-display toggle selects an LVDS panel"
 
 write_outputs DSI-1 HDMI-A-1
 : >"$MIRROR_CALLS"
-"$ROOT/bin/monarch-niri-monitor-internal-mirror" on all
+"$ROOT/bin/monarch-hypr-monitor-internal-mirror" on all
 for _ in {1..20}; do
   [[ -s $MIRROR_CALLS ]] && break
   sleep 0.01
@@ -131,7 +139,7 @@ grep -Fxq 'uwsm-app -- wl-mirror --fullscreen-output HDMI-A-1 DSI-1' "$MIRROR_CA
 pass "mirroring separates a DSI panel from its external target"
 
 : >"$MIRROR_CALLS"
-FOCUSED=DSI-1 "$ROOT/bin/monarch-niri-monitor-internal-mirror" on single
+FOCUSED=DSI-1 "$ROOT/bin/monarch-hypr-monitor-internal-mirror" on single
 for _ in {1..20}; do
   [[ -s $MIRROR_CALLS ]] && break
   sleep 0.01

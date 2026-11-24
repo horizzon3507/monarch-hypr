@@ -1,0 +1,38 @@
+#!/bin/bash
+
+# monarch:summary=Print the instance signature of the running Hyprland, repairing a stale HYPRLAND_INSTANCE_SIGNATURE
+# monarch:group=hw
+# monarch:hidden=true
+
+# uwsm finalizes HYPRLAND_INSTANCE_SIGNATURE into the systemd user environment, so
+# most things inherit a working one; this repairs the value a Hyprland restart
+# left behind, and supplies one where nothing set it at all (an ssh session, a
+# systemd unit). Callers: export HYPRLAND_INSTANCE_SIGNATURE=$(monarch-hw-hypr-instance)
+
+set -uo pipefail
+
+RUNTIME="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/hypr"
+
+instance_live() {
+  local signature=$1 pid
+  [[ -n $signature && -S $RUNTIME/$signature/.socket.sock ]] || return 1
+  pid=$(sed -n 's/^.*PID:[[:space:]]*\([0-9]*\).*$/\1/p' "$RUNTIME/$signature/hyprland.lock" 2>/dev/null | head -n1)
+  [[ -z $pid ]] && pid=$(sed -n '1p' "$RUNTIME/$signature/hyprland.lock" 2>/dev/null)
+  [[ $pid =~ ^[0-9]+$ && -r /proc/$pid/comm && $(<"/proc/$pid/comm") == Hyprland ]]
+}
+
+if instance_live "${HYPRLAND_INSTANCE_SIGNATURE:-}"; then
+  printf '%s\n' "$HYPRLAND_INSTANCE_SIGNATURE"
+  exit 0
+fi
+
+# printf and not ls: ls is an eza alias on a Monarch desktop.
+for dir in $(printf '%s\n' "$RUNTIME"/*/ 2>/dev/null); do
+  signature=$(basename -- "$dir")
+  if instance_live "$signature"; then
+    printf '%s\n' "$signature"
+    exit 0
+  fi
+done
+
+exit 1

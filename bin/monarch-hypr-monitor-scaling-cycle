@@ -8,16 +8,16 @@ set -uo pipefail
 # Cycle order; reverse with --reverse.
 SCALES=(1 1.25 1.6 2 3 4)
 
-info=$(niri msg --json focused-output 2>/dev/null)
+info=$(hyprctl monitors -j 2>/dev/null | jq -c '[.[] | select(.focused)][0] // {}')
 focused=$(jq -r '.name // empty' <<<"$info")
-current=$(jq -r '.logical.scale // empty' <<<"$info")
+current=$(jq -r '.scale // empty' <<<"$info")
 
 if [[ -z $focused ]]; then
   notify-send -u low "󰍹    No focused output"
   exit 1
 fi
 
-# Find the cycle index closest to the current scale: niri (like Hyprland) may
+# Find the cycle index closest to the current scale: Hyprland may
 # report a fractional scale that does not equal a list entry exactly.
 idx=$(awk -v s="${current:-1}" -v list="${SCALES[*]}" 'BEGIN {
   n = split(list, a, " "); best = 0; bestd = 1e9

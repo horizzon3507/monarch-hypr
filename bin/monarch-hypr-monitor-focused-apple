@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# monarch:summary=Return success if the focused Hyprland monitor is an Apple display.
+# monarch:hidden=true
+
+hyprctl monitors -j 2>/dev/null | \
+  jq -e '.[] | select(.focused and (.make // "" | test("Apple")) and (.model // "" | test("StudioDisplay|Studio Display|ProDisplayXDR|Pro Display XDR|Studio XDR")))' >/dev/null

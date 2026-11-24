@@ -5,9 +5,8 @@
 # monarch:args=[--list] [<output> [<percent>]]
 # monarch:examples=monarch display brightness --list | monarch display brightness eDP-1 60
 
-# Noctalia owns every brightness write and never prints what it holds: its IPC
-# has brightness-set, -up, -down and no get. So this reads the two sources it
-# reads, and hands the writing back to it.
+# Reads come from sysfs (backlight) or DDC/CI (ddcutil); writes go through
+# brightnessctl for a backlight and ddcutil setvcp for an external monitor.
 
 set -uo pipefail
 
@@ -43,7 +42,7 @@ internal_output() {
   return 1
 }
 
-# Noctalia's own rule: exact DRM match first, raw over platform over firmware,
+# The rule: exact DRM match first, raw over platform over firmware,
 # nvidia and acpi_video losing ties. Wrong here drives the panel that is not lit.
 type_rank() {
   case $1 in
@@ -213,12 +212,29 @@ set_brightness() {
     exit 1
   fi
 
-  if ! out=$(noctalia msg brightness-set "$connector" "$percent" 2>&1); then
-    printf '%s\n' "${out:-Could not set the brightness on $connector}" >&2
-    exit 1
+  local device max bus value
+  local backend_done=false
+  while IFS=$'\t' read -r conn device max _; do
+    [[ $conn == "$connector" ]] || continue
+    if ! out=$(brightnessctl -q -d "${device##*/}" set "${percent}%" 2>&1); then
+      printf '%s\n' "${out:-Could not set the brightness on $connector}" >&2
+      exit 1
+    fi
+    backend_done=true
+    break
+  done < <(backlight_candidates)
+  if [[ $backend_done == false ]]; then
+    if ! IFS=$'\t' read -r bus value < <(ddc_read "$connector") || [[ -z ${bus:-} ]]; then
+      echo "Error: no brightness control for $connector" >&2
+      exit 1
+    fi
+    if ! out=$(ddcutil --bus "$bus" --skip-ddc-checks setvcp 10 "$percent" 2>&1); then
+      printf '%s\n' "${out:-Could not set the brightness on $connector}" >&2
+      exit 1
+    fi
   fi
 
-  # Beats a cached read of a slow bus, and one Noctalia may not have written yet.
+  # Beats a cached read of a slow bus.
   local file
   file=$(ddc_cache_file "$connector")
   if [[ -r $file ]]; then

@@ -9,7 +9,7 @@ internal_output() {
     monarch-hw-display-internal "$output" || continue
     printf '%s\n' "$output"
     return
-  done < <(niri msg --json outputs 2>/dev/null | jq -r 'to_entries[].key')
+  done < <(hyprctl monitors all -j 2>/dev/null | jq -r '.[].name')
   return 1
 }
 
@@ -20,13 +20,13 @@ if [[ -z $INTERNAL ]]; then
   exit 1
 fi
 
-# current_mode is null while the output is disabled (niri IPC).
+# `monitors all` also lists disabled outputs, flagged with .disabled.
 is_on() {
-  niri msg --json outputs 2>/dev/null | jq -e --arg m "$INTERNAL" '.[$m].current_mode != null' >/dev/null
+  hyprctl monitors all -j 2>/dev/null | jq -e --arg m "$INTERNAL" '.[] | select(.name == $m) | .disabled == false' >/dev/null
 }
 
 enable() {
-  niri msg output "$INTERNAL" on >/dev/null 2>&1
+  monarch-hypr-output-set "$INTERNAL" power on >/dev/null 2>&1
   notify-send -u low "󰍹    Laptop display enabled"
 }
 
@@ -35,7 +35,7 @@ disable() {
     notify-send -u low "󰍹    Can't disable the only active display"
     exit 1
   fi
-  niri msg output "$INTERNAL" off >/dev/null 2>&1
+  monarch-hypr-output-set "$INTERNAL" power off >/dev/null 2>&1
   notify-send -u low "󰍹    Laptop display disabled"
 }
 
