@@ -89,7 +89,6 @@ FloatingWindow {
   id: w; visible: true; implicitWidth: 300; implicitHeight: 200; color: "#223344"
   Item { anchors.fill: parent; focus: true; Component.onCompleted: forceActiveFocus()
     Keys.onPressed: function(e) { console.log("RXKEY " + e.key + " text=" + e.text) } }
-  onActiveChanged: console.log("RXWIN active=" + w.active)
 }
 QML
 QT_QPA_PLATFORM=wayland quickshell --path /tmp/rx > "$OUT/rx.log" 2>&1 &
@@ -110,5 +109,7 @@ export MONARCH_SHELL_DIR="$ROOT/dbg/quickshell"; export PATH="$ROOT/cand/bin:$PA
 QT_QPA_PLATFORM=wayland quickshell --path "$MONARCH_SHELL_DIR" > "$OUT/quickshell-dbg.log" 2>&1 &
 sleep 8
 for i in 1 2 3; do openp; timeout 5 wtype -k Escape; sleep 1.5; say "G$i debug host open+Escape(no click): active after='$(active)'"; [[ -n $(active) ]] && timeout 5 monarch-panel close >/dev/null 2>&1; sleep 1; done
+for i in 1 2 3 4 5; do openp; timeout 5 wtype -k shift; sleep 0.7; timeout 5 wtype -k Escape; sleep 1.5; say "H$i debug host open+warmup key+Escape(no click): active after='$(active)'"; [[ -n $(active) ]] && timeout 5 monarch-panel close >/dev/null 2>&1; sleep 1; done
+say "PANELDBG key lines total: $(sed 's/\x1b\[[0-9;]*m//g' "$OUT/quickshell-dbg.log" | grep -ci 'PANELDBG.*key\|escape received')"
 grep PANELDBG "$OUT/quickshell-dbg.log" | sed 's/\x1b\[[0-9;]*m//g' | head -30 | tee -a "$res"
 kill $HPID 2>/dev/null; sleep 1; echo done
