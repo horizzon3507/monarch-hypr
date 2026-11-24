@@ -66,10 +66,6 @@ jobs:
           cd iso
           status=0
           for t in test/unit/*-test.sh; do
-            case "$t" in
-              # Noctalia-specific; retired together with the Noctalia shell.
-              */noctalia-plugin-activation-test.sh) continue ;;
-            esac
             echo "== $t"
             bash "$t" || { echo "::error::FAILED $t"; status=1; }
           done
