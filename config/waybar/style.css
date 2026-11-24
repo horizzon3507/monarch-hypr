@@ -1,0 +1,35 @@
+@import "../monarch/current/theme/waybar.css";
+
+* {
+  background-color: @background;
+  color: @foreground;
+  border: none;
+  border-radius: 0;
+  min-height: 0;
+  font-family: monospace;
+  font-size: 12px;
+}
+
+.modules-left { margin-left: 8px; }
+.modules-right { margin-right: 8px; }
+
+#workspaces button { all: initial; padding: 0 6px; margin: 0 1.5px; min-width: 9px; }
+#workspaces button.empty { opacity: 0.5; }
+#workspaces button.active { color: @accent; }
+
+#cpu, #battery, #pulseaudio, #custom-idle, #custom-nightlight, #custom-notifications {
+  min-width: 12px;
+  margin: 0 7.5px;
+}
+#custom-idle, #custom-nightlight, #custom-notifications { color: @accent; }
+#custom-idle.disabled, #custom-nightlight.disabled, #custom-notifications.disabled { opacity: 0.4; }
+#battery.warning { color: #e0af68; }
+#battery.critical { color: #f7768e; }
+
+#tray { margin-right: 16px; }
+#bluetooth { margin-right: 17px; }
+#network { margin-right: 13px; }
+#clock { margin-left: 8.75px; }
+
+tooltip { padding: 2px; }
+tooltip label { color: @foreground; }
