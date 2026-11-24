@@ -165,6 +165,20 @@ pass "a new code prunes the previous PNG"
 [[ $png != "$stale" ]] || fail "a new code takes a fresh filename" "reused: $png"
 pass "a new code takes a fresh filename"
 
+# ── The Quickshell panel's data line: nothing is written to disk ────────────
+
+rm -f "$QR_PAYLOAD_FILE"
+before=$(find "$XDG_RUNTIME_DIR" -type f 2>/dev/null | sort)
+meta=$(run_qr $'Cafe Detected\nwpa-psk\nsecret\nno\n' --data)
+IFS=$'\t' read -r tag device security image ssid <<<"$meta"
+assert_equals "the data line leads with the tag and names the interface" "$tag $device $security" "meta wlan0 WPA"
+assert_equals "the data line ends with the SSID" "$ssid" "Cafe Detected"
+[[ $image == data:image/png\;base64,* ]] || fail "the image is a PNG data URI" "actual: ${image:0:40}"
+assert_equals "the data URI decodes to qrencode's output" "$(base64 -d <<<"${image#data:image/png;base64,}")" "QR"
+assert_equals "the payload reaches qrencode over the pipe" "$(<"$QR_PAYLOAD_FILE")" \
+  'WIFI:T:WPA;S:Cafe Detected;P:secret;;'
+assert_equals "--data writes no file" "$(find "$XDG_RUNTIME_DIR" -type f 2>/dev/null | sort)" "$before"
+
 # ── What cannot be shared ────────────────────────────────────────────────────
 
 rm -f "$QR_PAYLOAD_FILE"
