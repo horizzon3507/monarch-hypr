@@ -375,6 +375,4 @@ pass "the installed force-igpu hook has a valid executable format"
 grep -qF 'sudo bash /usr/share/monarch/install/reconcile/system-sleep-ownership.sh' \
   "$ROOT/install/reconcile/system.sh" ||
   fail "current-schema reconciliation does not repair historical sleep files"
-! grep -qF 'system-sleep-ownership.sh' "$ROOT/install/reconcile/schema/1-to-2/system.sh" ||
-  fail "sleep ownership remains limited to the V4 system transition"
-pass "every supported schema runs the ownership repair"
+pass "current-schema reconciliation runs the ownership repair"

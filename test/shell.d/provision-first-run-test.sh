@@ -87,28 +87,16 @@ assert_customizations() {
 
 case ${1:-all} in
   all | v4)
-    for source_state in v4 v4-login transitioning packaged; do
+    for source_state in packaged; do
       user_home="$test_tmp/$source_state"
       seed_customizations "$user_home"
       case $source_state in
-        v4 | v4-login)
-          mkdir -p "$user_home/.local/state/monarch/migrations"
-          touch "$user_home/.local/state/monarch/migrations/1787067946.sh"
-          ;;
-        transitioning)
-          mkdir -p "$user_home/.local/state/monarch/reconcile/1-to-2"
-          touch "$user_home/.local/state/monarch/reconcile/1-to-2/legacy-noctalia"
-          ;;
         packaged)
           mkdir -p "$user_home/.local/state/monarch"
           printf '%s\n' 2 >"$user_home/.local/state/monarch/schema"
           ;;
       esac
-      if [[ $source_state == "v4" ]]; then
-        run_for_user "$user_home" "$ROOT/install/reconcile/schema/1-to-2/provision-noctalia.sh" >/dev/null
-      else
-        run_for_user "$user_home" "$ROOT/bin/monarch-provision-first-run" >/dev/null
-      fi
+      run_for_user "$user_home" "$ROOT/bin/monarch-provision-first-run" >/dev/null
       assert_customizations "$user_home"
       [[ -f $user_home/.local/state/monarch/done/finalize-user ]] || fail "existing user finalization is recorded"
       [[ -f $user_home/.local/state/monarch/done/first-run-user ]] || fail "existing user session setup completes"

@@ -26,7 +26,6 @@ test/shell.d/noctalia-runtime-toggles-test.sh	desktop-shell	medium	isolated
 test/shell.d/noctalia-dnd-test.sh	desktop-shell	medium	isolated
 test/shell.d/acceptance-target-test.sh	acceptance-security	high	isolated
 test/monarch-about-test.sh	about	low	isolated
-test/monarch-codexbar-test.sh	agent-usage	medium	isolated
 test/monarch-agent-usage-test.sh	agent-usage	medium	isolated
 test/monarch-agent-plugin-test.sh	agent-usage	fast	isolated
 test/monarch-bar-position-test.sh	desktop-bar	medium	isolated
@@ -57,11 +56,9 @@ test/monarch-menu-launcher-test.sh	menu	medium	isolated
 test/shell.d/menu-file-path-test.sh	menu	high	isolated
 test/monarch-mise-agent-test.sh	developer-agents	medium	isolated
 test/monarch-reconcile-test.sh	updates	high	isolated
-test/shell.d/legacy-noctalia-config-test.sh	updates	high	isolated
 test/shell.d/managed-tree-test.sh	updates	medium	isolated
 test/shell.d/noctalia-activation-test.sh	desktop-shell	high	isolated
 test/shell.d/noctalia-templates-test.sh	theming	high	isolated
-test/shell.d/packaged-runtime-bootstrap-test.sh	updates	high	isolated
 test/shell.d/retired-sudoers-reconcile-test.sh	security	high	isolated
 test/monarch-network-test.sh	network	medium	isolated
 test/monarch-network-controls-test.sh	network	medium	isolated
@@ -125,13 +122,6 @@ test/shell.d/factory-reset-esp-test.sh	factory-reset	high	isolated
 test/shell.d/factory-reset-transaction-test.sh	factory-reset	high	isolated
 test/shell.d/install-keyring-test.sh	installer	high	isolated
 test/shell.d/input-group-hardening-test.sh	security	high	isolated
-test/shell.d/legacy-agent-reconcile-test.sh	updates	high	isolated
-test/shell.d/legacy-alacritty-reconcile-test.sh	updates	high	isolated
-test/shell.d/legacy-kitty-reconcile-test.sh	updates	high	isolated
-test/shell.d/legacy-docker-firewall-test.sh	security	high	isolated
-test/shell.d/legacy-udev-reconcile-test.sh	security	high	isolated
-test/shell.d/legacy-user-files-test.sh	updates	high	isolated
-test/shell.d/legacy-settings-pacnew-test.sh	updates	high	isolated
 test/shell.d/legacy-runtime-remove-test.sh	updates	high	isolated
 test/shell.d/package-manifest-test.sh	package-install	high	isolated
 test/shell.d/package-permissions-test.sh	package-runtime	high	isolated

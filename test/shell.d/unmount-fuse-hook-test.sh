@@ -184,41 +184,6 @@ if fail.exists() and name in fail.read_text().split():
     assert len(scheduled(records)) == 2
     print('PASS: resume closes its pipes promptly; no background sleep or user-manager call')
 
-    system_root = tmp / 'system-root'
-    legacy_hook = system_root / 'usr/lib/systemd/system-sleep/unmount-fuse'
-    legacy_hook.parent.mkdir(parents=True)
-    legacy_hook.write_text('legacy')
-    owned = tmp / 'owned'
-    pacman = mocks / 'pacman'
-    pacman.write_text(recorder + f'''
-if sys.argv[1] == '-Qo':
-    sys.exit(0 if Path({str(owned)!r}).exists() else 1)
-''')
-    pacman.chmod(0o755)
-    sudo = mocks / 'sudo'
-    sudo.write_text('#!/bin/bash\nexec "$@"\n')
-    sudo.chmod(0o755)
-    fail_file.write_text('')
-    calls.write_text('')
-    bootstrap = root / 'install/reconcile/packaged-runtime-bootstrap.sh'
-    command = ['/bin/bash', '-c', 'source "$1"; monarch_install_packaged_runtime true',
-               '_', str(bootstrap)]
-    env = dict(os.environ, PATH=f'{mocks}:/usr/bin:/bin',
-               MONARCH_LEGACY_SYSTEM_ROOT=str(system_root))
-    completed = subprocess.run(command, env=env, capture_output=True, text=True, timeout=3)
-    assert completed.returncode == 0, completed.stderr
-    records = [json.loads(line) for line in calls.read_text().splitlines()]
-    assert [(name, args) for name, args, _ in records] == [
-        ('pacman', ['-Qo', str(legacy_hook)]),
-        ('pacman', ['-S', '--noconfirm', '--needed', '--overwrite',
-                    'usr/lib/systemd/system-sleep/unmount-fuse', 'monarch'])]
-    owned.touch()
-    calls.write_text('')
-    completed = subprocess.run(command, env=env, capture_output=True, text=True, timeout=3)
-    assert completed.returncode == 1 and 'package-owned legacy path' in completed.stderr
-    records = [json.loads(line) for line in calls.read_text().splitlines()]
-    assert len(records) == 1 and records[0][1][0] == '-Qo'
-    print('PASS: existing bootstrap adopts only the unowned legacy hook and refuses foreign package ownership')
     for sock in sockets:
         sock.close()
 PY
