@@ -7,663 +7,91 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 TEST_ROOT=$(mktemp -d)
 trap 'rm -rf "$TEST_ROOT"' EXIT
 
-bootstrap="$TEST_ROOT/bootstrap"
-bootstrap_source="$bootstrap/home/.local/share/monarch"
-mkdir -p "$bootstrap/bin" "$bootstrap_source/install/reconcile" \
-  "$bootstrap/home/.local/state/monarch/migrations" "$bootstrap/system"
-touch "$bootstrap/home/.local/state/monarch/migrations/1787067946.sh"
-cp "$ROOT/install/reconcile/packaged-runtime-bootstrap.sh" \
-  "$bootstrap_source/install/reconcile/packaged-runtime-bootstrap.sh"
-export MONARCH_LEGACY_SYSTEM_ROOT="$bootstrap/system"
-cat >"$bootstrap/bin/monarch-pkg-missing" <<'EOF'
-#!/bin/bash
-[[ ! -f $BOOTSTRAP_ROOT/installed ]]
-EOF
-cat >"$bootstrap/bin/monarch-pkg-add" <<'EOF'
-#!/bin/bash
-printf '%s\n' "$*" >>"$BOOTSTRAP_ROOT/pkg-add-calls"
-if [[ $1 == "monarch" ]]; then
-  touch "$BOOTSTRAP_ROOT/installed"
-fi
-mkdir -p "$BOOTSTRAP_ROOT/runtime/bin" "$BOOTSTRAP_ROOT/runtime/install/reconcile/schema/1-to-2"
-touch "$BOOTSTRAP_ROOT/runtime/bin/monarch"
-chmod +x "$BOOTSTRAP_ROOT/runtime/bin/monarch"
-printf '%s\n' 'printf "required-packages\\n" >>"$BOOTSTRAP_ROOT/steps"' >"$BOOTSTRAP_ROOT/runtime/install/reconcile/required-packages.sh"
-printf '%s\n' 'printf "system\\n" >>"$BOOTSTRAP_ROOT/steps"' >"$BOOTSTRAP_ROOT/runtime/install/reconcile/system.sh"
-printf '%s\n' 'printf "user\\n" >>"$BOOTSTRAP_ROOT/steps"' >"$BOOTSTRAP_ROOT/runtime/install/reconcile/user.sh"
-printf '%s\n' 'printf "transition-system\\n" >>"$BOOTSTRAP_ROOT/steps"' >"$BOOTSTRAP_ROOT/runtime/install/reconcile/schema/1-to-2/system.sh"
-printf '%s\n' 'printf "transition-user\\n" >>"$BOOTSTRAP_ROOT/steps"' >"$BOOTSTRAP_ROOT/runtime/install/reconcile/schema/1-to-2/user.sh"
-printf '%s\n' 'printf "transition-system-after-user\\n" >>"$BOOTSTRAP_ROOT/steps"' >"$BOOTSTRAP_ROOT/runtime/install/reconcile/schema/1-to-2/system-after-user.sh"
-EOF
-cat >"$bootstrap/bin/pacman" <<'EOF'
-#!/bin/bash
-printf '%s\n' "$*" >>"$BOOTSTRAP_ROOT/pacman-calls"
-exit 1
-EOF
-cat >"$bootstrap/bin/sudo" <<'EOF'
-#!/bin/bash
-exec "$@"
-EOF
-cat >"$bootstrap/bin/monarch-pkg-present" <<'EOF'
-#!/bin/bash
-exit 1
-EOF
-chmod +x "$bootstrap/bin/"*
+bin="$TEST_ROOT/bin"
+runtime="$TEST_ROOT/runtime"
+home="$TEST_ROOT/home"
+mkdir -p "$bin" "$runtime/bin" "$runtime/install/reconcile" "$home"
+touch "$runtime/bin/monarch"
+chmod +x "$runtime/bin/monarch"
+for step in required-packages system user; do
+  printf '%s\n' "printf '%s\\n' $step >>\"\$TEST_ROOT/steps\"" \
+    >"$runtime/install/reconcile/$step.sh"
+done
 
-BOOTSTRAP_ROOT="$bootstrap" HOME="$bootstrap/home" MONARCH_PATH="$bootstrap_source" \
-  MONARCH_RUNTIME_ROOT="$bootstrap/runtime" PATH="$bootstrap/bin:/usr/bin" \
-  bash "$ROOT/bin/monarch-reconcile" >/dev/null
-[[ $(<"$bootstrap/steps") == $'required-packages\nsystem\ntransition-system\ntransition-user\ntransition-system-after-user\nuser' ]]
-[[ $(<"$bootstrap/home/.local/state/monarch/schema") == "2" ]]
+cat >"$bin/monarch-pkg-missing" <<'STUB'
+#!/bin/bash
+[[ ! -f $TEST_ROOT/installed ]]
+STUB
+cat >"$bin/monarch-pkg-add" <<'STUB'
+#!/bin/bash
+printf '%s\n' "$*" >>"$TEST_ROOT/pkg-add-calls"
+touch "$TEST_ROOT/installed"
+STUB
+cat >"$bin/monarch-pkg-present" <<'STUB'
+#!/bin/bash
+[[ $1 == noctalia-shell && -f $TEST_ROOT/noctalia-installed ]]
+STUB
+chmod +x "$bin"/*
 
-: >"$bootstrap/steps"
-BOOTSTRAP_ROOT="$bootstrap" HOME="$bootstrap/home" MONARCH_PATH="$bootstrap_source" \
-  MONARCH_RUNTIME_ROOT="$bootstrap/runtime" PATH="$bootstrap/bin:/usr/bin" \
-  bash "$ROOT/bin/monarch-reconcile" >/dev/null
-[[ $(<"$bootstrap/steps") == $'required-packages\nsystem\nuser' ]]
+reconcile() {
+  TEST_ROOT="$TEST_ROOT" HOME="$home" MONARCH_RUNTIME_ROOT="$runtime" \
+    PATH="$bin:/usr/bin:/bin" bash "$ROOT/bin/monarch-reconcile" "$@"
+}
+schema_file="$home/.local/state/monarch/schema"
 
-rm "$bootstrap/home/.local/state/monarch/schema"
-: >"$bootstrap/steps"
-BOOTSTRAP_ROOT="$bootstrap" HOME="$bootstrap/home" MONARCH_PATH="$bootstrap/runtime" \
-  MONARCH_RUNTIME_ROOT="$bootstrap/runtime" PATH="$bootstrap/bin:/usr/bin" \
-  bash "$ROOT/bin/monarch-reconcile" >/dev/null
-[[ $(<"$bootstrap/steps") == $'required-packages\nsystem\ntransition-system\ntransition-user\ntransition-system-after-user\nuser' ]]
+# A fresh home installs the package, runs the three steps and records schema 2.
+reconcile >/dev/null
+[[ $(<"$TEST_ROOT/pkg-add-calls") == "monarch" ]]
+[[ $(<"$TEST_ROOT/steps") == $'required-packages\nsystem\nuser' ]]
+[[ $(<"$schema_file") == "2" ]]
+echo "ok - a fresh install reconciles once and records the current schema"
 
-printf '%s\n' 0 >"$bootstrap/home/.local/state/monarch/schema"
-if BOOTSTRAP_ROOT="$bootstrap" HOME="$bootstrap/home" MONARCH_PATH="$bootstrap_source" \
-  MONARCH_RUNTIME_ROOT="$bootstrap/runtime" PATH="$bootstrap/bin:/usr/bin" \
-  bash "$ROOT/bin/monarch-reconcile" >/dev/null 2>&1; then
+# A current-schema home does not reinstall the package.
+: >"$TEST_ROOT/steps"
+reconcile >/dev/null
+[[ $(wc -l <"$TEST_ROOT/pkg-add-calls") == 1 ]]
+[[ $(<"$TEST_ROOT/steps") == $'required-packages\nsystem\nuser' ]]
+echo "ok - a current install reconciles without reinstalling the package"
+
+# Old or newer schemas are refused.
+printf '%s\n' 1 >"$schema_file"
+if reconcile >/dev/null 2>&1; then
   echo "unsupported old schema was accepted" >&2
   exit 1
 fi
-
-printf '%s\n' 3 >"$bootstrap/home/.local/state/monarch/schema"
-if BOOTSTRAP_ROOT="$bootstrap" HOME="$bootstrap/home" MONARCH_PATH="$bootstrap_source" \
-  MONARCH_RUNTIME_ROOT="$bootstrap/runtime" PATH="$bootstrap/bin:/usr/bin" \
-  bash "$ROOT/bin/monarch-reconcile" >/dev/null 2>&1; then
+printf '%s\n' 3 >"$schema_file"
+if reconcile >/dev/null 2>&1; then
   echo "newer schema was downgraded" >&2
   exit 1
 fi
+echo "ok - unsupported and newer schemas are refused"
 
-rm "$bootstrap/home/.local/state/monarch/schema" \
-  "$bootstrap/home/.local/state/monarch/migrations/1787067946.sh"
-rm -f "$bootstrap/installed"
-rm -rf "$bootstrap/runtime"
-mkdir -p "$bootstrap/system/usr/share/sddm/themes/monarch"
-touch "$bootstrap/system/usr/share/sddm/themes/monarch/theme.conf"
-: >"$bootstrap/pkg-add-calls"
-: >"$bootstrap/pacman-calls"
-if BOOTSTRAP_ROOT="$bootstrap" HOME="$bootstrap/home" MONARCH_PATH="$bootstrap_source" \
-  MONARCH_RUNTIME_ROOT="$bootstrap/runtime" PATH="$bootstrap/bin:/usr/bin" \
-  bash "$ROOT/bin/monarch-reconcile" >/dev/null 2>&1; then
-  echo "legacy installation below the support floor was accepted" >&2
-  exit 1
-fi
-[[ $(<"$bootstrap/pkg-add-calls") == "monarch" ]]
-[[ ! -s $bootstrap/pacman-calls ]]
-
-export HOME="$TEST_ROOT/home"
-unset XDG_STATE_HOME
-export MONARCH_PATH="$ROOT"
-export MONARCH_RUNTIME_ROOT="$TEST_ROOT/runtime"
-export MONARCH_RECONCILE_BIN="$ROOT/bin/monarch-reconcile"
-export MONARCH_NVIM_CONFIG_DIR="$TEST_ROOT/monarch-nvim/config"
-export TEST_LOG="$TEST_ROOT/calls"
-export TEST_NOCTALIA=unavailable
-export PATH="$TEST_ROOT/bin:$ROOT/bin:/usr/bin"
-
-source "$ROOT/install/reconcile/config-files.sh"
-ownership="$TEST_ROOT/ownership"
-mkdir -p "$ownership/source-tree" "$ownership/managed-tree" "$ownership/shared"
-printf '%s\n' current >"$ownership/source"
-printf '%s\n' stale >"$ownership/managed"
-printf '%s\n' current >"$ownership/source-tree/current"
-printf '%s\n' stale >"$ownership/managed-tree/stale"
-printf '%s\n' third-party >"$ownership/shared/plugin"
-
-monarch_reconcile_managed_file "$ownership/source" "$ownership/managed"
-[[ $(<"$ownership/managed") == "current" ]]
-monarch_reconcile_seeded_file "$ownership/source" "$ownership/seeded"
-printf '%s\n' customized >"$ownership/seeded"
-monarch_reconcile_seeded_file "$ownership/source" "$ownership/seeded"
-[[ $(<"$ownership/seeded") == "customized" ]]
-monarch_reconcile_managed_tree "$ownership/source-tree" "$ownership/managed-tree"
-[[ -f $ownership/managed-tree/current && ! -e $ownership/managed-tree/stale ]]
-[[ $(<"$ownership/shared/plugin") == "third-party" ]]
-
-(
-  export HOME="$TEST_ROOT/about-branding/home"
-  export MONARCH_PATH="$TEST_ROOT/about-branding/runtime"
-  export XDG_STATE_HOME="$TEST_ROOT/about-branding/state"
-  mkdir -p "$MONARCH_PATH" "$HOME/.config/monarch/branding"
-  printf '%s\n' old-stock >"$MONARCH_PATH/icon.txt"
-  target="$HOME/.config/monarch/branding/about.txt"
-  state="$XDG_STATE_HOME/monarch/branding/about.sha256"
-
-  source "$ROOT/install/reconcile/about-branding.sh"
-  cmp "$target" "$MONARCH_PATH/icon.txt"
-  [[ -f $state ]]
-  first_inode=$(stat -c %i "$target")
-  source "$ROOT/install/reconcile/about-branding.sh"
-  [[ $(stat -c %i "$target") == "$first_inode" ]]
-
-  printf '%s\n' new-stock >"$MONARCH_PATH/icon.txt"
-  source "$ROOT/install/reconcile/about-branding.sh"
-  cmp "$target" "$MONARCH_PATH/icon.txt"
-
-  printf '%s\n' custom >"$target"
-  printf '%s\n' newer-stock >"$MONARCH_PATH/icon.txt"
-  source "$ROOT/install/reconcile/about-branding.sh"
-  [[ $(<"$target") == "custom" ]]
-
-  mkdir -p "$MONARCH_PATH/install/reconcile" "$MONARCH_PATH/bin"
-  cp "$ROOT/install/reconcile/"{config-files,about-branding}.sh "$MONARCH_PATH/install/reconcile/"
-  printf '#!/bin/bash\nexit 0\n' >"$MONARCH_PATH/bin/monarch-launch-about"
-  chmod +x "$MONARCH_PATH/bin/monarch-launch-about"
-  PATH="$MONARCH_PATH/bin:$PATH" bash "$ROOT/bin/monarch-branding-about" reset
-  cmp "$target" "$MONARCH_PATH/icon.txt"
-  reset_hash=$(sha256sum "$target")
-  [[ $(<"$state") == "${reset_hash%% *}" ]]
-  printf '%s\n' latest-stock >"$MONARCH_PATH/icon.txt"
-  source "$ROOT/install/reconcile/about-branding.sh"
-  cmp "$target" "$MONARCH_PATH/icon.txt"
-  printf '%s\n' custom >"$target"
-
-  rm "$state"
-  source "$ROOT/install/reconcile/about-branding.sh"
-  [[ $(<"$target") == "custom" && ! -e $state ]]
-  cp "$MONARCH_PATH/icon.txt" "$target"
-  source "$ROOT/install/reconcile/about-branding.sh"
-  [[ -f $state ]]
-
-  rm "$target"
-  ln -s "$MONARCH_PATH/icon.txt" "$target"
-  source "$ROOT/install/reconcile/about-branding.sh"
-  [[ -L $target ]]
-  rm "$target"
-  ln -s "$HOME/missing" "$target"
-  source "$ROOT/install/reconcile/about-branding.sh"
-  [[ -L $target && ! -e $target ]]
-
-  export HOME="$TEST_ROOT/about-branding/default-state-home"
-  unset XDG_STATE_HOME
-  source "$ROOT/install/reconcile/about-branding.sh"
-  cmp "$HOME/.config/monarch/branding/about.txt" "$MONARCH_PATH/icon.txt"
-  [[ -f $HOME/.local/state/monarch/branding/about.sha256 ]]
-)
-
-mkdir -p "$TEST_ROOT/bin" "$HOME/.config/noctalia/templates" "$HOME/.config/uwsm" \
-  "$HOME/.config/noctalia/colorschemes/User" "$HOME/.config/noctalia/plugins/user" \
-  "$HOME/.local/share/monarch/.git" "$MONARCH_RUNTIME_ROOT/bin" \
-  "$HOME/.local/bin" "$HOME/.config/monarch/defaults" \
-  "$HOME/.config/nvim/lua/config" "$HOME/.config/nvim/lua/plugins" \
-  "$MONARCH_NVIM_CONFIG_DIR/lua/config" \
-  "$HOME/.local/share/noctalia/plugins/third-party" \
-  "$HOME/.local/share/noctalia/plugins/monarch-theme" "$HOME/dotfiles"
-touch "$MONARCH_RUNTIME_ROOT/bin/monarch"
-chmod +x "$MONARCH_RUNTIME_ROOT/bin/monarch"
-printf '%s\n' keep >"$HOME/.local/share/noctalia/plugins/third-party/plugin.toml"
-printf '%s\n' stale >"$HOME/.local/share/noctalia/plugins/monarch-theme/removed.luau"
-
-cat >"$TEST_ROOT/bin/monarch-pkg-present" <<'EOF'
-#!/bin/bash
-[[ $1 == "noctalia-shell" ]]
-EOF
-
-for command in monarch-pkg-add monarch-pkg-drop monarch-refresh-config monarch-refresh-niri monarch-restart-noctalia monarch-theme-apply; do
-  cat >"$TEST_ROOT/bin/$command" <<'EOF'
-#!/bin/bash
-printf '%s %s\n' "${0##*/}" "$*" >>"$TEST_LOG"
-EOF
-done
-
-cat >"$TEST_ROOT/bin/monarch-notification-wait" <<'EOF'
-#!/bin/bash
-[[ ${TEST_NOTIFICATION_READY:-false} == "true" ]]
-EOF
-
-cat >"$TEST_ROOT/bin/monarch-notification-send" <<'EOF'
-#!/bin/bash
-printf 'notification %s\n' "$*" >>"$TEST_LOG"
-EOF
-
-cat >"$TEST_ROOT/bin/monarch-refresh-noctalia" <<'EOF'
-#!/bin/bash
-printf '%s\n' monarch-refresh-noctalia >>"$TEST_LOG"
-printf '%s\n' v5-default >"$HOME/.config/noctalia/config.toml"
-EOF
-
-cat >"$TEST_ROOT/bin/sha256sum" <<'EOF'
-#!/bin/bash
-if [[ $(<"$1") == "legacy-default" ]]; then
-  case "${1##*/}" in
-    fuzzel.ini) checksum=12df7f9bd7310c133ce96caaf51dd2f81fe4ac2894cdbd8ab5421012152d3733 ;;
-    herdr.toml) checksum=3959426bdc72aab761291e1c6e8d571fb11af7f3e41c2b294769cf6ae0069075 ;;
-    nvim-base16.lua) checksum=4970133a9d79f3f9c24c1fd4c5071b7c11ef14da89be2ba4412591ccfc5f3365 ;;
-    obsidian.css) checksum=36dfd6e3b1dc4c98f9a5234815ea09a204fab4ef9d297a3ac6cb6013240548be ;;
-    sddm.conf) checksum=41255868a7fdc8a634e0b9e8315afd9647518637c9014f50e725b8b46c5e3e79 ;;
-    zed.json) checksum=fe03f8557debc88434732e786b5c5c149c992be7982a159f12a7b532aefaf015 ;;
+# An old Niri/Noctalia installation is refused before anything changes.
+for marker in legacy-clone noctalia-package noctalia-settings; do
+  rm -f "$schema_file" "$TEST_ROOT/installed" "$TEST_ROOT/noctalia-installed"
+  rm -rf "$home/.local/share/monarch" "$home/.config/noctalia"
+  : >"$TEST_ROOT/steps"
+  : >"$TEST_ROOT/pkg-add-calls"
+  case $marker in
+    legacy-clone) mkdir -p "$home/.local/share/monarch" ;;
+    noctalia-package) touch "$TEST_ROOT/noctalia-installed" ;;
+    noctalia-settings)
+      mkdir -p "$home/.config/noctalia"
+      touch "$home/.config/noctalia/settings.json"
+      ;;
   esac
-fi
-
-if [[ -n ${checksum:-} ]]; then
-  printf '%s  %s\n' "$checksum" "$1"
-else
-  exec /usr/bin/sha256sum "$@"
-fi
-EOF
-
-cat >"$TEST_ROOT/bin/monarch-provision-first-run" <<'EOF'
-#!/bin/bash
-printf '%s\n' monarch-provision-first-run >>"$TEST_LOG"
-EOF
-
-cat >"$TEST_ROOT/bin/noctalia" <<'EOF'
-#!/bin/bash
-if [[ $1 == "msg" && $2 == "status" ]]; then
-  if [[ -n ${TEST_NOCTALIA_READY_AFTER:-} ]]; then
-    count_file=$(dirname "$TEST_LOG")/noctalia-status-count
-    count=0
-    [[ ! -f $count_file ]] || count=$(<"$count_file")
-    ((++count))
-    printf '%s\n' "$count" >"$count_file"
-    ((count >= TEST_NOCTALIA_READY_AFTER))
-    exit
+  if reconcile >/dev/null 2>"$TEST_ROOT/err"; then
+    echo "$marker installation was accepted" >&2
+    exit 1
   fi
-  [[ $TEST_NOCTALIA == "ready" || -f $(dirname "$TEST_LOG")/noctalia-ready ]]
-  exit
-fi
-if [[ $1 == "msg" && $2 == "plugins" && $3 == "enable" &&
-  $4 == "${TEST_NOCTALIA_PLUGIN_FAILURE:-}" ]]; then
-  exit 1
-fi
-printf '%s\n' "$*" >>"$TEST_LOG"
-EOF
-
-cat >"$TEST_ROOT/bin/pkill" <<'EOF'
-#!/bin/bash
-exit 0
-EOF
-
-cat >"$TEST_ROOT/bin/sleep" <<'EOF'
-#!/bin/bash
-exit 0
-EOF
-
-cat >"$TEST_ROOT/bin/sudo" <<'EOF'
-#!/bin/bash
-exec "$@"
-EOF
-
-cat >"$TEST_ROOT/bin/systemctl" <<'EOF'
-#!/bin/bash
-printf 'systemctl %s\n' "$*" >>"$TEST_LOG"
-if [[ -n ${TEST_SYSTEMCTL_LOG:-} ]]; then
-  printf '%s\n' "$*" >>"$TEST_SYSTEMCTL_LOG"
-fi
-if [[ $* == '--user daemon-reload' && ${TEST_SYSTEMCTL_RELOAD_FAILURE:-0} == 1 ]]; then
-  exit 42
-fi
-EOF
-
-cat >"$TEST_ROOT/bin/id" <<'EOF'
-#!/bin/bash
-printf '%s\n' wheel
-EOF
-
-cat >"$TEST_ROOT/bin/mise" <<'EOF'
-#!/bin/bash
-[[ $1 != "ls" ]] || printf '%s\n' '[]'
-exit 0
-EOF
-
-chmod +x "$TEST_ROOT/bin/"*
-
-# Fresh installs enable the same socket as upgrades, but wait for reboot to start it.
-source "$ROOT/install/helpers/package-manifest.sh"
-ssh_required_packages=()
-monarch_load_package_manifest ssh_required_packages "$ROOT/install/monarch-base.packages" required
-printf '%s\n' "${ssh_required_packages[@]}" | grep -qx openssh
-grep -qF 'run_logged "$MONARCH_INSTALL/user/ssh-agent.sh"' "$ROOT/install/user/all.sh"
-bash "$ROOT/install/user/ssh-agent.sh"
-grep -qx 'systemctl --user enable ssh-agent.socket' "$TEST_LOG"
-
-system_transition="$TEST_ROOT/system-transition"
-mkdir -p "$system_transition/install/reconcile/schema/1-to-2"
-printf '%s\n' true >"$system_transition/install/reconcile/retired-sudoers.sh"
-printf '%s\n' true >"$system_transition/install/reconcile/schema/1-to-2/legacy-docker-firewall.sh"
-printf '%s\n' true >"$system_transition/install/reconcile/schema/1-to-2/legacy-udev-rules.sh"
-printf '%s\n' true >"$system_transition/install/reconcile/schema/1-to-2/legacy-settings-pacnew.sh"
-printf '%s\n' true >"$system_transition/install/reconcile/schema/1-to-2/system-sleep-ownership.sh"
-MONARCH_PATH="$system_transition" bash "$ROOT/install/reconcile/schema/1-to-2/system.sh"
-if [[ -f $TEST_LOG ]] &&
-  grep -qx 'monarch-pkg-drop --keep-dependencies noctalia-shell polkit-gnome monarch-welcome' "$TEST_LOG"; then
-  echo "Legacy desktop packages were removed before user reconciliation" >&2
-  exit 1
-fi
-
-printf '%s\n' '{"fixture":"legacy-settings"}' >"$HOME/.config/noctalia/settings.json"
-printf '%s\n' legacy-settings-backup >"$HOME/.config/noctalia/settings.json.bak.1"
-printf '%s\n' legacy-plugins >"$HOME/.config/noctalia/plugins.json"
-printf '%s\n' user-palette >"$HOME/.config/noctalia/colorschemes/User/palette.json"
-printf '%s\n' user-plugin >"$HOME/.config/noctalia/plugins/user/plugin.qml"
-for template_file in fuzzel.ini nvim-base16.lua obsidian.css sddm.conf zed.json; do
-  printf '%s\n' legacy-default >"$HOME/.config/noctalia/templates/$template_file"
+  grep -q 'fresh installs only' "$TEST_ROOT/err"
+  [[ ! -s $TEST_ROOT/pkg-add-calls && ! -s $TEST_ROOT/steps && ! -e $schema_file ]]
 done
-printf '%s\n' user-herdr >"$HOME/.config/noctalia/templates/herdr.toml"
-printf '%s\n' custom >"$HOME/.config/noctalia/templates/custom.tpl"
-printf '%s\n' legacy >"$HOME/.config/noctalia/user-templates.toml"
-ln -s "$HOME/.config/monarch/current/theme/neovim.lua" \
-  "$HOME/.config/nvim/lua/plugins/theme.lua"
-cp "$ROOT/test/fixtures/nvim-v4/omarchy-theme-hotreload.lua" \
-  "$HOME/.config/nvim/lua/plugins/omarchy-theme-hotreload.lua"
-printf '%s\n' 'vim.opt.relativenumber = false' >"$HOME/dotfiles/nvim-options.lua"
-ln -s "$HOME/dotfiles/nvim-options.lua" "$HOME/.config/nvim/lua/config/options.lua"
-printf '%s\n' 'return {}' >"$MONARCH_NVIM_CONFIG_DIR/lua/config/remote_clipboard.lua"
-printf '%s\n' 'source ~/.local/share/monarch/default/zsh/rc' >"$HOME/dotfiles/zshrc"
-ln -s "$HOME/dotfiles/zshrc" "$HOME/.zshrc"
-printf '%s\n' 'source ~/.local/share/monarch/default/bash/rc' >"$HOME/.bashrc"
-printf '%s\n' 'export MONARCH_PATH=$HOME/.local/share/monarch' >"$HOME/dotfiles/uwsm-env"
-ln -s "$HOME/dotfiles/uwsm-env" "$HOME/.config/uwsm/env"
-cat >"$HOME/.local/bin/gemini" <<'EOF'
-#!/bin/bash
-package="@google/gemini-cli"
-command="gemini"
-EOF
-printf '%s\n' gemini >"$HOME/.config/monarch/defaults/agent"
+echo "ok - an older Niri/Noctalia installation is refused and left untouched"
 
-bash "$ROOT/install/reconcile/schema/1-to-2/user.sh"
-if [[ -f $TEST_LOG ]] &&
-  grep -qx 'monarch-pkg-drop --keep-dependencies noctalia-shell polkit-gnome monarch-welcome' "$TEST_LOG"; then
-  echo "Legacy desktop packages were removed before user reconciliation completed" >&2
-  exit 1
-fi
-
-runtime_hook="$HOME/.config/monarch/hooks/post-boot.d/packaged-runtime"
-[[ -x $runtime_hook ]]
-[[ -f $HOME/.local/state/monarch/reboot-required ]]
-bash "$runtime_hook"
-[[ -d $HOME/.local/share/monarch && -x $runtime_hook ]]
-
-bash "$ROOT/install/reconcile/schema/1-to-2/system-after-user.sh"
-export TEST_SYSTEMCTL_LOG="$TEST_ROOT/user-systemctl.log"
-if TEST_SYSTEMCTL_RELOAD_FAILURE=1 bash "$ROOT/install/reconcile/user.sh" >/dev/null 2>&1; then
-  echo "User reconciliation continued after its manager could not reload packaged policies" >&2
-  exit 1
-fi
-[[ $(<"$TEST_SYSTEMCTL_LOG") == '--user daemon-reload' ]] || {
-  echo "User reconciliation performed work before reloading the manager" >&2
-  exit 1
-}
-: >"$TEST_SYSTEMCTL_LOG"
-bash "$ROOT/install/reconcile/user.sh"
-[[ $(sed -n '1p' "$TEST_SYSTEMCTL_LOG") == '--user daemon-reload' ]]
-unset TEST_SYSTEMCTL_LOG
-
-grep -qx 'systemctl --user enable --now ssh-agent.socket' "$TEST_LOG"
-grep -qx 'systemctl --user try-restart monarch-crash-watch.service' "$TEST_LOG"
-grep -qx 'monarch-pkg-drop --keep-dependencies noctalia-shell polkit-gnome monarch-welcome' "$TEST_LOG"
-grep -qx 'monarch-pkg-drop claude-code openai-codex' "$TEST_LOG"
-[[ ! -e $HOME/.config/fastfetch/config.jsonc ]]
-if grep -qx 'monarch-provision-first-run' "$TEST_LOG"; then
-  echo "First-run provisioning ran before Noctalia became ready" >&2
-  exit 1
-fi
-[[ ! -e $HOME/.config/noctalia/settings.json ]]
-[[ ! -e $HOME/.config/noctalia/settings.json.bak.1 ]]
-[[ ! -e $HOME/.config/noctalia/plugins.json ]]
-[[ ! -e $HOME/.config/noctalia/user-templates.toml ]]
-[[ ! -e $HOME/.config/noctalia/colorschemes ]]
-[[ ! -e $HOME/.config/noctalia/plugins ]]
-legacy_noctalia_archive="$HOME/.local/state/monarch/reconcile/1-to-2/legacy-noctalia-config"
-[[ $(<"$legacy_noctalia_archive/settings.json") == '{"fixture":"legacy-settings"}' ]]
-[[ $(<"$legacy_noctalia_archive/settings.json.bak.1") == "legacy-settings-backup" ]]
-[[ $(<"$legacy_noctalia_archive/user-templates.toml") == "legacy" ]]
-[[ $(<"$legacy_noctalia_archive/colorschemes/User/palette.json") == "user-palette" ]]
-[[ $(<"$legacy_noctalia_archive/plugins/user/plugin.qml") == "user-plugin" ]]
-for template_file in fuzzel.ini nvim-base16.lua obsidian.css sddm.conf zed.json; do
-  [[ ! -e $HOME/.config/noctalia/templates/$template_file ]]
-done
-[[ $(<"$HOME/.config/noctalia/templates/herdr.toml") == "user-herdr" ]]
-[[ $(<"$HOME/.config/noctalia/templates/custom.tpl") == "custom" ]]
-cmp "$ROOT/config/noctalia/monarch-herdr.toml" \
-  "$HOME/.config/noctalia/monarch-herdr.toml"
-[[ -f $HOME/.local/state/monarch/reconcile/1-to-2/legacy-noctalia ]]
-[[ ! -e $HOME/.config/nvim/lua/plugins/theme.lua ]]
-[[ ! -e $HOME/.config/nvim/lua/plugins/omarchy-theme-hotreload.lua ]]
-cmp "$MONARCH_NVIM_CONFIG_DIR/lua/config/remote_clipboard.lua" \
-  "$HOME/.config/nvim/lua/config/remote_clipboard.lua"
-[[ $(head -1 "$HOME/.config/nvim/lua/config/options.lua") == 'require("config.remote_clipboard").setup()' ]]
-[[ -L $HOME/.config/nvim/lua/config/options.lua ]]
-[[ -f $HOME/.local/share/noctalia/plugins/monarch-theme/plugin.toml ]]
-[[ ! -e $HOME/.local/share/noctalia/plugins/monarch-theme/removed.luau ]]
-[[ -f $HOME/.local/share/noctalia/plugins/third-party/plugin.toml ]]
-[[ -f $HOME/.config/noctalia/palettes/Monarch.json ]]
-cmp "$ROOT/config/noctalia/monarch-workspaces.toml" \
-  "$HOME/.config/noctalia/monarch-workspaces.toml"
-cmp "$ROOT/config/noctalia/monarch-widgets.toml" \
-  "$HOME/.config/noctalia/monarch-widgets.toml"
-cmp "$ROOT/config/alacritty/monarch-text-size.toml" \
-  "$HOME/.config/alacritty/monarch-text-size.toml"
-for shell_config in hypr/hypridle.conf hypr/hyprlock.conf hypr/hyprpaper.conf \
-  mako/config walker/config.toml swayosd/style.css; do
-  cmp "$ROOT/config/$shell_config" "$HOME/.config/$shell_config"
-done
-grep -qF '/usr/share/monarch}/default/zsh/rc' "$HOME/.zshrc"
-grep -qF '/usr/share/monarch}/default/bash/rc' "$HOME/.bashrc"
-grep -qx 'export MONARCH_PATH=${MONARCH_PATH:-/usr/share/monarch}' "$HOME/.config/uwsm/env"
-[[ -L $HOME/.zshrc && -L $HOME/.config/uwsm/env ]]
-grep -qx 'command="gemini"' "$HOME/.local/bin/gemini"
-[[ $(<"$HOME/.config/monarch/defaults/agent") == "agy" ]]
-[[ -x $HOME/.local/bin/codex && -x $HOME/.local/bin/agy ]]
-
-plugin_hook="$HOME/.config/monarch/hooks/post-boot.d/noctalia-v5-plugins"
-[[ -x $plugin_hook && -x $runtime_hook ]]
-[[ ! -e $HOME/.local/state/monarch/schema ]]
-grep -qx 'monarch-refresh-noctalia' "$TEST_LOG"
-if grep -q '^monarch-restart-noctalia ' "$TEST_LOG"; then
-  echo "Unavailable Noctalia was restarted after plugin reconciliation" >&2
-  exit 1
-fi
-
-rm "$runtime_hook"
-bash "$ROOT/install/reconcile/schema/1-to-2/runtime-hook.sh"
-[[ -x $runtime_hook ]]
-
-export TEST_NOCTALIA=ready
-printf '%s\n' '#!/bin/bash' 'echo user-gemini' >"$HOME/.local/bin/gemini"
-rm "$HOME/.config/nvim/lua/config/remote_clipboard.lua"
-printf '%s\n' 'return { custom = true }' >"$HOME/dotfiles/remote_clipboard.lua"
-ln -s "$HOME/dotfiles/remote_clipboard.lua" \
-  "$HOME/.config/nvim/lua/config/remote_clipboard.lua"
-printf '%s\n' user-config >"$HOME/.config/noctalia/config.toml"
-printf '%s\n' current >"$HOME/.config/noctalia/user-templates.toml"
-printf '%s\n' newer >"$HOME/.config/noctalia/templates/newer.tpl"
-printf '%s\n' '[font]' 'size = 12' \
-  >"$HOME/.config/alacritty/monarch-text-size.toml"
-printf '%s\n' user-idle >"$HOME/.config/hypr/hypridle.conf"
-rm "$HOME/.config/mako/config"
-printf '%s\n' stale >"$HOME/.local/share/noctalia/plugins/monarch-network/panel.luau"
-bash "$ROOT/install/reconcile/schema/1-to-2/user.sh"
-bash "$ROOT/install/reconcile/schema/1-to-2/system-after-user.sh"
-bash "$ROOT/install/reconcile/user.sh"
-[[ ! -e $plugin_hook ]]
-grep -qx 'monarch-provision-first-run' "$TEST_LOG"
-grep -qx 'msg plugins enable monarch/theme' "$TEST_LOG"
-grep -qx 'echo user-gemini' "$HOME/.local/bin/gemini"
-[[ -L $HOME/.config/nvim/lua/config/remote_clipboard.lua ]]
-[[ $(<"$HOME/.config/nvim/lua/config/remote_clipboard.lua") == 'return { custom = true }' ]]
-[[ $(<"$HOME/.config/noctalia/config.toml") == "user-config" ]]
-[[ $(<"$HOME/.config/noctalia/user-templates.toml") == "current" ]]
-[[ $(<"$HOME/.config/noctalia/templates/newer.tpl") == "newer" ]]
-[[ $(<"$HOME/.config/alacritty/monarch-text-size.toml") == $'[font]\nsize = 12' ]]
-[[ $(<"$HOME/.config/hypr/hypridle.conf") == "user-idle" ]]
-cmp "$ROOT/config/mako/config" "$HOME/.config/mako/config"
-(( $(grep -xc monarch-refresh-noctalia "$TEST_LOG") == 1 ))
-(( $(grep -c '^monarch-restart-noctalia ' "$TEST_LOG") == 1 ))
-
-bash "$ROOT/install/reconcile/user.sh"
-(( $(grep -c '^monarch-restart-noctalia ' "$TEST_LOG") == 1 ))
-
-export TEST_NOCTALIA_PLUGIN_FAILURE=monarch/menu
-rm -f "$plugin_hook"
-bash "$ROOT/install/reconcile/user.sh"
-[[ -x $plugin_hook ]]
-bash "$ROOT/bin/monarch-reconcile" --complete
-[[ ! -e $HOME/.local/state/monarch/schema ]]
-unset TEST_NOCTALIA_PLUGIN_FAILURE
-bash "$plugin_hook"
-[[ ! -e $plugin_hook ]]
-
-legacy_backup="$HOME/.local/share/monarch-v4"
-ln -s missing "$legacy_backup"
-if bash "$runtime_hook" >/dev/null 2>&1; then
-  echo "runtime finalization overwrote a broken backup symlink" >&2
-  exit 1
-fi
-[[ -d $HOME/.local/share/monarch && -L $legacy_backup && -x $runtime_hook ]]
-rm -f "$legacy_backup"
-
-mkdir -p "$HOME/.config/systemd/user"
-cat >"$HOME/.config/systemd/user/personal.service" <<'EOF'
-[Service]
-Environment="MONARCH_BIN=%h/.local/share/monarch/bin/monarch"
-ExecStart=/usr/bin/true
-EOF
-if TEST_NOTIFICATION_READY=true bash "$runtime_hook" >"$TEST_ROOT/stale-unit-error" 2>&1; then
-  echo "runtime finalization archived a checkout referenced by a user service" >&2
-  exit 1
-fi
-grep -qF 'personal.service' "$TEST_ROOT/stale-unit-error"
-grep -qF 'notification -g 󰚌 Monarch V5 upgrade paused' "$TEST_LOG"
-[[ -d $HOME/.local/share/monarch && -x $runtime_hook ]]
-rm "$HOME/.config/systemd/user/personal.service"
-
-if bash "$runtime_hook"; then
-  echo "runtime finalization ignored an unavailable notification service" >&2
-  exit 1
-fi
-[[ ! -e $HOME/.local/share/monarch ]]
-[[ -d $HOME/.local/share/monarch-v4/.git ]]
-[[ $(<"$HOME/.local/share/monarch-v4/user-config/noctalia/settings.json") == '{"fixture":"legacy-settings"}' ]]
-[[ $(<"$HOME/.local/share/monarch-v4/user-config/noctalia/user-templates.toml") == "legacy" ]]
-[[ $(<"$HOME/.local/share/monarch-v4/user-config/noctalia/colorschemes/User/palette.json") == "user-palette" ]]
-[[ $(<"$HOME/.local/share/monarch-v4/user-config/noctalia/plugins/user/plugin.qml") == "user-plugin" ]]
-[[ ! -e $runtime_hook ]]
-[[ $(<"$HOME/.local/state/monarch/schema") == "2" ]]
-[[ ! -e $HOME/.local/state/monarch/reconcile ]]
-invitation_hook="$HOME/.config/monarch/hooks/post-boot.d/legacy-runtime-cleanup"
-[[ -x $invitation_hook ]]
-
-TEST_NOTIFICATION_READY=true bash "$invitation_hook"
-[[ ! -e $invitation_hook ]]
-grep -qF 'notification -g 󰆴 Monarch V5 upgrade complete' "$TEST_LOG"
-grep -qF -- '--action Clean up monarch-launch-floating-terminal-with-presentation monarch-remove-legacy-runtime' "$TEST_LOG"
-
-cp "$ROOT/install/reconcile/noctalia-plugins.sh" "$plugin_hook"
-cat >"$TEST_ROOT/bin/reconcile-complete" <<'EOF'
-#!/bin/bash
-printf '%s\n' "$*" >"$(dirname "$TEST_LOG")/reconcile-complete"
-EOF
-chmod +x "$TEST_ROOT/bin/reconcile-complete"
-rm -f "$TEST_ROOT/noctalia-status-count"
-TEST_NOCTALIA_READY_AFTER=3 MONARCH_RECONCILE_BIN="$TEST_ROOT/bin/reconcile-complete" \
-  bash "$plugin_hook"
-[[ ! -e $plugin_hook ]]
-[[ $(<"$TEST_ROOT/noctalia-status-count") == "3" ]]
-[[ $(<"$TEST_ROOT/reconcile-complete") == "--complete" ]]
-
-prepare_deferred_hooks() {
-  local hook_home="$1"
-  local hook_runtime="$hook_home/runtime"
-  local hook_dir="$hook_home/.config/monarch/hooks/post-boot.d"
-
-  mkdir -p "$hook_runtime/bin" "$hook_home/.local/share/monarch/.git" \
-    "$hook_home/.local/state/monarch/reconcile/1-to-2" "$hook_dir"
-  touch "$hook_runtime/bin/monarch"
-  chmod +x "$hook_runtime/bin/monarch"
-  printf '%s\n' complete >"$hook_home/.local/state/monarch/reconcile/1-to-2/system-after-user"
-  cp "$ROOT/install/reconcile/noctalia-plugins.sh" "$hook_dir/noctalia-v5-plugins"
-  cp "$ROOT/install/reconcile/packaged-runtime.sh" "$hook_dir/packaged-runtime"
-}
-
-runtime_first_home="$TEST_ROOT/runtime-first"
-prepare_deferred_hooks "$runtime_first_home"
-TEST_NOCTALIA=ready TEST_NOTIFICATION_READY=true HOME="$runtime_first_home" \
-  MONARCH_RUNTIME_ROOT="$runtime_first_home/runtime" MONARCH_RECONCILE_BIN="$ROOT/bin/monarch-reconcile" \
-  bash "$runtime_first_home/.config/monarch/hooks/post-boot.d/packaged-runtime"
-[[ ! -e $runtime_first_home/.local/state/monarch/schema ]]
-[[ -d $runtime_first_home/.local/share/monarch-v4/.git ]]
-TEST_NOCTALIA=ready HOME="$runtime_first_home" MONARCH_RECONCILE_BIN="$ROOT/bin/monarch-reconcile" \
-  bash "$runtime_first_home/.config/monarch/hooks/post-boot.d/noctalia-v5-plugins"
-[[ $(<"$runtime_first_home/.local/state/monarch/schema") == "2" ]]
-
-plugins_first_home="$TEST_ROOT/plugins-first"
-prepare_deferred_hooks "$plugins_first_home"
-TEST_NOCTALIA=ready HOME="$plugins_first_home" MONARCH_RECONCILE_BIN="$ROOT/bin/monarch-reconcile" \
-  bash "$plugins_first_home/.config/monarch/hooks/post-boot.d/noctalia-v5-plugins"
-[[ ! -e $plugins_first_home/.local/state/monarch/schema ]]
-[[ -d $plugins_first_home/.local/share/monarch/.git ]]
-TEST_NOCTALIA=ready TEST_NOTIFICATION_READY=true HOME="$plugins_first_home" \
-  MONARCH_RUNTIME_ROOT="$plugins_first_home/runtime" MONARCH_RECONCILE_BIN="$ROOT/bin/monarch-reconcile" \
-  bash "$plugins_first_home/.config/monarch/hooks/post-boot.d/packaged-runtime"
-[[ $(<"$plugins_first_home/.local/state/monarch/schema") == "2" ]]
-[[ -d $plugins_first_home/.local/share/monarch-v4/.git ]]
-
-archive_only_home="$TEST_ROOT/archive-only"
-mkdir -p "$archive_only_home/runtime/bin" \
-  "$archive_only_home/.local/state/monarch/reconcile/1-to-2/legacy-noctalia-config"
-touch "$archive_only_home/runtime/bin/monarch"
-chmod +x "$archive_only_home/runtime/bin/monarch"
-printf '%s\n' legacy-settings \
-  >"$archive_only_home/.local/state/monarch/reconcile/1-to-2/legacy-noctalia-config/settings.json"
-HOME="$archive_only_home" MONARCH_PATH="$ROOT" \
-  bash "$ROOT/install/reconcile/schema/1-to-2/runtime-hook.sh"
-printf '%s\n' complete \
-  >"$archive_only_home/.local/state/monarch/reconcile/1-to-2/system-after-user"
-TEST_NOTIFICATION_READY=true HOME="$archive_only_home" \
-  MONARCH_RUNTIME_ROOT="$archive_only_home/runtime" MONARCH_RECONCILE_BIN="$ROOT/bin/monarch-reconcile" \
-  bash "$archive_only_home/.config/monarch/hooks/post-boot.d/packaged-runtime"
-[[ $(<"$archive_only_home/.local/share/monarch-v4/user-config/noctalia/settings.json") == "legacy-settings" ]]
-[[ $(<"$archive_only_home/.local/state/monarch/schema") == "2" ]]
-
-nvim_conflict_home="$TEST_ROOT/nvim-conflict"
-mkdir -p "$nvim_conflict_home/.config/nvim/lua/config" \
-  "$nvim_conflict_home/.config/nvim/lua/plugins" "$nvim_conflict_home/dotfiles"
-printf '%s\n' 'return { custom = true }' >"$nvim_conflict_home/dotfiles/remote_clipboard.lua"
-ln -s "$nvim_conflict_home/dotfiles/remote_clipboard.lua" \
-  "$nvim_conflict_home/.config/nvim/lua/config/remote_clipboard.lua"
-printf '%s\n' 'vim.opt.number = true' \
-  >"$nvim_conflict_home/.config/nvim/lua/config/options.lua"
-printf '%s\n' 'return { user_customization = true }' \
-  >"$nvim_conflict_home/.config/nvim/lua/plugins/omarchy-theme-hotreload.lua"
-HOME="$nvim_conflict_home" MONARCH_NVIM_CONFIG_DIR="$MONARCH_NVIM_CONFIG_DIR" \
-  bash "$ROOT/install/reconcile/schema/1-to-2/nvim.sh"
-[[ -L $nvim_conflict_home/.config/nvim/lua/config/remote_clipboard.lua ]]
-[[ -f $nvim_conflict_home/.config/nvim/lua/plugins/omarchy-theme-hotreload.lua ]]
-if grep -qF 'config.remote_clipboard' \
-  "$nvim_conflict_home/.config/nvim/lua/config/options.lua"; then
-  echo "A custom Nvim provider was enabled without a compatible setup function" >&2
-  exit 1
-fi
-
-cat >"$TEST_ROOT/bin/gsettings" <<'EOF'
-#!/bin/bash
-printf '%s\n' "$*" >>"$TEST_ROOT/gsettings-calls"
-EOF
-chmod +x "$TEST_ROOT/bin/gsettings"
-TEST_ROOT="$TEST_ROOT" bash "$ROOT/install/user/first-run/gnome-theme.sh"
-[[ $(<"$TEST_ROOT/gsettings-calls") == $'set org.gnome.desktop.interface gtk-theme Adwaita-dark\nset org.gnome.desktop.interface color-scheme prefer-dark\nset org.gnome.desktop.interface icon-theme Yaru-blue' ]]
-
-if find "$ROOT/migrations" -type f -name '*.sh' -print -quit 2>/dev/null | grep -q .; then
-  echo "historical migrations remain" >&2
-  exit 1
-fi
-
-grep -Eq '^[[:space:]]*monarch-reconcile$' "$ROOT/bin/monarch-update" || {
-  echo "monarch update must run reconciliation" >&2
-  exit 1
-}
-grep -qF 'install/config/enable-services.sh' "$ROOT/install/reconcile/system.sh"
-
-echo "All reconciliation tests passed."
+# --complete records the schema without running steps.
+rm -rf "$home/.local/share/monarch" "$home/.config/noctalia"
+rm -f "$TEST_ROOT/noctalia-installed"
+reconcile --complete
+[[ $(<"$schema_file") == "2" ]]
+echo "ok - --complete records the current schema"

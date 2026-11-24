@@ -3,6 +3,14 @@
 Reconciliation converges supported installations onto the current packaged
 state. It does not replay a permanent history of releases.
 
+Monarch on Hyprland supports fresh installs only. `monarch-reconcile` refuses
+a home that looks like an older Niri/Noctalia installation (a legacy
+`~/.local/share/monarch` clone, the `noctalia-shell` package or
+`~/.config/noctalia/settings.json` without a schema record) and tells the user
+to reinstall. The schema 1 to 2 transition and its helpers were removed with
+that decision (user, 2026-11-24). Noctalia-specific sections below describe
+code that is retired in the same series and are deleted with it.
+
 PentestEnv is optional. Its user reconciliation runs only with the package
 installed and requires its executable and Noctalia template before changing
 legacy shortcuts. The dedicated Niri binding and Noctalia overlay are seeded;
