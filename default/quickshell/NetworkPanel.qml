@@ -39,8 +39,22 @@ ColumnLayout {
         list.running = true;
     }
 
+    // The one gate every state-changing entry point goes through (row actions,
+    // Forget, the radio switch): nothing runs on a stale list or while a read,
+    // an action or the radio toggle is in flight.
+    function mayMutate() {
+        if (stale) { noticeText = "The Wi-Fi state is out of date: rescan first"; return false; }
+        if (!settled) { noticeText = "Wi-Fi is busy, try again in a moment"; return false; }
+        return true;
+    }
+
+    function toggleRadio() {
+        if (!mayMutate()) return;
+        radio.running = true;
+    }
+
     function act(kind, command) {
-        if (busy !== "") return;
+        if (!mayMutate()) return;
         busy = kind; actionError = ""; noticeText = "";
         action.kind = kind;
         action.command = command;
@@ -117,7 +131,7 @@ ColumnLayout {
             MouseArea {
                 anchors.fill: parent
                 enabled: Logic.wifiRadioEnabled(root.snapshot, root.stale) && root.settled
-                onClicked: radio.running = true
+                onClicked: root.toggleRadio()
             }
             opacity: Logic.wifiRadioEnabled(root.snapshot, root.stale) && root.settled ? 1.0 : 0.4
         }
