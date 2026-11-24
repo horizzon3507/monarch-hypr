@@ -5,7 +5,7 @@ PartOf=graphical-session.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/monarch-niri-screencast-dnd
+ExecStart=/usr/bin/monarch-hypr-screencast-dnd
 Restart=on-failure
 RestartSec=2
 LogLevelMax=warning

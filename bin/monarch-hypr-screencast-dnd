@@ -1,0 +1,89 @@
+#!/bin/bash
+
+# monarch:summary=Silence notifications while a Hyprland screencast is active
+# monarch:hidden=true
+
+# Hyprland announces screen sharing on its event socket as
+# `screencast>>STATE,OWNER` (STATE 1 when a client starts capturing, 0 when it
+# stops; OWNER 0 for a monitor, 1 for a window). Notifications go quiet while at
+# least one capture is running. Do-not-disturb is Mako's "do-not-disturb" mode;
+# a user who already had it on keeps it on afterwards.
+#
+# The event name and fields come from Hyprland's IPC documentation and are not
+# yet confirmed on 0.57.2.
+
+set -uo pipefail
+
+managed=false
+shared=false
+prior_dnd=""
+casts=0
+
+socket_path() {
+  local signature
+  signature=$(monarch-hw-hypr-instance 2>/dev/null) || return 1
+  local path="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/hypr/$signature/.socket2.sock"
+  [[ -S $path ]] || return 1
+  printf '%s\n' "$path"
+}
+
+dnd_status() {
+  if [[ $(makoctl mode 2>/dev/null) == *do-not-disturb* ]]; then
+    echo on
+  else
+    echo off
+  fi
+}
+
+sync_dnd() {
+  local status
+  status=$(dnd_status)
+
+  if [[ $shared == true ]]; then
+    [[ -n $prior_dnd ]] || prior_dnd=$status
+    if [[ $status == "off" ]]; then
+      if makoctl mode -a do-not-disturb >/dev/null 2>&1 && [[ $prior_dnd == "off" ]]; then
+        managed=true
+      fi
+    fi
+  elif [[ -n $prior_dnd ]]; then
+    if [[ $managed == true && $status == "on" ]]; then
+      makoctl mode -r do-not-disturb >/dev/null 2>&1 || return 0
+    fi
+    managed=false
+    prior_dnd=""
+  fi
+}
+
+restore_dnd() {
+  shared=false
+  casts=0
+  sync_dnd
+}
+
+# Feed one event line; anything that is not a screencast event is ignored.
+update_shared() {
+  case ${1:-} in
+    'screencast>>1,'*) casts=$((casts + 1)) ;;
+    'screencast>>0,'*) ((casts > 0)) && casts=$((casts - 1)) ;;
+    *) return 0 ;;
+  esac
+  if ((casts > 0)); then shared=true; else shared=false; fi
+  sync_dnd
+}
+
+[[ ${BASH_SOURCE[0]} == "$0" ]] || return 0
+
+trap restore_dnd EXIT
+trap 'exit 0' TERM INT
+
+while true; do
+  if socket=$(socket_path); then
+    casts=0
+    while IFS= read -r line; do
+      update_shared "$line"
+    done < <(socat -u "UNIX-CONNECT:$socket" - 2>/dev/null)
+    restore_dnd
+  fi
+  sleep 2
+done

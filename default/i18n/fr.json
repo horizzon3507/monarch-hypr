@@ -789,7 +789,6 @@
     "monarch-network-route": "Choisir l’interface Internet prioritaire ou restaurer les métriques automatiques",
     "monarch-network-speedtest": "Mesurer le débit Internet dans une direction",
     "monarch-network-status": "Afficher l’état réseau actif pour le shell",
-    "monarch-niri-screencast-dnd": "Couper les notifications pendant un partage d’écran Niri",
     "monarch-hypr-window-close-all": "Fermer toutes les fenêtres de la session Niri",
     "monarch-hypr-geometry": "Afficher les rectangles des écrans et fenêtres Hyprland pour la capture",
     "monarch-hypr-window-pop": "Détacher la fenêtre active en fenêtre flottante centrée et épinglée (ou la remettre)",
@@ -993,6 +992,7 @@
     "monarch-hypr-monitor-internal-mirror": "Activer, désactiver ou récupérer la recopie de l’écran interne",
     "monarch-hypr-monitor-scaling-cycle": "Faire défiler les échelles d’affichage de 1× à 4×",
     "monarch-hypr-input-toggle": "Activer ou désactiver une classe de périphériques Niri via libinput",
-    "monarch-hw-hypr-instance": "Afficher la signature de l’instance Hyprland active et réparer HYPRLAND_INSTANCE_SIGNATURE s’il est périmé"
+    "monarch-hw-hypr-instance": "Afficher la signature de l’instance Hyprland active et réparer HYPRLAND_INSTANCE_SIGNATURE s’il est périmé",
+    "monarch-hypr-screencast-dnd": "Couper les notifications pendant un partage d’écran Hyprland"
   }
 }

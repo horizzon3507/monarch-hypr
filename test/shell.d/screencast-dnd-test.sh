@@ -9,74 +9,74 @@ trap 'rm -rf "$test_tmp"' EXIT
 export TEST_SCREENCAST_DND="$test_tmp"
 mkdir -p "$test_tmp/bin"
 
-cat >"$test_tmp/bin/noctalia" <<'EOF'
+# makoctl stands in for Mako: `mode` lists active modes, -a/-r add and remove one.
+cat >"$test_tmp/bin/makoctl" <<'EOF'
 #!/bin/bash
 [[ ! -e $TEST_SCREENCAST_DND/unavailable ]] || exit 1
-case $2 in
-  notification-dnd-status) cat "$TEST_SCREENCAST_DND/status" ;;
-  notification-dnd-set)
-    printf '%s\n' "$3" >"$TEST_SCREENCAST_DND/status"
-    printf '%s\n' "$3" >>"$TEST_SCREENCAST_DND/calls"
+case $1 in
+  mode)
+    if (($# == 1)); then
+      [[ $(<"$TEST_SCREENCAST_DND/status") == on ]] && echo do-not-disturb
+      exit 0
+    fi
+    case $2 in
+      -a) printf '%s\n' on >"$TEST_SCREENCAST_DND/status"; printf '%s\n' on >>"$TEST_SCREENCAST_DND/calls" ;;
+      -r) printf '%s\n' off >"$TEST_SCREENCAST_DND/status"; printf '%s\n' off >>"$TEST_SCREENCAST_DND/calls" ;;
+    esac
     ;;
 esac
 EOF
-
-cat >"$test_tmp/bin/niri" <<'EOF'
-#!/bin/bash
-cat "$TEST_SCREENCAST_DND/casts"
-EOF
-
 chmod +x "$test_tmp/bin/"*
 export PATH="$test_tmp/bin:$PATH"
-source "$ROOT/bin/monarch-niri-screencast-dnd"
+source "$ROOT/bin/monarch-hypr-screencast-dnd"
+
+start='screencast>>1,0'
+stop='screencast>>0,0'
 
 printf '%s\n' off >"$test_tmp/status"
-printf '%s\n' '[]' >"$test_tmp/casts"
-update_shared
+update_shared 'workspace>>2'
 [[ $shared == false && $managed == false && ! -e $test_tmp/calls ]]
 
-printf '%s\n' '[{"kind":"PipeWire","is_active":true}]' >"$test_tmp/casts"
-update_shared
+update_shared "$start"
 [[ $shared == true && $managed == true && $(<"$test_tmp/status") == on ]]
 
-printf '%s\n' '[{"kind":"PipeWire","is_active":false},{"kind":"ExtImageCopyCapture","is_active":true}]' >"$test_tmp/casts"
-update_shared
+update_shared 'screencast>>1,1'
 [[ $(<"$test_tmp/calls") == on ]]
 
-printf '%s\n' '[{"kind":"PipeWire","is_active":false}]' >"$test_tmp/casts"
-update_shared
+update_shared "$stop"
+[[ $shared == true && $(<"$test_tmp/status") == on ]]
+update_shared 'screencast>>0,1'
 [[ $shared == false && $managed == false && $(<"$test_tmp/status") == off ]]
 [[ $(<"$test_tmp/calls") == $'on\noff' ]]
 pass "DND follows active casts and waits for the last one to stop"
 
+update_shared "$stop"
+[[ $casts == 0 && $shared == false ]]
+pass "an unmatched stop event does not go negative"
+
 printf '%s\n' on >"$test_tmp/status"
-printf '%s\n' '[{"kind":"PipeWire","is_active":true}]' >"$test_tmp/casts"
-update_shared
+update_shared "$start"
 printf '%s\n' off >"$test_tmp/status"
 sync_dnd
 [[ $managed == false && $(<"$test_tmp/status") == on ]]
-printf '%s\n' '[]' >"$test_tmp/casts"
-update_shared
+update_shared "$stop"
 [[ $managed == false && $(<"$test_tmp/status") == on ]]
-[[ $(<"$test_tmp/calls") == $'on\noff\non' ]]
 pass "DND that was already active stays active"
 
 printf '%s\n' off >"$test_tmp/status"
 touch "$test_tmp/unavailable"
-printf '%s\n' '[{"kind":"PipeWire","is_active":true}]' >"$test_tmp/casts"
-update_shared
+update_shared "$start"
 [[ $shared == true && $managed == false ]]
 rm "$test_tmp/unavailable"
 sync_dnd
 [[ $managed == true && $(<"$test_tmp/status") == on ]]
-
-printf '%s\n' broken >"$test_tmp/casts"
-update_shared
+update_shared 'broken line'
 [[ $shared == true && $(<"$test_tmp/status") == on ]]
 restore_dnd
 [[ $managed == false && $(<"$test_tmp/status") == off ]]
-pass "DND recovers after Noctalia starts and survives an invalid cast response"
+pass "DND recovers after Mako starts and ignores unrelated events"
 
 grep -qF 'monarch-screencast-dnd.service' "$ROOT/install/user/first-run/enable-user-units.sh"
 grep -qF 'monarch-screencast-dnd.service' "$ROOT/install/reconcile/user.sh"
+grep -qF 'monarch-hypr-screencast-dnd' "$ROOT/default/systemd/user/monarch-screencast-dnd.service"
 pass "fresh installs and upgrades enable the watcher"
