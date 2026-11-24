@@ -1,0 +1,53 @@
+name: Hyprland config
+
+on:
+  pull_request:
+    paths:
+      - "default/hypr/**"
+      - "config/hypr/**"
+      - "default/sddm/**"
+      - "bin/monarch-refresh-hypr"
+      - "install/user/detect-keyboard-layout.sh"
+      - ".github/workflows/hypr-config.yml"
+  push:
+    branches: [dev]
+    paths:
+      - "default/hypr/**"
+      - "config/hypr/**"
+      - "default/sddm/**"
+      - "bin/monarch-refresh-hypr"
+      - "install/user/detect-keyboard-layout.sh"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify config with Arch Hyprland
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Install Hyprland and git
+        run: |
+          pacman -Syu --noconfirm --needed hyprland git sudo
+          useradd -m tester
+          Hyprland --version | head -n 1
+
+      - uses: actions/checkout@v4
+
+      - name: Render and verify the session config
+        run: |
+          chown -R tester: "$GITHUB_WORKSPACE"
+          sudo -u tester env MONARCH_PATH="$GITHUB_WORKSPACE" XDG_RUNTIME_DIR=/tmp/xdg bash -euo pipefail -c '
+            mkdir -p "$XDG_RUNTIME_DIR" && chmod 700 "$XDG_RUNTIME_DIR"
+            bash "$MONARCH_PATH/bin/monarch-refresh-hypr"
+          '
+
+      - name: Verify the SDDM greeter config
+        run: |
+          sudo -u tester env XDG_RUNTIME_DIR=/tmp/xdg bash -euo pipefail -c '
+            mkdir -p "$XDG_RUNTIME_DIR" && chmod 700 "$XDG_RUNTIME_DIR"
+            Hyprland --verify-config --config "$GITHUB_WORKSPACE/default/sddm/hyprland.lua" | tee /tmp/sddm.out
+            grep -q "config ok" /tmp/sddm.out
+          '
