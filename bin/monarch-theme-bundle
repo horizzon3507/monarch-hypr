@@ -70,7 +70,7 @@ validate_source() {
   [[ -z $PREVIEW_PATH ]] || validate_relative_path "$PREVIEW_PATH" || fail "preview must be a file at the repository root"
   [[ -f "$source/$PALETTE_PATH" && ! -L "$source/$PALETTE_PATH" ]] || fail "the declared palette is missing"
   [[ -d "$source/$BACKGROUNDS_PATH" && ! -L "$source/$BACKGROUNDS_PATH" ]] || fail "the declared backgrounds directory is missing"
-  validate_palette "$source/$PALETTE_PATH" || fail "the declared palette is not a valid Noctalia palette"
+  validate_palette "$source/$PALETTE_PATH" || fail "the declared palette is not a valid palette"
 
   if [[ -n $PREVIEW_PATH ]]; then
     [[ -f "$source/$PREVIEW_PATH" && ! -L "$source/$PREVIEW_PATH" ]] || fail "the declared preview is missing"

@@ -149,7 +149,7 @@ DYNAMIC_ROW=$((LOGO_HEIGHT + 3))
 LAST_SETUP_SIZE=""
 
 tips=(
-  "Super + Space opens the Noctalia app launcher"
+  "Super + Space opens the Walker app launcher"
   "Super + K shows all the key bindings"
   "Super is the Windows or command key on your keyboard"
   "Use Xournal++ to sign PDFs"

@@ -20,15 +20,18 @@ done
 for command in monarch-refresh-hypr monarch-refresh-noctalia monarch-refresh-applications \
   monarch-theme-apply monarch-mise-install monarch-notification-wait monarch-notification-send \
   xdg-user-dirs-update xdg-settings xdg-mime update-desktop-database git mise \
-  systemctl noctalia gsettings nm-online pactl sleep; do
+  systemctl noctalia monarch-panel gsettings nm-online pactl sleep; do
   cat >"$runtime/bin/$command" <<'EOF'
 #!/bin/bash
 printf '%s %s\n' "${0##*/}" "$*" >>"$TEST_PROVISION_LOG"
 [[ ${0##*/} != "${TEST_PROVISION_FAIL:-}" ]] || exit 42
-if [[ ${0##*/} == "noctalia" ]]; then
-  if [[ $* == 'msg status' ]]; then
-    printf '%s\n' '{"locked":false,"panelOpen":false}'
-  elif [[ $1 == "msg" && $2 == "panel-open" && $3 == "monarch/first-steps:panel" ]]; then
+if [[ ${0##*/} == "noctalia" && $* == 'msg status' ]]; then
+  # Legacy-upgrade path (provision-noctalia.sh) still waits for Noctalia.
+  printf '%s\n' '{"locked":false,"panelOpen":false}'
+elif [[ ${0##*/} == "monarch-panel" ]]; then
+  if [[ $1 == "active" ]]; then
+    :
+  elif [[ $1 == "open" && $2 == "first-steps" ]]; then
     [[ ${TEST_GUIDE_FAIL:-0} != 1 ]] || exit 42
     monarch-setup-first-steps opened
   fi
@@ -102,7 +105,6 @@ case ${1:-all} in
       [[ -f $user_home/.local/state/monarch/done/first-run-user ]] || fail "existing user session setup completes"
       [[ ! -f $user_home/.local/state/monarch/first-steps/shown ]] || fail "upgrades keep first steps available without an automatic offer"
       [[ -L $user_home/.agents/skills/monarch ]] || fail "existing users receive packaged skill links"
-      grep -qF 'noctalia msg plugins enable monarch/menu' "$user_home/calls" || fail "existing users receive the V5 menu"
       grep -qF 'monarch-obsidian-theme.path' "$user_home/calls" || fail "existing users receive V5 user units"
       run_for_user "$user_home" "$ROOT/bin/monarch-provision-first-run" --force >/dev/null
       assert_customizations "$user_home"
@@ -155,7 +157,7 @@ case ${1:-all} in
     [[ ! -e $user_home/.local/state/monarch/done/finalize-user ]] || fail "failed provisioning stays pending"
     [[ ! -e $user_home/.local/state/monarch/done/first-run-user ]] || fail "failed first-run stays pending"
     grep -qF 'exit code: 42' "$user_home/.local/state/monarch/first-run.log" || fail "first-run logs provisioning failure"
-    grep -qF 'noctalia msg plugins enable monarch/menu' "$user_home/calls" || fail "session setup continues after provisioning failure"
+    grep -qF 'monarch-obsidian-theme.path' "$user_home/calls" || fail "session setup continues after provisioning failure"
     printf '%s\n' '[keyring]' '[1]' 'secret=added-before-retry' >"$user_home/.local/share/keyrings/Default_keyring.keyring"
     printf '%s\n' Login >"$user_home/.local/share/keyrings/default"
     run_for_user "$user_home" "$ROOT/bin/monarch-provision-first-run" >/dev/null
