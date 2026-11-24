@@ -1,0 +1,31 @@
+name: Probe bar in real Hyprland
+
+# Throwaway probe on a probe branch (not part of the product).
+on:
+  push:
+    branches: [probe/bar-hypr]
+    paths: [".github/workflows/probe-bar-hypr.yml", "probe-hypr/**"]
+
+permissions:
+  contents: read
+
+jobs:
+  bar:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+      options: --privileged
+    steps:
+      - run: pacman -Syu --noconfirm --needed hyprland quickshell mesa grim wlrctl seatd git sudo qt6-wayland python python-pillow
+      - uses: actions/checkout@v4
+      - name: Run the bar in Hyprland
+        run: |
+          useradd -m tester; chmod 666 /dev/dri/* || true; (seatd -g tester &); sleep 1
+          chown -R tester: "$GITHUB_WORKSPACE"
+          sudo -u tester bash "$GITHUB_WORKSPACE/probe-hypr/test-bar-hypr.sh" "$GITHUB_WORKSPACE/out" || true
+          cat "$GITHUB_WORKSPACE/out/results.txt"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bar-hypr-out
+          path: out
