@@ -6,6 +6,7 @@ Common contribution rules live in [AGENTS.md](../AGENTS.md). Task procedures liv
 
 - [Fork status](fork-status.md)
 - [Fork architecture notes](fork-architecture.md)
+- [Monorepo layout](monorepo-layout.md)
 - [Product decisions](product-decisions.md)
 - [Development reference](development.md)
 - [Network panel contracts](network-panel.md)
