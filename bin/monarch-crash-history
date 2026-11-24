@@ -159,8 +159,16 @@ open_history() {
   [[ -z $id ]] || validate_id "$id"
   # The shell's crash panel lists the crashes; it has no deep link to one id.
   "$runtime/bin/monarch-panel" open crashes 2>/dev/null && return 0
-  echo "The crash history panel is unavailable." >&2
-  return 1
+  echo "The crash history panel is unavailable; opening it in a terminal." >&2
+  # Terminal fallback: the same data as the panel, readable without the shell.
+  # A launcher failure is a failure; success means the terminal was started.
+  if [[ -n $id ]]; then
+    monarch-launch-tui bash -c '"$0" report "$1" | "${PAGER:-less}"' "$runtime/bin/monarch-crash-history" "$id" ||
+      { echo "The crash history terminal could not be started." >&2; return 1; }
+  else
+    monarch-launch-tui bash -c '"$0" list | "${PAGER:-less}"' "$runtime/bin/monarch-crash-history" ||
+      { echo "The crash history terminal could not be started." >&2; return 1; }
+  fi
 }
 
 case ${1:-open} in
