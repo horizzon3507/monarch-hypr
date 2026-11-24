@@ -14,6 +14,8 @@ for command in 'monarch-wifi-panel", "list' 'monarch-wifi-join' '"monarch-wifi-p
   grep -q "$command" "$QS/NetworkPanel.qml" || fail "the panel calls $command"
 done
 ! grep -q 'nmcli\|password-stdin\|TextInput' "$QS/NetworkPanel.qml" || fail "the panel collects no credentials and does not call nmcli"
+grep -q 'stale' "$QS/NetworkPanel.qml" && grep -q 'wifiRadioEnabled' "$QS/NetworkPanel.qml" || fail "the panel gates actions on a stale list"
+grep -q 'ElideNone' "$QS/NetworkPanel.qml" || fail "the full network name is reachable"
 pass "the network panel is registered, themed and uses the Monarch commands only"
 
 if ! command -v node >/dev/null 2>&1; then
@@ -24,7 +26,7 @@ fi
 out=$(QS="$QS" node -e '
 const fs = require("fs");
 const src = fs.readFileSync(process.env.QS + "/ShellLogic.js", "utf8").replace(".pragma library", "");
-const L = new Function(src + "; return {panelName, parseWifiSnapshot, wifiRowAction, wifiHeader};")();
+const L = new Function(src + "; return {panelName, parseWifiSnapshot, wifiRowAction, wifiHeader, wifiRadioEnabled};")();
 const row = (o) => Object.assign({key: "k", ssid: "Net", security: "WPA2", signal: 70, connected: false, saved: false, uuid: "", device: "wlan0", connecting: false}, o);
 const snap = (nets, extra) => JSON.stringify(Object.assign({enabled: true, present: true, networks: nets}, extra));
 const out = [];
@@ -38,6 +40,9 @@ out.push(L.wifiRowAction(row({connected: true, uuid: "u"})) === "disconnect" && 
 out.push(L.wifiRowAction(row({saved: true})) === "join" && L.wifiRowAction(row({security: "open"})) === "join");
 out.push(L.wifiRowAction(row({})) === "credentials" && L.wifiRowAction(row({security: "802.1X"})) === "credentials");
 out.push(L.wifiRowAction(row({connecting: true})) === "" && L.wifiRowAction(null) === "");
+const live = row({connected: true, uuid: "u"});
+out.push(L.wifiRowAction(live, true) === "" && L.wifiRowAction(row({saved: true}), true) === "" && L.wifiRowAction(row({saved: true}), false) === "join");
+out.push(L.wifiRadioEnabled(null, false) === false && L.wifiRadioEnabled({}, true) === false && L.wifiRadioEnabled({}, false) === true);
 out.push(L.wifiHeader(null) === "Wi-Fi status unavailable");
 out.push(L.wifiHeader(L.parseWifiSnapshot(snap([], {present: false}))) === "No Wi-Fi adapter");
 out.push(L.wifiHeader(L.parseWifiSnapshot(snap([], {enabled: false}))) === "Wi-Fi is off");
@@ -45,5 +50,5 @@ out.push(L.wifiHeader(L.parseWifiSnapshot(snap([row({ssid: "Home", connected: tr
 out.push(L.wifiHeader(L.parseWifiSnapshot(snap([row({})]))) === "Not connected" && L.wifiHeader(L.parseWifiSnapshot(snap([]))) === "No networks in range");
 console.log(out.map(Boolean).join(" "));
 ')
-[[ $out == "true true true true true true true true true true true true true true" ]] || fail "network panel logic" "$out"
+[[ $out == "true true true true true true true true true true true true true true true true" ]] || fail "network panel logic" "$out"
 pass "snapshot parsing, row actions and the header text behave"
