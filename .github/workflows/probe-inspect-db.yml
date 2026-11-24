@@ -1,0 +1,32 @@
+name: Probe inspect on an existing ISO
+on:
+  push:
+    branches: [probe/inspect-db]
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: monarch-iso
+          path: release
+          run-id: 45483250579
+          github-token: ${{ github.token }}
+      - name: Inspect (intermediate 106c2e1 ISO) with the new script
+        env:
+          INSPECT_EXPECT_PRESENT: hyprland quickshell
+        run: |
+          iso=$(ls release/*.iso | head -n1)
+          bash iso/test/ci/inspect-iso.sh "$iso" iso-inspection || true
+          cat iso-inspection/monarch-depends.source; echo ---; cat iso-inspection/monarch-depends.txt
+          tar -tzf iso-inspection/root/var/cache/monarch/mirror/offline/offline.db.tar.gz 2>/dev/null | grep -E '^(monarch|noctalia|quickshell)' | head
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: iso-inspection-db
+          path: iso-inspection/*.txt iso-inspection/*.source
