@@ -136,3 +136,21 @@ function volumePercent(volume) {
 function volumeText(volume, muted) {
     return muted ? "muted" : (volumePercent(volume) + "%");
 }
+
+// Signal strength (0.0 to 1.0 per WifiNetwork.signalStrength) to whole percent.
+function signalPercent(strength) {
+    var s = Number(strength);
+    if (!isFinite(s)) return 0;
+    return Math.round(clamp(s, 0, 1) * 100);
+}
+
+// Bluetooth readout. `connected` is the list of connected device names; an
+// empty adapter state (null) hides the readout.
+function bluetoothText(adapterEnabled, connected) {
+    if (adapterEnabled === null || adapterEnabled === undefined) return "";
+    if (!adapterEnabled) return "bt off";
+    var names = (connected || []).filter(function (n) { return typeof n === "string" && n.length > 0; });
+    if (names.length === 0) return "bt";
+    if (names.length === 1) return "bt " + names[0];
+    return "bt " + names.length;
+}
