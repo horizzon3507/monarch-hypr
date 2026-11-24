@@ -1,0 +1,33 @@
+#!/bin/bash
+
+# monarch:summary=Open, close or toggle a panel of the Quickshell shell
+# monarch:args=<toggle|open|close|active> [panel]
+# monarch:examples=monarch panel toggle wifi-qr | monarch panel close
+
+# Talks to the running shell's panel host over Quickshell IPC. The shell is
+# addressed by its config path, the same one monarch-shell-start launches.
+
+set -uo pipefail
+
+MONARCH_ROOT="${MONARCH_PATH:-/usr/share/monarch}"
+SHELL_DIR="${MONARCH_SHELL_DIR:-$MONARCH_ROOT/default/quickshell}"
+
+usage() {
+  echo "Usage: monarch-panel toggle|open <panel> | close | active" >&2
+  echo "Panels: wifi-qr" >&2
+  exit 2
+}
+
+action=${1:-}
+panel=${2:-}
+
+case "$action" in
+  toggle | open)
+    [[ $panel =~ ^[a-z][a-z0-9-]*$ ]] || usage
+    exec quickshell ipc --path "$SHELL_DIR" call panel "$action" "$panel"
+    ;;
+  close | active)
+    exec quickshell ipc --path "$SHELL_DIR" call panel "$action"
+    ;;
+  *) usage ;;
+esac

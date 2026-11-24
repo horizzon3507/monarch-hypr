@@ -618,6 +618,7 @@
   },
   "commands": {
     "monarch-install-ai-hermes": "Installer et ouvrir Hermes Desktop",
+    "monarch-panel": "Ouvrir, fermer ou basculer un panneau du shell Quickshell",
     "monarch-remove-ai-hermes": "Supprimer Hermes Desktop et ses dépendances inutilisées",
     "monarch-language": "Choisir la langue des menus et commandes Monarch",
     "monarch-i18n": "Traduire un message destiné à l’utilisateur",
