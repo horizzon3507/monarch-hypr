@@ -2,14 +2,40 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell.Services.UPower
 import Quickshell.Services.Pipewire
+import Quickshell.Io
 import "ShellLogic.js" as Logic
 
-// Battery and volume readouts. Each hides itself when its service has nothing
-// to show (no battery, no default sink).
+// Battery, volume and internal-backlight readouts. Each hides itself when its
+// source has nothing to show (no battery, no default sink, no backlight).
 RowLayout {
     id: root
     spacing: 12
     property int fontSize: 13
+
+    // Backlight percent from `monarch-display-brightness --list`, polled while the
+    // bar is up. Nothing shows without an internal backlight (desktop, external
+    // monitor only, command failing), so a failed read is not shown as a value.
+    property var brightness: ({})
+    Process {
+        id: briProc
+        command: ["monarch-display-brightness", "--list"]
+        stdout: StdioCollector { id: briOut }
+        onExited: function (exitCode) { root.brightness = exitCode === 0 ? Logic.parseBrightnessList(briOut.text) : ({}); }
+    }
+    Timer {
+        interval: 15000
+        running: true
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: if (!briProc.running) briProc.running = true
+    }
+
+    Text {
+        visible: text !== ""
+        text: Logic.brightnessText(root.brightness)
+        font.pixelSize: root.fontSize
+        color: Theme.fg
+    }
 
     PwObjectTracker {
         objects: [Pipewire.defaultAudioSink]
