@@ -827,6 +827,7 @@
     "monarch-refresh-chromium": "Rétablir les options Chromium par défaut",
     "monarch-refresh-config": "Restaurer une configuration fournie en sauvegardant la configuration actuelle",
     "monarch-refresh-herdr": "Restaurer le modèle Herdr et le rendre avec Noctalia",
+    "monarch-refresh-hypr": "Installer le point d’entrée Hyprland dans ~/.config/hypr/hyprland.lua, préparer les fichiers utilisateur et recharger Hyprland",
     "monarch-refresh-limine": "Rétablir la configuration Limine et reconstruire le chargeur",
     "monarch-refresh-niri": "Installer la configuration Niri, préparer user.kdl et recharger Niri",
     "monarch-refresh-noctalia": "Rétablir les réglages Noctalia et le fond d’écran Monarch puis redémarrer le shell",
