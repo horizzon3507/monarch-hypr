@@ -71,7 +71,7 @@ jobs:
               */noctalia-plugin-activation-test.sh) continue ;;
             esac
             echo "== $t"
-            bash "$t" || status=1
+            bash "$t" || { echo "::error::FAILED $t"; status=1; }
           done
           exit $status
 
