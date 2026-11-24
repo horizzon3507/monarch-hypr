@@ -49,7 +49,10 @@ out.push(L.usageColor(95) === "error" && L.usageColor(75) === "warn" && L.usageC
 // Documented CodexBar payload: array of providers, usedPercent 0-100, windowMinutes, identity.loginMethod.
 const real = L.parseUsage(JSON.stringify({ok: true, providers: [{provider: "codex", source: "cli", usage: {primary: {usedPercent: 28, windowMinutes: 300, resetsAt: "2026-07-17T20:00:00Z"}, secondary: {usedPercent: 59, windowMinutes: 10080}, identity: {loginMethod: "plus"}}}]}));
 out.push(real.providers[0].windows[0].title === "5 h" && real.providers[0].windows[1].title === "Weekly" && real.providers[0].plan === "plus");
+// error is null on a healthy provider and an object with a message on a failed one (CLIPayloads.swift shape, as mirrored by a third-party client).
+const e = L.parseUsage(JSON.stringify({ok: true, providers: [{provider: "codex", usage: {primary: {usedPercent: 1}}, error: null}, {provider: "claude", error: {message: "Session expired"}}]}));
+out.push(e.providers[0].issue === "" && e.providers[1].issue === "Session expired");
 console.log(out.map(Boolean).join(" "));
 ')
-[[ $out == "true true true true true true true true true true true true" ]] || fail "usage panel logic" "$out"
+[[ $out == "true true true true true true true true true true true true true" ]] || fail "usage panel logic" "$out"
 pass "usage parsing behaves"
