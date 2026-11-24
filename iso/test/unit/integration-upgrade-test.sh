@@ -28,7 +28,7 @@ ssh_guest() {
   printf '%s\n' "$1" >>"$RUN_DIR/guest-calls"
   case "$1" in
     'mktemp -d /tmp/monarch-upgrade-shot.'*) echo /tmp/monarch-upgrade-shot.fixture ;;
-    *'niri msg action screenshot-screen'*) return 0 ;;
+    *'grim '*) return 0 ;;
     'cat /tmp/monarch-upgrade-shot.'*) echo png ;;
     'rm -rf /tmp/monarch-upgrade-shot.'*) return 0 ;;
     'mkdir -p ~/.local/state/monarch;'*) touch "$RUN_DIR/reboot-required" ;;
