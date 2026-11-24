@@ -52,6 +52,7 @@ Variants {
             Item { Layout.fillWidth: true }
 
             Tray { iconSize: Math.round(bar.fontSize * 1.2) }
+            Connectivity { fontSize: bar.fontSize }
             Indicators { fontSize: bar.fontSize }
         }
     }

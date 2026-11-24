@@ -5,7 +5,7 @@ source "${BASH_SOURCE[0]%/*}/base-test.sh"
 
 QS="$ROOT/default/quickshell"
 
-for file in Bar Workspaces Indicators Tray; do
+for file in Bar Workspaces Indicators Tray Connectivity; do
   [[ -f $QS/$file.qml ]] || fail "$file.qml exists"
   grep -q "^$file 1.0 $file.qml$" "$QS/qmldir" || fail "qmldir registers $file"
 done
@@ -16,7 +16,7 @@ pass "bar components exist, are registered and the shell loads the bar"
 grep -q 'Settings.barPosition' "$QS/Bar.qml" || fail "bar follows the position setting"
 grep -q 'Settings.barVisible' "$QS/Bar.qml" || fail "bar follows the visibility setting"
 grep -q 'Settings.textScale' "$QS/Bar.qml" || fail "bar follows the text size setting"
-! grep -Eq '#[0-9a-fA-F]{6}' "$QS"/Bar.qml "$QS"/Workspaces.qml "$QS"/Indicators.qml "$QS"/Tray.qml \
+! grep -Eq '#[0-9a-fA-F]{6}' "$QS"/Bar.qml "$QS"/Workspaces.qml "$QS"/Indicators.qml "$QS"/Tray.qml "$QS"/Connectivity.qml \
   || fail "bar components use theme colors, not literals"
 pass "bar follows settings and theme without hard-coded colors"
 
@@ -36,7 +36,7 @@ fi
 out=$(QS="$QS" node -e '
 const fs = require("fs");
 const src = fs.readFileSync(process.env.QS + "/ShellLogic.js", "utf8").replace(".pragma library", "");
-const L = new Function(src + "; return {workspaceSlots, workspaceDispatch, clockText, batteryPercent, batteryText, volumePercent, volumeText};")();
+const L = new Function(src + "; return {workspaceSlots, workspaceDispatch, clockText, batteryPercent, batteryText, volumePercent, volumeText, signalPercent, bluetoothText};")();
 const j = JSON.stringify;
 const out = [];
 out.push(j(L.workspaceSlots([])) === "[1,2,3,4,5]");
@@ -51,7 +51,10 @@ out.push(L.batteryText(0.5, true, true) === "+50%" && L.batteryText(0.5, false, 
 out.push(L.batteryText(0.5, false, false) === "" && L.batteryText(0.1, false, false) === "low" && L.batteryText(0.5, true, false) === "charging");
 out.push(L.volumePercent(0.5) === 50 && L.volumePercent(3) === 150 && L.volumePercent(NaN) === 0);
 out.push(L.volumeText(0.5, true) === "muted" && L.volumeText(0.25, false) === "25%");
+out.push(L.signalPercent(0.734) === 73 && L.signalPercent(5) === 100 && L.signalPercent("x") === 0);
+out.push(L.bluetoothText(null, []) === "" && L.bluetoothText(undefined, []) === "" && L.bluetoothText(false, ["a"]) === "bt off");
+out.push(L.bluetoothText(true, []) === "bt" && L.bluetoothText(true, ["Buds"]) === "bt Buds" && L.bluetoothText(true, ["a", "b", ""]) === "bt 2");
 console.log(out.map(Boolean).join(" "));
 ')
-[[ $out == "true true true true true true true true true true true true" ]] || fail "bar logic" "$out"
+[[ $out == "true true true true true true true true true true true true true true true" ]] || fail "bar logic" "$out"
 pass "workspace slots, dispatch strings, clock, battery and volume text behave"
