@@ -13,7 +13,16 @@ cat >"$test_tmp/bin/recorder" <<'EOF'
 printf '%s %s\n' "${0##*/}" "$*" >>"$LOCK_TEST_CALLS"
 case ${0##*/} in
   noctalia) exit "${LOCK_TEST_STATUS:-0}" ;;
-  pgrep) [[ -n ${LOCK_TEST_PGREP_HYPRLOCK:-} ]] && exit 0; exit 1 ;;
+  pgrep)
+    [[ " $* " == *" hyprlock "* ]] || exit 1
+    if [[ -n ${LOCK_TEST_PGREP_SEQ:-} ]]; then
+      # One exit status per call: 1 = not running, 0 = running; the last repeats.
+      read -r -a seq <"$LOCK_TEST_PGREP_SEQ"
+      status=${seq[0]:-1}
+      (( ${#seq[@]} > 1 )) && printf '%s\n' "${seq[*]:1}" >"$LOCK_TEST_PGREP_SEQ"
+      exit "$status"
+    fi
+    [[ -n ${LOCK_TEST_PGREP_HYPRLOCK:-} ]] && exit 0; exit 1 ;;
   pkill) exit 1 ;;
 esac
 EOF
@@ -58,7 +67,7 @@ assert result.stderr.strip(), 'a missing Noctalia command must not report succes
 print('ok - an unavailable Noctalia command fails without contacting the desktop')
 
 # Hyprland session: hyprlock, never Noctalia.
-def run_hypr(have_lock, running):
+def run_hypr(have_lock, running, seq=None):
   calls.write_text('')
   bin_dir = Path(os.environ['LOCK_TEST_BIN'])
   for name in ('hyprlock', 'setsid'):
@@ -70,6 +79,10 @@ def run_hypr(have_lock, running):
   (bin_dir / 'setsid').symlink_to('recorder')
   env = {**os.environ, 'PATH': str(bin_dir), 'HYPRLAND_INSTANCE_SIGNATURE': 'x',
          'MONARCH_LOCK_ONLY': 'true', 'LOCK_TEST_PGREP_HYPRLOCK': '1' if running else ''}
+  if seq:
+    seq_file = bin_dir / 'pgrep-seq'
+    seq_file.write_text(seq + '\n')
+    env['LOCK_TEST_PGREP_SEQ'] = str(seq_file)
   return subprocess.run(['/bin/bash', str(root / 'bin/monarch-system-lock')], env=env, capture_output=True, text=True)
 
 # pgrep -x hyprlock: the recorder exits 1 (not running) unless told otherwise.
@@ -81,5 +94,15 @@ assert 'setsid -f hyprlock' in calls.read_text() and 'noctalia' not in calls.rea
 assert r.returncode == 1 and 'did not start' in r.stderr, 'a lock that never appears is a failure, not success'
 r = run_hypr(True, True)
 assert r.returncode == 0 and 'setsid' not in calls.read_text() and 'noctalia' not in calls.read_text(), (r, calls.read_text())
+# Starts, then dies at once: failure, not success (the stub run H1 found returning 0).
+r = run_hypr(True, False, '1 0 1')
+assert r.returncode == 1 and 'exited at once' in r.stderr, r
+assert 'setsid -f hyprlock' in calls.read_text()
+# Starts and stays: success.
+r = run_hypr(True, False, '1 0 0')
+assert r.returncode == 0 and not r.stderr, r
+# Never appears at all: failure.
+r = run_hypr(True, False, '1 1')
+assert r.returncode == 1, r
 print('ok - on Hyprland the lock starts hyprlock, reports a missing or failed lock, and never calls Noctalia')
 PY

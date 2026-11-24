@@ -18,7 +18,11 @@ if [[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]]; then
       pgrep -x hyprlock >/dev/null 2>&1 && break
       sleep 0.2
     done
-    pgrep -x hyprlock >/dev/null 2>&1 || { lock_status=1; echo "hyprlock did not start" >&2; }
+    # A lock that starts and dies at once (bad config, no session-lock support)
+    # must not read as locked: it has to still be there after a short settle.
+    # A running process is still not proof that the screen is locked.
+    sleep 0.5
+    pgrep -x hyprlock >/dev/null 2>&1 || { lock_status=1; echo "hyprlock did not start or exited at once" >&2; }
   fi
 else
   noctalia msg session lock >/dev/null 2>&1 || lock_status=$?
