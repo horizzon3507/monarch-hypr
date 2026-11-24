@@ -1,45 +1,43 @@
 ---
 name: monarch
 description: >
-  REQUIRED for end-user customization of Linux desktop, window manager, or system config.
-  Use when editing ~/.config/niri/, ~/.config/noctalia/, ~/.config/alacritty/,
-  ~/.config/foot/, ~/.config/kitty/, ~/.config/ghostty/,
-  or ~/.config/monarch/.
-  Triggers: Niri, window rules, animations, keybindings, monitors, gaps, borders, focus
-  ring, opacity, Noctalia bar/launcher/notifications/lock-screen/OSD, terminal config,
-  themes, wallpaper, night light, idle, lock screen, screenshots, reminders, layer rules,
+  Use for end-user customization of the Linux desktop, window manager, or system config.
+  Applies when editing ~/.config/hypr/, ~/.config/monarch/, ~/.config/alacritty/,
+  ~/.config/foot/, ~/.config/kitty/ or ~/.config/ghostty/.
+  Topics: Hyprland, window rules, animations, keybindings, monitors, gaps, borders,
+  opacity, the Quickshell bar and panels, Walker launcher, notifications, lock screen,
+  OSD, terminal config, themes, wallpaper, night light, idle, screenshots, reminders,
   workspace settings, display config, and user-facing monarch commands. Excludes Monarch
   source development and `monarch dev` workflows.
 ---
 
 # Monarch Skill
 
-Manage [Monarch](https://www.monarchlinux.com/) Linux systems - a beautiful, modern, opinionated Arch Linux distribution with Niri.
+Manage [Monarch](https://www.monarchlinux.com/) Linux systems, an opinionated Arch Linux distribution built on Hyprland and a thin Quickshell desktop shell.
 
 This skill is for end-user customization on installed systems.
 It is not for contributing to Monarch source code.
 
-## When This Skill MUST Be Used
+## When To Use This Skill
 
-**ALWAYS invoke this skill for end-user requests involving ANY of these:**
+Use it for end-user requests that involve any of these:
 
-- Editing ANY file in `~/.config/niri/` (window rules, keybindings, monitors, etc.)
-- Editing ANY file in `~/.config/noctalia/` (bar, widgets, notifications, control center, lock screen)
+- Editing files in `~/.config/hypr/` (window rules, keybindings, monitors, look and feel)
+- Editing files in `~/.config/monarch/` (palettes, shell settings, hooks)
 - Editing terminal configs (alacritty, foot, kitty, ghostty)
-- Editing ANY file in `~/.config/monarch/`
-- Window behavior, opacity, gaps, borders, focus ring
-- Layer rules, workspace settings, display/monitor configuration
+- Window behavior, opacity, gaps, borders
+- Workspace settings, display and monitor configuration
 - Color schemes, dark/light mode, wallpapers, fonts, appearance changes
 - User-facing `monarch` commands (`monarch refresh ...`, `monarch restart ...`, etc.)
 - Screenshots, screen recording, reminders, night light, idle behavior, lock screen
 
-**If you're about to edit a config file in ~/.config/ on this system, STOP and use this skill first.**
+Before editing a config file in `~/.config/` on this system, check this skill first.
 
-**Do NOT use this skill for Monarch source development or `monarch dev ...` workflows.**
+Do not use it for Monarch source development or `monarch dev ...` workflows.
 
 ## Critical Safety Rules
 
-**For end-user customization tasks, NEVER modify anything in `/usr/share/monarch/`** - but READING is safe and encouraged.
+**For end-user customization tasks, never modify anything in `/usr/share/monarch/`.** Reading it is safe and encouraged.
 
 This directory contains Monarch files managed by pacman. Any changes will be:
 - Lost on next `monarch update`
@@ -49,24 +47,24 @@ This directory contains Monarch files managed by pacman. Any changes will be:
 ```
 /usr/share/monarch/         # Packaged defaults, READ-ONLY
 ├── bin/                    # Source scripts (symlinked to PATH)
-├── config/                 # Default config templates (incl. noctalia color scheme)
-├── themes/                 # Per-Noctalia-scheme wallpapers (themes/<scheme>/*.png|jpg)
-├── default/                # System defaults
+├── config/                 # Default user config templates (hypr, mako, walker, palettes, ...)
+├── themes/                 # Per-theme wallpapers (themes/<theme>/*.png|jpg)
+├── default/                # System defaults (hypr/, quickshell/, monarch/ theme templates)
 └── install/                # Installation scripts
 ```
 
-**Reading `/usr/share/monarch/` is SAFE and useful** - do it freely to:
-- Understand how monarch commands work: `monarch refresh --help` or `cat $(which monarch-refresh-niri)`
-- See default configs before customizing: `cat /usr/share/monarch/config/noctalia/config.toml`
-- Inspect the shipped Monarch color scheme: `cat /usr/share/monarch/config/noctalia/palettes/Monarch.json`
-- Reference default Niri settings: `cat /usr/share/monarch/default/niri/config.kdl`
+Read `/usr/share/monarch/` freely to:
+- Understand how monarch commands work: `monarch refresh --help` or `cat $(which monarch-refresh-hypr)`
+- See default Hyprland modules before customizing: `ls /usr/share/monarch/default/hypr/` and `cat /usr/share/monarch/default/hypr/rules.lua`
+- See the shipped user config templates: `ls /usr/share/monarch/config/hypr/`
+- Inspect a shipped palette: `cat /usr/share/monarch/config/monarch/palettes/Monarch.json`
 
-**Always use these safe locations instead:**
-- `~/.config/` - User configuration (safe to edit)
-- `~/.config/noctalia/` - Noctalia shell, color schemes, and templates (safe to edit)
-- `~/.config/monarch/hooks/` - Custom automation hooks
+Edit only these locations:
+- `~/.config/hypr/` - Hyprland user files (safe to edit)
+- `~/.config/monarch/` - palettes, shell settings, hooks (safe to edit)
+- `~/.config/<app>/` - app configs
 
-If the request is to develop Monarch itself, this skill is out of scope. Follow repository development instructions instead of this skill.
+If the request is to develop Monarch itself, this skill is out of scope. Follow repository development instructions instead.
 
 ## System Architecture
 
@@ -75,11 +73,16 @@ Monarch is built on:
 | Component | Purpose | Config Location |
 |-----------|---------|-----------------|
 | **Arch Linux** | Base OS | `/etc/`, `~/.config/` |
-| **Niri** | Wayland scrollable-tiling compositor/WM | `~/.config/niri/` |
-| **Noctalia** | Desktop shell — bar, launcher, notifications, control center, lock screen, OSDs, wallpaper | `~/.config/noctalia/` |
+| **Hyprland** | Wayland compositor/WM, configured in Lua | `~/.config/hypr/` |
+| **Quickshell shell** | Thin custom shell: bar, workspaces, tray, status chips and panels (Wi-Fi QR, network, theme, display, background, crash reports, first steps, usage) | `~/.config/monarch/shell.json` |
+| **Walker** | Launcher, clipboard, emoji picker, Monarch menus | `~/.config/walker/` |
+| **Mako** | Notifications and do-not-disturb | `~/.config/mako/config` |
+| **Hyprlock / Hypridle** | Lock screen and idle handling | `~/.config/hypr/hyprlock.conf`, `hypridle.conf` |
+| **Hyprpaper** | Wallpaper | `~/.config/hypr/hyprpaper.conf` (use `monarch wallpaper`) |
+| **SwayOSD** | Volume and brightness on-screen display | `~/.config/swayosd/` |
 | **Alacritty/Foot/Kitty/Ghostty** | Terminals | `~/.config/<terminal>/` |
 
-Noctalia is driven entirely through IPC: `noctalia msg <command> [args...]`, sent to the running daemon over a Unix socket. Commands are flat verbs — v4's `<target> <function>` pair is gone. `noctalia msg --help` prints the authoritative list; the commonly used ones are documented below.
+The shell is deliberately small. There is no separate audio or Bluetooth panel: audio, Bluetooth and Wi-Fi settings open in terminal tools (`monarch launch audio` uses `wiremix`, `monarch launch bluetooth` uses `bluetui`, `monarch launch wifi` uses `impala`). Panels can be opened from a shell with `monarch panel toggle <panel>`.
 
 ## Command Discovery
 
@@ -101,7 +104,7 @@ monarch theme apply --help
 monarch commands --json
 
 # Read a command's source to understand it
-cat $(which monarch-refresh-niri)
+cat $(which monarch-refresh-hypr)
 ```
 
 ### Command Groups
@@ -110,10 +113,11 @@ Run `monarch --help` for the full list. The most common groups:
 
 | Group | Purpose | Example |
 |-------|---------|---------|
-| `monarch refresh` | Reset config to defaults (backs up first) | `monarch refresh noctalia` |
-| `monarch restart` | Restart a service/app | `monarch restart noctalia` |
+| `monarch refresh` | Reset config to defaults (backs up first) | `monarch refresh shell` |
+| `monarch restart` | Restart a service/app | `monarch restart shell` |
 | `monarch toggle` | Toggle feature on/off | `monarch toggle nightlight` |
-| `monarch theme` | Re-sync the residual system theming layer (theming itself is in Noctalia) | `monarch theme apply` |
+| `monarch theme` | Set, list and render themes and dark/light mode | `monarch theme set Lumon` |
+| `monarch panel` | Open or close a shell panel | `monarch panel toggle theme` |
 | `monarch install` | Install optional software / packages | `monarch install docker dbs` |
 | `monarch launch` | Launch apps | `monarch launch browser` |
 | `monarch capture` | Screenshots and recordings | `monarch capture screenshot` |
@@ -124,57 +128,42 @@ Run `monarch --help` for the full list. The most common groups:
 
 ## Configuration Locations
 
-### Niri (Window Manager)
+### Hyprland (Window Manager)
 
 ```
-~/.config/niri/
-├── config.kdl    # Generated by monarch-refresh-niri (defaults + theme + user)
-└── user.kdl      # Your personal overrides (preserved across upgrades)
+~/.config/hypr/
+├── hyprland.lua   # Entry point, generated by monarch-refresh-hypr. Do not edit.
+├── monitors.lua   # Your monitor setup
+├── input.lua      # Your input settings
+├── bindings.lua   # Your key bindings
+├── looknfeel.lua  # Your gaps, borders, rounding, animations
+├── autostart.lua  # Your startup commands
+└── keyboard.lua   # Generated keyboard layout
 ```
+
+Monarch's own defaults live in `/usr/share/monarch/default/hypr/` and load first. The user files above load last, so they win.
 
 **Key behaviors:**
-- Niri reloads its config automatically when `~/.config/niri/config.kdl` changes on disk.
-- To force a reload manually: `niri msg action reload-config` (or `monarch restart niri`).
-- To rebuild `config.kdl` from defaults + theme + user override: `monarch refresh niri`.
-- Validate a config file before deploying: `niri validate -c ~/.config/niri/config.kdl`.
-- The user-editable file is `~/.config/niri/user.kdl` — anything you put there is appended last and overrides earlier sections.
+- Hyprland reloads its config when a loaded file changes. To force a reload: `hyprctl reload`.
+- To reinstall the entry point and seed any missing user file (never overwriting edits): `monarch refresh hypr`.
+- Window rules, workspace rules and layer rules are Lua calls: `hl.window_rule({ match = {...}, ... })`. A user file can add its own after the defaults. Check the Hyprland wiki (<https://wiki.hypr.land/configuring/>) for the fields before writing one, and read `/usr/share/monarch/default/hypr/rules.lua` for working examples.
+- Edit the user files in `~/.config/hypr/`, never the packaged `default/hypr/` modules.
 
-### Noctalia (Desktop Shell)
+### Shell (Quickshell)
 
-```
-~/.config/noctalia/
-├── config.toml                # Theme, bar lanes, [widget.*] settings, hooks, idle
-└── palettes/                  # Monarch and Quattro schemes (dark + light + terminal blocks)
+The shell reads one settings file, `~/.config/monarch/shell.json`, and reloads when it changes. Read or write it with `monarch-shell-setting`:
 
-~/.config/herdr/config.toml        # Rendered by Noctalia's Monarch Herdr template
-
-~/.local/share/noctalia/plugins/   # Luau plugins (monarch-indicators)
-~/.local/state/noctalia/           # Noctalia's own mutable state — do not edit or ship
+```bash
+monarch-shell-setting get barPosition          # "top" or "bottom"
+monarch-shell-setting set barPosition '"bottom"'
+monarch-shell-setting set barVisible false
+monarch-shell-setting set batteryPercent true
+monarch-shell-setting set textScale 1.2
 ```
 
-Every `*.toml` in `~/.config/noctalia/` is merged, so a user override can live in its
-own file rather than editing `config.toml`. Validate any edit with `noctalia config
-validate`, and note its blind spot: it checks `[widget.*]` keys but **not** values,
-widget ids, or inline tables.
+Values are JSON. Other keys are ignored. `monarch toggle bar` flips bar visibility. `monarch restart shell` restarts bar, notifications, OSD, idle and wallpaper. `monarch refresh shell` resets mako, walker, swayosd, hyprlock, hypridle, hyprpaper and the Monarch palette to defaults, re-renders the theme and restarts the shell, so ask before running it.
 
-**Key behaviors:**
-- The settings panel (Mod+Shift+Comma or `noctalia msg settings-toggle`) is the canonical way to tweak Noctalia, including the color scheme picker and the dark/light toggle. Edits to `config.toml` are picked up by `noctalia msg config-reload`, or on shell restart (`monarch restart noctalia`).
-- `monarch refresh noctalia` overwrites `config.toml` and the Monarch palette with Monarch defaults, then restarts the shell.
-- Noctalia owns all theming: colors, dark/light, app templates, and wallpaper. Monarch ships its own palette plus the Quattro palette set under `palettes/`; Noctalia's built-in schemes also appear in the picker. Switch with the picker or `noctalia msg color-scheme-set <builtin|community|custom|wallpaper> <Name>` — the source keyword is required.
-- Dark/light is Noctalia's global toggle. Switch via the control center or `noctalia msg theme-mode-toggle`; read it back with `theme-mode-get`.
-- Bar widgets are configured in top-level `[widget.<id>]` sections of `config.toml`, never inline in the `start`/`center`/`end` lanes — the lanes hold plain strings, and an inline table there is silently dropped at load time. `show_label = false` gives an icon-only widget (network, bluetooth, volume, brightness, battery only).
-- Useful commands (`noctalia msg …`):
-  - `panel-toggle <id> [context]` — panel ids: `launcher`, `control-center`, `clipboard`, `session`, `wallpaper`, `polkit`, `tray-drawer`. Context example: `control-center network`, `launcher /emo`
-  - `settings-toggle`, `config-reload`, `status`
-  - `notification-dnd-toggle`
-  - `volume-up | volume-down | volume-mute | volume-set <value>`
-  - `brightness-up | brightness-down | brightness-set <value>`
-  - `nightlight-toggle`, `caffeine-toggle`, `dpms-on | dpms-off`
-  - `wallpaper-set [connector] <path>`, `wallpaper-next | -previous | -random | -get`
-  - `session <lock|suspend|lock-and-suspend|logout|reboot|shutdown>`
-  - `media <next|previous|toggle|play|pause|stop>`
-  - `screenshot-fullscreen [pick|monitor|all]`, `screenshot-region`
-  - `plugins <list|enable|disable|update|source>`, `templates-apply`
+Custom bar widgets and plugin systems do not exist. The bar shows workspaces, the tray, connectivity, brightness, volume, battery, a clock and status chips (recording, caffeine, do not disturb, night light, update available). If the user wants a layout the settings file cannot express, say so rather than editing files under `/usr/share/monarch/default/quickshell/`.
 
 ### Terminals
 
@@ -196,7 +185,8 @@ widget ids, or inline tables.
 | lazygit | `~/.config/lazygit/config.yml` |
 | starship | `~/.config/starship.toml` |
 | git | `~/.config/git/config` |
-| noctalia | `~/.config/noctalia/config.toml` |
+| mako | `~/.config/mako/config` |
+| walker | `~/.config/walker/config.toml` |
 
 ## Safe Customization Patterns
 
@@ -205,29 +195,33 @@ widget ids, or inline tables.
 For simple changes, edit files in `~/.config/`:
 
 ```bash
-# 1. Read current config (the generated file is for reference)
-cat ~/.config/niri/user.kdl
+# 1. Read the current file
+cat ~/.config/hypr/bindings.lua
 
-# 2. Backup before changes
-cp ~/.config/niri/user.kdl ~/.config/niri/user.kdl.bak.$(date +%s)
+# 2. Back up before changes
+cp ~/.config/hypr/bindings.lua ~/.config/hypr/bindings.lua.bak.$(date +%s)
 
-# 3. Make changes with Edit tool
+# 3. Make changes with the Edit tool
 
 # 4. Apply changes
-# - Niri:      monarch refresh niri  (rebuilds + reloads; validates first)
-# - Noctalia:  monarch restart noctalia
+# - Hyprland:  hyprctl reload   (a Lua error shows as a notification and in `hyprctl configerrors`)
+# - Shell:     monarch restart shell
 # - Terminals: monarch restart terminal
 ```
 
-### Pattern 2: Change the theme (delegated to Noctalia)
+### Pattern 2: Change the theme
 
-Theming is owned by Noctalia, not Monarch. There are no Monarch custom themes to create.
+Themes are palette files: `~/.config/monarch/palettes/<Name>.json`, each with `dark` and `light` blocks. Monarch renders the active palette into the config templates for Hyprland, Mako, Walker, Hyprlock, SwayOSD and the terminals.
 
-- Pick a color scheme: open the Noctalia settings panel (Mod+Shift+Comma) and use the color scheme picker, or `noctalia msg color-scheme-set custom <Name>`. Available schemes are the shipped `Monarch` plus Noctalia's built-ins (Catppuccin, Gruvbox, Nord, …).
-- Toggle dark/light globally: control center or `noctalia msg theme-mode-toggle` (GTK/Qt follow automatically).
-- Tweak the Monarch palette: edit `~/.config/noctalia/palettes/Monarch.json` (it has `dark` and `light` blocks), then re-select it in the picker.
-- After a scheme change, Noctalia re-themes apps via its templates. The residual system layer (wallpaper folder, keyboard RGB, Chromium policy color, Plymouth) is re-synced by `monarch theme apply`, which Noctalia runs automatically on its `colors_changed` hook; you can also run it by hand.
-- Import a personal wallpaper into the active theme with `monarch theme background-import [path]`. Without a path, Monarch opens the desktop file chooser. Name collisions create a numbered copy and shipped backgrounds are never modified.
+- List themes: `monarch theme list`. Show the active one: `monarch theme current`.
+- Switch: `monarch theme set <Name>` (for example `monarch theme set Lumon`). The name must match a palette file, and a failed render leaves the previous theme active.
+- Dark/light: `monarch theme mode toggle` (or `dark`, `light`, `get`).
+- The theme panel (`monarch panel toggle theme`) is the visual picker.
+- Tweak a palette: edit `~/.config/monarch/palettes/<Name>.json`, then `monarch theme render` (or `monarch theme set <Name>` again).
+- Wallpapers belong to the active theme. Import your own with `monarch theme background-import [path]` (without a path it opens the file chooser). Set one directly with `monarch wallpaper set <path>`. Shipped backgrounds are never modified.
+- `monarch theme apply` re-syncs the residual system layer (keyboard RGB, Chromium policy color) after a change.
+
+Theming of other apps (Helix, Obsidian, editors) is done by their own `monarch` commands where they exist; do not assume they follow the theme automatically.
 
 ### Pattern 3: Use Hooks for Automation
 
@@ -248,95 +242,85 @@ echo "Font changed to: $FONT_NAME"
 # Add custom actions here
 ```
 
-Note: color-scheme changes are handled inside Noctalia (via its `[hooks] colors_changed`, wired to `monarch theme apply`), not via a Monarch `theme-set` hook.
+### Pattern 4: Reset to Defaults (ask the user first)
 
-### Pattern 4: Reset to Defaults -- ALWAYS SEEK USER CONFIRMATION BEFORE RUNNING
-
-When customizations go wrong:
+When customizations go wrong, and only after the user agrees:
 
 ```bash
-# Reset specific config (creates backup automatically)
-monarch refresh noctalia
-monarch refresh niri
-
-# The refresh command:
-# 1. Backs up current config with timestamp
-# 2. Rebuilds config from /usr/share/monarch defaults + user override
-# 3. Reloads the live compositor or restarts the component
+# Reset one config file (creates a backup automatically)
+monarch refresh config <path relative to ~/.config>
+monarch refresh hypr      # reinstall the entry point, seed missing user files
+monarch refresh shell     # shell-related configs, theme, restart
 ```
+
+Refresh commands back up the current file with a timestamp before replacing it.
 
 ## Common Tasks
 
-### Themes and color schemes
-
-Theming is handled by Noctalia — Monarch no longer ships theme-management commands.
+### Themes
 
 ```bash
-# Pick / switch the color scheme (or use the Noctalia settings picker, Mod+Shift+Comma)
-noctalia msg color-scheme-set custom <Name>
-
-# Toggle dark/light globally (GTK/Qt follow automatically)
-noctalia msg theme-mode-toggle
-
-# Open the wallpaper picker
-noctalia msg panel-toggle wallpaper
-
-# Re-sync the residual system layer (wallpaper folder, keyboard RGB, Chromium, Plymouth).
-# Noctalia runs this automatically on a scheme change; run it by hand if needed.
-monarch theme apply
+monarch theme list
+monarch theme set <Name>
+monarch theme mode toggle
+monarch panel toggle theme
 ```
 
 ### Keybindings
 
-Edit `~/.config/niri/user.kdl`. Niri uses a `binds { … }` block with KDL syntax:
+Edit `~/.config/hypr/bindings.lua`. Monarch provides helpers for binds:
 
-```kdl
-binds {
-    Mod+Return hotkey-overlay-title="Terminal" { spawn "alacritty"; }
-    Mod+Q      hotkey-overlay-title="Close window" { close-window; }
-    Mod+L      hotkey-overlay-title="Lock screen" { spawn "monarch-system-lock"; }
-}
+```lua
+-- Run a command
+monarch.cmd("SUPER + SHIFT + A", "monarch-launch-webapp https://chatgpt.com", "ChatGPT")
+monarch.cmd("SUPER + E", "nautilus", "Files")
+
+-- Any Hyprland dispatcher
+monarch.bind("SUPER + Q", hl.dsp.window.close(), "Close window")
 ```
 
-View current bindings: `monarch menu keybindings --print`
-
-**IMPORTANT: Niri does not have an explicit `unbind`.** To override a default binding, simply
-redefine the same chord in your `user.kdl` — the last definition wins because the user file is
-appended last by `monarch-refresh-niri`.
+View current bindings: `monarch menu keybindings` (Super+K opens the same list). The Hyprland binds wiki is the reference for dispatchers and flags: <https://wiki.hypr.land/configuring/>. Defaults are in `/usr/share/monarch/default/hypr/binds/` and `shell.lua`. Check for an existing chord there before adding a bind, and tell the user if the new one overlaps a default.
 
 ### Display/Monitors
 
-Edit `~/.config/niri/user.kdl`:
+Edit `~/.config/hypr/monitors.lua`:
 
-```kdl
-output "eDP-1" {
-    mode "2880x1920@120.000"
-    scale 2
-    position x=0 y=0
-}
-
-output "DP-1" {
-    mode "3840x2160@60.000"
-    scale 1.5
-    position x=1440 y=0
-}
+```lua
+hl.monitor({ output = "eDP-1", mode = "2880x1920@120", position = "0x0", scale = 2 })
+hl.monitor({ output = "DP-1", mode = "3840x2160@60", position = "1440x0", scale = 1.5 })
 ```
 
-List outputs: `niri msg outputs` (or `niri msg --json outputs` for JSON).
+List outputs and modes: `hyprctl monitors`. The display panel (`monarch panel toggle display`) changes scale and mode interactively.
 
 ### Window Rules
 
-Window rules live in the same `~/.config/niri/user.kdl` as everything else. Niri syntax:
+Add rules to a user file such as `~/.config/hypr/looknfeel.lua`:
 
-```kdl
-window-rule {
-    match app-id=r#"^org\.telegram\.desktop$"#
-    open-floating true
-    default-column-width { fixed 600; }
-}
+```lua
+hl.window_rule({
+  match = { class = "^org\\.telegram\\.desktop$" },
+  float = true,
+  size = "600 800",
+})
 ```
 
-Refer to the Niri configuration reference at <https://yalter.github.io/niri/Configuration%3A-Window-Rules.html> for the full grammar and field list before writing rules.
+Read `/usr/share/monarch/default/hypr/rules.lua` and the Hyprland window-rules page (<https://wiki.hypr.land/configuring/core/rules/window-rules/>) for the full field list before writing rules. Reload with `hyprctl reload`, and check `hyprctl configerrors`.
+
+### Wallpaper, night light, do not disturb, idle
+
+```bash
+monarch wallpaper get
+monarch wallpaper set ~/Pictures/wall.png
+monarch toggle nightlight        # hyprsunset, manual on/off
+monarch toggle notification-silencing   # mako do-not-disturb mode
+monarch toggle idle              # hold the idle inhibitor (caffeine)
+```
+
+Night light is a manual toggle. There is no sunset schedule setting. If a status check reports the state as unavailable, say so instead of assuming off.
+
+### Optional desktop hooks that are not available on Hyprland
+
+Todo and LazyVPN install as packages and their commands still work in a terminal, but they have no keybinding, bar item or panel on Hyprland. Do not promise them. Add a keybinding in `bindings.lua` if the user asks.
 
 ### Fonts
 
@@ -373,7 +357,7 @@ monarch refresh <app>
 
 # Refresh specific config file
 # config-file path is relative to ~/.config/
-# eg. `monarch refresh config noctalia/config.toml` will refresh ~/.config/noctalia/config.toml
+# eg. `monarch refresh config mako/config` will refresh ~/.config/mako/config
 monarch refresh config <config-file>
 
 # Full reinstall of configs (nuclear option)
@@ -386,7 +370,7 @@ When user requests system changes:
 
 1. **Is it a stock monarch command?** Use it directly via `monarch <group> <action>`
 2. **Is it a config edit?** Edit in `~/.config/`, never `/usr/share/monarch/`
-3. **Is it a theme / color change?** Use Noctalia (scheme picker, dark/light toggle, or edit `palettes/Monarch.json`)
+3. **Is it a theme / color change?** Use `monarch theme set`, `monarch theme mode`, or edit a palette in `~/.config/monarch/palettes/`
 4. **Is it automation?** Use hooks in `~/.config/monarch/hooks/`
 5. **Is it a package install?** Use `monarch pkg add` (or `monarch pkg aur add` for AUR-only packages)
 6. **Unsure if command exists?** Run `monarch commands` or `monarch <group> --help`
@@ -410,16 +394,17 @@ This skill intentionally does not cover Monarch source development. Do not use t
 
 ## Example Requests
 
-- "Change my theme to catppuccin" -> Open the Noctalia scheme picker (Mod+Shift+Comma) or `noctalia msg color-scheme-set builtin Catppuccin`
-- "Switch to light mode" -> `noctalia msg theme-mode-toggle` (or the control center toggle)
-- "Add a keybinding for Super+E to open file manager" -> Add the bind in `~/.config/niri/user.kdl` (a later redefinition overrides any default with the same chord), then `monarch refresh niri`
-- "Configure my external monitor" -> Edit the `output` block in `~/.config/niri/user.kdl`
-- "Make the window gaps smaller" -> Add a `layout { gaps … }` block in `~/.config/niri/user.kdl`
-- "Set up night light to turn on at sunset" -> `monarch toggle nightlight` for a manual on/off, or configure a schedule in Noctalia: set the `[nightlight]` keys in `~/.config/noctalia/config.toml`
+- "Change my theme to catppuccin" -> `monarch theme set Catppuccin`
+- "Switch to light mode" -> `monarch theme mode light`
+- "Add a keybinding for Super+E to open file manager" -> Add `monarch.cmd("SUPER + E", "nautilus", "Files")` to `~/.config/hypr/bindings.lua`, then `hyprctl reload`
+- "Configure my external monitor" -> Edit `~/.config/hypr/monitors.lua`, or use the display panel
+- "Make the window gaps smaller" -> Set the gaps in `hl.config({ general = { gaps_in = ..., gaps_out = ... } })` in `~/.config/hypr/looknfeel.lua`, then `hyprctl reload`
+- "Turn on night light" -> `monarch toggle nightlight` (manual only, no sunset schedule)
 - "Set a reminder to pickup jack in 15 minutes" -> `monarch reminder 15 "Pickup Jack"`
 - "Show my reminders" -> `monarch reminder show`
 - "Clear all reminders" -> `monarch reminder clear`
-- "Customize the Monarch palette" -> Edit `~/.config/noctalia/palettes/Monarch.json` (`dark`/`light` blocks), then re-select Monarch in the Noctalia picker
-- "Re-apply theming to my wallpaper / keyboard RGB / Plymouth" -> `monarch theme apply` (Noctalia runs this automatically on a scheme change)
-- "Reset Noctalia to defaults" -> `monarch refresh noctalia`
-- "Move the bar to the right edge" -> Edit `[bar.default] position` in `~/.config/noctalia/config.toml` or use the Settings panel (Mod+Shift+Comma)
+- "Customize the Monarch palette" -> Edit `~/.config/monarch/palettes/Monarch.json` (`dark`/`light` blocks), then `monarch theme render`
+- "Re-apply theming to keyboard RGB or Chromium" -> `monarch theme apply`
+- "Move the bar to the bottom" -> `monarch-shell-setting set barPosition '"bottom"'`
+- "Hide the bar" -> `monarch toggle bar`
+- "Reset the shell to defaults" -> Ask first, then `monarch refresh shell`
