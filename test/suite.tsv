@@ -205,4 +205,4 @@ test/shell.d/quickshell-network-panel-test.sh	desktop-shell	medium	isolated
 test/monarch-theme-derive-test.sh	themes	medium	isolated
 test/shell.d/quickshell-theme-panel-test.sh	desktop-shell	medium	isolated
 test/monarch-theme-zed-test.sh	themes	medium	isolated
-test/shell.d/quickshell-display-panel-test.sh	desktop-shell	medium	isolated
+test/shell.d/refresh-hypr-verify-test.sh	provisioning	high	isolated

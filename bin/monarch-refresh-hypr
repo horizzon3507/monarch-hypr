@@ -46,7 +46,22 @@ cp -f "$rendered" "$TARGET"
 
 # Validate the assembled config through the include chain.
 if command -v Hyprland >/dev/null 2>&1; then
-  if ! Hyprland --verify-config --config "$TARGET"; then
+  # Hyprland refuses to run without XDG_RUNTIME_DIR, and the installer runs this
+  # inside arch-chroot where there is no login session. Give the verify call a
+  # private runtime dir in that case. A config that fails to validate is still fatal.
+  verify_runtime=""
+  if [[ -z ${XDG_RUNTIME_DIR:-} ]]; then
+    verify_runtime=$(mktemp -d)
+    chmod 700 "$verify_runtime"
+  fi
+  verified=true
+  if [[ -n $verify_runtime ]]; then
+    XDG_RUNTIME_DIR=$verify_runtime Hyprland --verify-config --config "$TARGET" || verified=false
+    rm -rf "$verify_runtime"
+  else
+    Hyprland --verify-config --config "$TARGET" || verified=false
+  fi
+  if [[ $verified != true ]]; then
     echo "monarch-refresh-hypr: Hyprland config validation failed for $TARGET" >&2
     exit 1
   fi
