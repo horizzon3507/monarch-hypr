@@ -15,10 +15,12 @@ runtime_pkgbuild="$monarch_pkgs_root/pkgbuilds/monarch/PKGBUILD"
   [[ ${pkgname[0]} == "monarch" ]]
 )
 
-noctalia_package=$(sed -n '/^noctalia/p' "$monarch_root/install/monarch-base.packages")
-[[ -n $noctalia_package ]]
-grep -qF "'$noctalia_package'" "$runtime_pkgbuild" || {
-  echo "runtime dependency does not match offline Noctalia package: $noctalia_package" >&2
+! grep -qxF noctalia "$monarch_root/install/monarch-base.packages" || {
+  echo "Noctalia is retired and must not be in the base package list" >&2
+  exit 1
+}
+! grep -qF "'noctalia'" "$runtime_pkgbuild" || {
+  echo "the runtime package must not depend on Noctalia" >&2
   exit 1
 }
 
