@@ -35,3 +35,20 @@ grep -qx do-not-disturb "$TEST_MODES" && grep -qx default "$TEST_MODES" || fail 
 "$dnd" status | jq -e '.enabled == false' >/dev/null || fail "dnd off"
 pass "do-not-disturb follows mako's mode and keeps other modes"
 ! grep -q "^noctalia" "$TEST_LOG" || fail "Noctalia was called"
+
+# makoctl unreachable: status and changes fail, never report "off".
+printf '#!/bin/bash\nexit 1\n' >"$tmp/bin/makoctl"
+if "$dnd" status >/dev/null 2>&1; then fail "dnd status fails when mako does not answer"; fi
+out=$("$dnd" status 2>/dev/null || true)
+jq -e '.enabled == null' <<<"$out" >/dev/null || fail "unreachable mako is not reported as off"
+for action in on off toggle; do
+  if "$dnd" "$action" 2>/dev/null; then fail "dnd $action fails when mako does not answer"; fi
+done
+# makoctl answers but ignores the change: not a success.
+cat >"$tmp/bin/makoctl" <<'STUB'
+#!/bin/bash
+[[ $1 == mode && -z ${2:-} ]] && echo default
+exit 0
+STUB
+if "$dnd" on 2>/dev/null; then fail "dnd on fails when the mode did not change"; fi
+pass "do-not-disturb reports unavailable and fails instead of a false off or false success"
