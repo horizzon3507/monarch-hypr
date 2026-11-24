@@ -415,39 +415,26 @@ assert_equals "radio status reports a missing adapter" \
   "$(NM_DEVICES= NM_RADIO=enabled "$RADIO" status)" \
   '{"enabled":false,"present":false,"tooltip":"No Wi-Fi adapter"}'
 
-# The read never goes through the shell: NetworkManager owns the state, asking
-# it directly cannot go stale, and `status` must answer with no shell running.
-: >"$NOCTALIA_CALLS"
-NM_RADIO=enabled "$RADIO" status >/dev/null
-assert_equals "status asks NetworkManager, not the shell" \
-  "$(grep -c wifi "$NOCTALIA_CALLS" || true)" "0"
-
-# Writes prefer the IPC, so Noctalia's own panel is not left behind.
-for action in "toggle:wifi-toggle" "on:wifi-enable" "off:wifi-disable"; do
-  : >"$NM_CALLS"; : >"$NOCTALIA_CALLS"
-  NOCTALIA_UP=yes NM_RADIO=enabled "$RADIO" "${action%%:*}"
-  assert_equals "${action%%:*} goes through the shell when it is up" \
-    "$(grep -c "msg ${action##*:}" "$NOCTALIA_CALLS")" "1"
-  assert_equals "${action%%:*} leaves nmcli alone when the shell answered" \
-    "$(grep -c 'radio wifi' "$NM_CALLS" || true)" "0"
-done
-
-# And fall back when it is not, which is what keeps the command usable from a
-# TTY, over SSH, or during an install.
+# The radio is driven through NetworkManager only; no desktop shell sits in between.
 : >"$NM_CALLS"
-NOCTALIA_UP=no NM_RADIO=enabled "$RADIO" toggle
-assert_equals "toggle falls back and turns an enabled radio off" \
+NM_RADIO=enabled "$RADIO" toggle
+assert_equals "toggle turns an enabled radio off" \
   "$(grep -c 'radio wifi off' "$NM_CALLS")" "1"
 
 : >"$NM_CALLS"
-NOCTALIA_UP=no NM_RADIO=disabled "$RADIO" toggle
-assert_equals "toggle falls back and turns a disabled radio on" \
+NM_RADIO=disabled "$RADIO" toggle
+assert_equals "toggle turns a disabled radio on" \
   "$(grep -c 'radio wifi on' "$NM_CALLS")" "1"
 
 : >"$NM_CALLS"
-NOCTALIA_UP=no "$RADIO" on
-assert_equals "on falls back to nmcli" \
+"$RADIO" on
+assert_equals "on enables the radio" \
   "$(grep -c 'radio wifi on' "$NM_CALLS")" "1"
+
+: >"$NM_CALLS"
+"$RADIO" off
+assert_equals "off disables the radio" \
+  "$(grep -c 'radio wifi off' "$NM_CALLS")" "1"
 
 export IP_DEV="" IP_ROUTE_JSON="" IP_DEV6=eth0
 export IP_ROUTE_JSON6='[{"dev":"eth0","gateway":"fe80::1","src":"2001:db8::50"}]'
