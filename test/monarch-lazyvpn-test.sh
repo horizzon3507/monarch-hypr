@@ -17,9 +17,7 @@ with tempfile.TemporaryDirectory(prefix='lazyvpn-integration-') as temporary:
     bins.mkdir()
     home.mkdir()
     files = ['bin/monarch-install-lazyvpn', 'bin/monarch-remove-lazyvpn',
-             'install/helpers/lazyvpn.sh', 'install/reconcile/lazyvpn.sh',
-             'default/monarch/lazyvpn/niri/monarch-lazyvpn.kdl',
-             'default/monarch/lazyvpn/noctalia/lazyvpn.toml']
+             'install/helpers/lazyvpn.sh', 'install/reconcile/lazyvpn.sh']
     for relative in files:
         target = root / relative
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -64,10 +62,6 @@ esac
     env = dict(os.environ, HOME=str(home), XDG_CONFIG_HOME=str(home / 'config'),
                XDG_DATA_HOME=str(home / 'data'), PATH=f'{bins}:{root}/bin:' + os.environ['PATH'])
     config, data = Path(env['XDG_CONFIG_HOME']), Path(env['XDG_DATA_HOME'])
-    niri = home / '.config/niri'
-    target = niri / 'monarch-lazyvpn.kdl'
-    target.parent.mkdir(parents=True)
-    target.write_text('old shortcut\n')
     legacy = data / 'applications/LazyVPN.desktop'
     legacy.parent.mkdir(parents=True)
     legacy.write_text('Exec=monarch-launch-floating-terminal-with-presentation monarch-lazyvpn\n')
@@ -84,64 +78,32 @@ esac
     reconcile = f'source "{root}/install/reconcile/lazyvpn.sh"; monarch_reconcile_lazyvpn "{root}"'
     for overrides in ({'MISSING': '1'}, {'VERSION': '0.1.5-1'}, {'VERSION': '0.2.0rc1-1'}, {'OLD_BACKEND': '1'}):
         run(reconcile, **overrides)
-        assert target.read_text() == 'old shortcut\n' and legacy.exists()
+        assert legacy.exists()
     run(reconcile, success=False)
     run(reconcile, success=False, VERCMP_FAILURE='1')
-    assert target.read_text() == 'old shortcut\n' and legacy.exists()
-    print('ok - absent/old/incomplete packages preserve the previous integration')
+    assert legacy.exists()
+    print('ok - absent/old/incomplete packages leave the legacy launcher alone')
 
-    (tmp / 'assets/noctalia').mkdir(parents=True)
-    (tmp / 'assets/noctalia/lazyvpn.json').write_text('{}')
     (tmp / 'app.desktop').write_text('[Desktop Entry]\nExec=monarch-lazyvpn\n')
     run(reconcile)
     run(reconcile)
-    assert 'spawn "monarch-lazyvpn";' in target.read_text()
-    assert 'fixed 880' in target.read_text() and 'fixed 540' in target.read_text()
-    assert target.with_suffix('.kdl.pre-gpui').read_text() == 'old shortcut\n'
-    user = niri / 'user.kdl'
-    assert not (config / 'niri').exists()
-    assert user.read_text().count('include "./monarch-lazyvpn.kdl"') == 1
     assert not legacy.exists() and legacy.with_suffix('.desktop.pre-gpui').exists()
-    assert (config / 'noctalia/lazyvpn.toml').is_file()
+    assert not (home / '.config/niri').exists() and not (config / 'noctalia').exists()
     assert profile.read_text() == 'preserve me'
-    print('ok - reconciliation is idempotent, backs up integration and preserves profiles')
+    print('ok - reconciliation is idempotent, removes the legacy launcher and preserves profiles')
 
     for version in ('0.2.0', '0.2.0-12', '0.10.0-1', '1:0.2.0-1'):
         run(reconcile, VERSION=version)
-    before = target.read_text()
     installer = f'"{root}/bin/monarch-install-lazyvpn"'
     run(installer)
     run(installer, success=False, PKG_FAILURE='9')
     run(installer, success=False, OLD_BACKEND='1')
-    assert target.read_text() == before
     print('ok - fresh installation and package/backend failure paths')
-
-    source = (repo / 'default/noctalia/plugins/monarch-indicators/lazyvpn.luau').read_text()
-    callback = re.search(r'function onClick\(\).*?\nend', source, re.S).group()
-    lua = shutil.which('lua5.4') or shutil.which('lua')
-    assert lua, 'Lua is required for the indicator callback test'
-    harness = tmp / 'indicator.lua'
-    harness.write_text('''
-local indicator = {
-  pkgBin = function(_) return os.getenv('VPN_BINARY') end,
-  bin = function(_) return os.getenv('VPN_TERMINAL') end
-}
-noctalia = { runAsync = function(command) print(command) end }
-''' + callback + '\nonClick()\n')
-    command = subprocess.check_output([lua, str(harness)], text=True,
-        env=dict(env, VPN_BINARY=str(bins / 'monarch-lazyvpn'), VPN_TERMINAL=str(bins / 'terminal'))).strip()
-    run(command)
-    run(command, OLD_BACKEND='1')
-    run(command, success=False, GUI_FAILURE='7')
-    assert (home / 'launch.log').read_text().splitlines() == ['gui', 'terminal', 'gui']
-    print('ok - actual indicator selects GUI or legacy terminal without masking GUI failures')
 
     remove = f'"{root}/bin/monarch-remove-lazyvpn"'
     run(remove, success=False, PKG_FAILURE='9')
-    assert target.exists() and (config / 'noctalia/lazyvpn.toml').exists()
     run(remove)
-    assert not target.exists() and not (config / 'noctalia/lazyvpn.toml').exists()
-    assert 'monarch-lazyvpn.kdl' not in user.read_text()
+    assert not legacy.exists()
     assert profile.read_text() == 'preserve me'
-    print('ok - removal keeps integration on pacman failure and always preserves profile data')
+    print('ok - removal fails on pacman failure and always preserves profile data')
 PY
