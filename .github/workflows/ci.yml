@@ -56,7 +56,7 @@ jobs:
     container: archlinux:latest
     steps:
       - name: Install test dependencies
-        run: pacman -Syu --noconfirm --needed bash git python libarchive pacman-contrib base-devel shellcheck parted util-linux
+        run: pacman -Syu --noconfirm --needed bash git python libarchive pacman-contrib base-devel shellcheck parted util-linux jq
 
       - uses: actions/checkout@v4
 
