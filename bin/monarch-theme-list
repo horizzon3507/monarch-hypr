@@ -10,8 +10,8 @@ PALETTES_DIR="${MONARCH_THEME_PALETTES_DIR:-$HOME/.config/monarch/palettes}"
 BUNDLES_DIR="${MONARCH_THEME_BUNDLES_DIR:-$HOME/.config/monarch/themes}"
 
 current=""
-if command -v noctalia >/dev/null 2>&1; then
-  scheme=$(noctalia msg color-scheme-get 2>/dev/null || true)
+if command -v monarch-theme-current >/dev/null 2>&1; then
+  scheme=$(monarch-theme-current 2>/dev/null || true)
   [[ $scheme == custom\ * ]] && current=${scheme#custom }
 fi
 

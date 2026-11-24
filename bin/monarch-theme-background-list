@@ -10,9 +10,9 @@ set -euo pipefail
 farm="$HOME/.config/monarch/backgrounds/current"
 cache="$HOME/.cache/monarch/background-thumbnails"
 monarch_root="${MONARCH_PATH:-/usr/share/monarch}"
-current=$(noctalia msg wallpaper-get 2>/dev/null || true)
+current=$(monarch-wallpaper get 2>/dev/null || true)
 current=$(readlink -f "$current" 2>/dev/null || true)
-scheme=$(noctalia msg color-scheme-get 2>/dev/null | cut -d' ' -f2-)
+scheme=$(monarch-theme-current 2>/dev/null | cut -d' ' -f2-)
 folder=${scheme,,}
 folder=${folder// /-}
 case $folder in

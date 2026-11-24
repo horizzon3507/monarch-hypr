@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# monarch:summary=Print the resolved Noctalia colors for the active or named Monarch scheme as JSON
+# monarch:summary=Print the resolved theme colors for the active or named Monarch scheme as JSON
 # monarch:args=[name]
 # monarch:examples=monarch theme colors|monarch theme colors | jq -r .mPrimary
 
@@ -17,19 +17,19 @@
 set -uo pipefail
 
 command -v jq >/dev/null 2>&1 || { echo "jq is required" >&2; exit 1; }
-command -v noctalia >/dev/null 2>&1 || { echo "noctalia is not installed" >&2; exit 1; }
+command -v monarch-theme-current >/dev/null 2>&1 || { echo "monarch-theme-current is not on PATH" >&2; exit 1; }
 
 requested=${1:-}
 if [[ -n $requested ]]; then
   scheme="custom $requested"
 else
-  scheme=$(noctalia msg color-scheme-get 2>&1) ||
-    { echo "Cannot read the active color scheme — is Noctalia running? ($scheme)" >&2; exit 1; }
+  scheme=$(monarch-theme-current 2>&1) ||
+    { echo "Cannot read the active color scheme ($scheme)" >&2; exit 1; }
 fi
 
-mode=$(noctalia msg theme-mode-get 2>/dev/null)
+mode=$(monarch-theme-mode get 2>/dev/null)
 [[ $mode == dark || $mode == light ]] ||
-  { echo "Noctalia reported an unusable theme mode: '$mode'" >&2; exit 1; }
+  { echo "Unusable theme mode: '$mode'" >&2; exit 1; }
 
 # color-scheme-get answers "<source> <name>", and names carry spaces.
 source=${scheme%% *}
@@ -37,20 +37,13 @@ name=${scheme#* }
 
 case "$source" in
   custom) dir="$HOME/.config/monarch/palettes" ;;
-  community) dir="$HOME/.local/state/noctalia/community-palettes" ;;
   *)
-    cat >&2 <<EOF
-The active color scheme is "$source $name", which has no palette file to read:
-Noctalia keeps builtin palettes inside its binary and generates wallpaper ones in
-memory. Switch to a custom or community palette to use this command.
-EOF
+    echo "The active color scheme \"$source $name\" has no palette file to read" >&2
     exit 1
     ;;
 esac
 
-# The community tree stores names percent-encoded; the IPC answer decodes them.
 palette="$dir/$name.json"
-[[ -f $palette ]] || palette="$dir/${name// /%20}.json"
 [[ -f $palette ]] ||
   { echo "No palette file for \"$source $name\" in $dir" >&2; exit 1; }
 

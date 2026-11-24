@@ -57,14 +57,13 @@ BUNDLES_DIR="${MONARCH_THEME_BUNDLES_DIR:-$HOME/.config/monarch/themes}"
 APPLIED_STAMP="$HOME/.local/state/monarch/wallpaper-applied"
 
 command -v jq >/dev/null 2>&1 || exit 0
-command -v noctalia >/dev/null 2>&1 || exit 0
 
 # Active appearance. v5's hook passes nothing, so this is normally the IPC answer;
 # $1 stays honoured so a hand invocation can pin it. The mode is owned by Noctalia
 # (global toggle) — this script never writes it.
 appearance="${1:-}"
 if [[ -z $appearance ]]; then
-  appearance=$(noctalia msg theme-mode-get 2>/dev/null)
+  appearance=$(monarch-theme-mode get 2>/dev/null)
   [[ -n $appearance ]] || appearance="dark"
 fi
 
@@ -72,7 +71,7 @@ fi
 # The colors_changed hook gives us nothing at all, the scheme name included.
 # `color-scheme-get` prints "<source> <name>"; only the name indexes the palette
 # file and the background folder.
-scheme=$(noctalia msg color-scheme-get 2>/dev/null | cut -d' ' -f2-)
+scheme=$(monarch-theme-current 2>/dev/null | cut -d' ' -f2-)
 [[ -n $scheme ]] || scheme="Monarch"
 
 # Display name → kebab-case background folder (Catppuccin-Latte → catppuccin-latte);
@@ -130,8 +129,8 @@ expand_tilde() {
 # success there would record a wallpaper that was never set.
 apply_wallpaper() {
   local first=$1
-  pgrep -x noctalia >/dev/null 2>&1 || return 1
-  noctalia msg wallpaper-set "$first" >/dev/null 2>&1
+  pgrep -x hyprpaper >/dev/null 2>&1 || return 1
+  monarch-wallpaper set "$first" >/dev/null 2>&1
 }
 
 # Point Noctalia's picker/cycler at the current scheme's backgrounds and apply
@@ -220,7 +219,7 @@ sync_wallpaper() {
   # Ours is $SRC_THEMES and $USER_BG_ROOT, so a pick from a mounted source stays
   # (sources are in every scheme's farm) and anything outside them is untouched.
   local current resolved managed=0 offered=0 link
-  current=$(noctalia msg wallpaper-get 2>/dev/null)
+  current=$(monarch-wallpaper get 2>/dev/null)
   resolved=$(readlink -f "$current" 2>/dev/null)
 
   if [[ -n $resolved ]]; then
