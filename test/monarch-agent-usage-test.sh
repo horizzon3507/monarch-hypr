@@ -28,7 +28,6 @@ class UsageTests(unittest.TestCase):
                     TEST_HOME=str(self.home))
     self.script('monarch-cmd-present', 'command -v "$1" >/dev/null')
     self.script('codexbar', 'exec python3 "$ROOT/test/fixtures/codexbar-config.py" "$@"')
-    self.script('noctalia', 'exit 1')
     self.script('gum', '''
 case "$1" in
 input)
