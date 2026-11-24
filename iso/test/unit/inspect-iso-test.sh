@@ -55,4 +55,22 @@ env X=1 bash "$script" --analyze "$d" >/dev/null 2>&1
 [[ $(has "$d/live-root.txt" linux-cachyos) == ok && $(has "$d/offline-mirror.txt" hyprland) == ok && $(has "$d/monarch-depends.txt" bash) == ok ]] \
   && echo "ok   version suffixes stripped" || { echo "FAIL stripping"; fails=$((fails+1)); }
 
+# monarch %DEPENDS% from the offline mirror database (the real ISO has no monarch in the live root db)
+mkdb() { # <fixture dir> <depends...>: replace the live monarch desc with an offline.db.tar.gz entry
+  local d=$1; shift; rm -rf "$d"/root/var/lib/pacman/local/monarch-*
+  local m=$d/root/var/cache/monarch/mirror/offline w=$d/dbwork; mkdir -p "$m" "$w/monarch-0.1.0-1"
+  { printf '%%NAME%%\nmonarch\n\n%%DEPENDS%%\n'; printf '%s\n' "$@"; printf '\n'; } > "$w/monarch-0.1.0-1/desc"
+  tar -czf "$m/offline.db.tar.gz" -C "$w" monarch-0.1.0-1
+}
+d=$(mkfix db1); mkdb "$d" hyprland 'quickshell>=0.3'; check "monarch depends read from offline mirror db" 0 "$d" INSPECT_EXPECT_PRESENT=hyprland INSPECT_EXPECT_ABSENT="niri noctalia"
+[[ $(has "$d/monarch-depends.txt" quickshell) == ok && $(cat "$d/monarch-depends.source") == offline\ mirror\ db* ]] \
+  && echo "ok   db source recorded, version operator stripped" || { echo "FAIL db source"; fails=$((fails+1)); }
+d=$(mkfix db2); mkdb "$d" hyprland noctalia; check "absent family found in monarch depends from db" 1 "$d" INSPECT_EXPECT_ABSENT=noctalia
+d=$(mkfix db3); mkdb "$d" hyprland; check "db with only the hyprland dependency passes a hyprland gate" 0 "$d" INSPECT_EXPECT_PRESENT=hyprland
+d=$(mkfix un1); rm -rf "$d"/root/var/lib/pacman/local/monarch-*; check "unavailable monarch-depends fails gated run" 1 "$d" INSPECT_EXPECT_PRESENT=hyprland
+d=$(mkfix un2); rm -rf "$d"/root/var/lib/pacman/local/monarch-*
+check "unavailable monarch-depends waived only explicitly" 0 "$d" INSPECT_EXPECT_PRESENT=hyprland INSPECT_ALLOW_UNAVAILABLE=1
+grep -q 'NOTE: monarch-depends UNAVAILABLE' "$tmp/out.txt" && echo "ok   waiver is printed" || { echo "FAIL waiver note"; fails=$((fails+1)); }
+d=$(mkfix un3); rm -rf "$d"/root/var/lib/pacman/local/monarch-*; : > "$d/offline-files.txt"; check "waiver does not hide other empty sets" 1 "$d" INSPECT_EXPECT_PRESENT=hyprland INSPECT_ALLOW_UNAVAILABLE=1
+
 [[ $fails == 0 ]] && echo "all inspect-iso tests passed" || { echo "$fails failed"; exit 1; }
