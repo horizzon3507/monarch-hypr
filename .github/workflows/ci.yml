@@ -79,6 +79,32 @@ jobs:
           cd pkgs/pkgbuilds/monarch
           for t in permissions-test.sh defaults-permissions-test.sh; do bash "$t" "$GITHUB_WORKSPACE"; done
 
+  monarch-package-build:
+    name: Monarch package build
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Install build tools
+        run: pacman -Syu --noconfirm --needed base-devel git python sudo
+
+      - uses: actions/checkout@v4
+
+      - name: Build the monarch package with makepkg
+        # Same flags as iso/builder/build-monarch-package.sh. --nodeps only skips
+        # installing runtime dependencies; package() must still find every file it ships.
+        run: |
+          git config --global --add safe.directory "$PWD"
+          useradd -m builder
+          src=/tmp/monarch-src work=/tmp/monarch-pkg
+          mkdir -p "$src" "$work"
+          tar --exclude=./iso --exclude=./pkgs --exclude=./.git -cf - . | tar -C "$src" -xf -
+          printf '%s\n' 0.0.ci >"$src/version"
+          cp -a pkgs/pkgbuilds/monarch/. "$work/"
+          chown -R builder:builder "$work" "$src"
+          su builder -c "cd '$work' && PKGDEST='$work' MONARCH_SRC='$src' MONARCH_LOCAL_PKGVER=0.0.ci MONARCH_LOCAL_REVISION='$(git rev-parse HEAD)' makepkg --noconfirm --skippgpcheck --skipchecksums --nodeps -f"
+          ls -l "$work"/*.pkg.tar.*
+          bsdtar -tf "$work"/monarch-0*.pkg.tar.* | grep -c . 
+
   repository-tests:
     name: Repository availability tests
     runs-on: ubuntu-latest
