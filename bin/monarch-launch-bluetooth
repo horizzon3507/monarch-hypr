@@ -1,5 +1,10 @@
 #!/bin/bash
 
-# monarch:summary=Open the Noctalia bluetooth panel (Bluetooth controls).
+# monarch:summary=Open the Bluetooth controls.
 
+# Hyprland: the terminal Bluetooth UI (the bar shows the state; there is no
+# standalone Bluetooth panel). Otherwise the Noctalia control center.
+if [[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]]; then
+  exec monarch-launch-tui bluetui
+fi
 exec noctalia msg panel-toggle control-center bluetooth
