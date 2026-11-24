@@ -144,12 +144,22 @@ ColumnLayout {
                         Layout.preferredWidth: 64
                         Layout.preferredHeight: 36
                     }
-                    Text {
-                        text: row.broken ? row.modelData.name + " (not a usable image)" : row.modelData.name
-                        color: Theme.fg
-                        font.pixelSize: 13
-                        elide: Text.ElideMiddle
+                    ColumnLayout {
+                        spacing: 0
                         Layout.fillWidth: true
+                        Text {
+                            text: row.modelData.name
+                            color: Theme.fg
+                            font.pixelSize: 13
+                            elide: Text.ElideMiddle
+                            Layout.fillWidth: true
+                        }
+                        Text {
+                            visible: row.broken
+                            text: "Not a usable image"
+                            color: Theme.error
+                            font.pixelSize: 11
+                        }
                     }
                 }
                 MouseArea {
