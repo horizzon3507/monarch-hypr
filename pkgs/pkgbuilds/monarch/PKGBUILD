@@ -16,7 +16,6 @@ depends=(
   'snapper'
   'hyprland'
   'hyprland-guiutils'
-  'noctalia'
   'quickshell'
   'uwsm'
   'sddm'
@@ -62,8 +61,8 @@ backup=(
   'etc/sddm.conf.d/10-theme.conf'
   'etc/sddm.conf.d/10-wayland.conf'
 )
-source=('build-noctalia-templates.py')
-sha256sums=('ea77d7c7f97cbb543459a2a73047dc879c388c18efc4e816c63f5d28c2ac0412')
+source=()
+sha256sums=()
 if [[ -z ${MONARCH_SRC:-} ]]; then
   source+=("monarch::git+https://github.com/monarch-os/monarch.git#branch=dev")
   sha256sums+=('SKIP')
@@ -151,8 +150,6 @@ package_monarch() {
 
   install -d "$pkgdir/usr/share/monarch/default" "$pkgdir/usr/share/monarch/applications"
   cp -a default/. "$pkgdir/usr/share/monarch/default/"
-  python3 "$srcdir/build-noctalia-templates.py" \
-    "$pkgdir/usr/share/monarch/default/noctalia/community-templates"
   cp -a applications/. "$pkgdir/usr/share/monarch/applications/"
 
   install -d "$pkgdir/etc"
@@ -228,14 +225,6 @@ package_monarch() {
     "$pkgdir/etc/skel/.local/share/nautilus-python/extensions/transcode.py"
   install -Dm644 default/pi/agent/extensions/monarch-system-theme.ts \
     "$pkgdir/etc/skel/.pi/agent/extensions/monarch-system-theme.ts"
-
-  install -d "$pkgdir/etc/skel/.local/share/noctalia/plugins"
-  cp -a default/noctalia/plugins/. "$pkgdir/etc/skel/.local/share/noctalia/plugins/"
-  install -d "$pkgdir/etc/skel/.local/state/noctalia"
-  touch "$pkgdir/etc/skel/.local/state/noctalia/.setup-complete"
-  install -d "$pkgdir/etc/skel/.local/state/noctalia/community-templates"
-  cp -a "$pkgdir/usr/share/monarch/default/noctalia/community-templates/"{neovim,obsidian,zed,vscode,catalog.json} \
-    "$pkgdir/etc/skel/.local/state/noctalia/community-templates/"
 
   install -d "$pkgdir/usr/share/sddm/themes" "$pkgdir/usr/share/sddm"
   cp -a default/sddm/monarch "$pkgdir/usr/share/sddm/themes/"
