@@ -16,7 +16,8 @@ ColumnLayout {
     property int textSize: 0             // 0: unknown
     property bool loading: true
     property string busy: ""
-    property string errorText: ""
+    property string errorText: ""      // a real failure; stays until the next action
+    property string busyNotice: ""     // "busy" hint; goes away once things settle
 
     readonly property bool settled: !listProc.running && !briProc.running && !textProc.running && busy === ""
 
@@ -30,13 +31,13 @@ ColumnLayout {
 
     // The one gate every state-changing entry point goes through.
     function mayMutate() {
-        if (!settled) { errorText = "Busy, try again in a moment"; return false; }
+        if (!settled) { busyNotice = "Busy, try again in a moment"; return false; }
         return true;
     }
 
     function act(kind, command) {
         if (!mayMutate()) return;
-        busy = kind; errorText = "";
+        busy = kind; errorText = ""; busyNotice = "";
         action.kind = kind;
         action.command = command;
         action.running = true;
@@ -67,7 +68,7 @@ ColumnLayout {
         onExited: function (exitCode) {
             root.loading = false;
             var parsed = exitCode === 0 ? Logic.parseDisplayList(listOut.text) : null;
-            if (parsed !== null) { root.displays = parsed; return; }
+            if (parsed !== null) { root.displays = parsed; root.busyNotice = ""; return; }
             // An unreadable list is unavailable, never "no displays".
             root.displays = null;
             var message = listErr.text.trim();
@@ -95,6 +96,7 @@ ColumnLayout {
         stderr: StdioCollector { id: actionErr }
         onExited: function (exitCode) {
             root.busy = "";
+            root.busyNotice = "";
             if (exitCode !== 0) {
                 var message = actionErr.text.trim();
                 root.errorText = message !== "" ? message : "Could not change the " + action.kind;
@@ -114,8 +116,8 @@ ColumnLayout {
     }
 
     Text {
-        visible: root.errorText !== ""
-        text: root.errorText
+        visible: root.errorText !== "" || root.busyNotice !== ""
+        text: root.busyNotice !== "" ? root.busyNotice : root.errorText
         color: Theme.error
         wrapMode: Text.Wrap
         Layout.preferredWidth: 340

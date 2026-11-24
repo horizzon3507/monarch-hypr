@@ -18,6 +18,7 @@ grep -q '"monarch-display-brightness", "--list"' "$QS/Indicators.qml" || fail "t
 [[ $(grep -c 'action.running = true' "$P") == 1 ]] || fail "one place starts the action process"
 awk '/function act\(/{f=1} f&&/mayMutate\(\)/{ok=1} f&&/action.running = true/{exit !ok}' "$P" || fail "act() checks the gate before it runs"
 ! grep -Eq 'onClicked:.*action\.running' "$P" || fail "no click handler starts a process directly"
+grep -q 'busyNotice = ""' "$P" && [[ $(grep -c 'busyNotice = "Busy' "$P") == 1 ]] || fail "the busy hint is cleared once things settle"
 grep -q 'Layout.rightMargin: 24' "$P" || fail "the header leaves room for the close button"
 grep -q 'network, theme, display' "$ROOT/bin/monarch-panel" || fail "monarch-panel lists the display panel"
 
