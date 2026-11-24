@@ -39,6 +39,17 @@ for bad in "toggle" "toggle ../x" "toggle a;b" "launch wifi-qr" ""; do
 done
 pass "monarch-panel builds the IPC call and rejects bad input"
 
+# Dismissal must not depend on IPC or on a prior click: exclusive keyboard
+# focus while open, Escape, and a visible close button. Static checks only; the
+# runtime behavior is validated on a live compositor.
+HOST="$QS/PanelHost.qml"
+grep -q 'WlrKeyboardFocus.Exclusive' "$HOST" || fail "an open panel takes exclusive keyboard focus"
+grep -q 'WlrKeyboardFocus.None' "$HOST" || fail "a closed panel releases keyboard focus"
+! grep -q 'WlrKeyboardFocus.OnDemand' "$HOST" || fail "focus does not wait for a click"
+grep -q 'Keys.onEscapePressed: root.current = ""' "$HOST" || fail "Escape closes the panel"
+grep -q 'objectName: "closeButton"' "$HOST" || fail "the host draws a close button"
+pass "the host closes on Escape and has a visible close button, with exclusive focus while open"
+
 if ! command -v node >/dev/null 2>&1; then
   pass "skipped panel logic checks: node is not installed"
   exit 0
