@@ -1747,8 +1747,9 @@ To stop: monarch-windows-vm stop"
   ensure_krb5_config || exit 1
   export KRB5_CONFIG="$KRB5_CONF"
 
-  NIRI_SCALE=$(niri msg --json focused-output 2>/dev/null | jq -r '.logical.scale // 1')
-  SCALE_PERCENT=$(echo "$NIRI_SCALE" | awk '{print int($1 * 100)}')
+  OUTPUT_SCALE=$(hyprctl monitors -j 2>/dev/null | jq -r '[.[] | select(.focused)][0].scale // 1')
+  OUTPUT_SCALE=${OUTPUT_SCALE:-1}
+  SCALE_PERCENT=$(echo "$OUTPUT_SCALE" | awk '{print int($1 * 100)}')
 
   RDP_SCALE=()
   if ((SCALE_PERCENT >= 170)); then
