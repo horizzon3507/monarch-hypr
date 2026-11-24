@@ -31,7 +31,10 @@ Scope {
         implicitHeight: card.implicitHeight
         exclusionMode: ExclusionMode.Ignore
         WlrLayershell.layer: WlrLayer.Overlay
-        WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+        // Exclusive while a panel is open: the compositor sends keys to the
+        // panel, so Escape works without a prior click. The close button below
+        // is the pointer path out, and `monarch-panel close` the scripted one.
+        WlrLayershell.keyboardFocus: root.current !== "" ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
         WlrLayershell.namespace: "monarch-panel"
 
         Rectangle {
@@ -45,6 +48,35 @@ Scope {
 
             focus: true
             Keys.onEscapePressed: root.current = ""
+            Connections {
+                target: window
+                function onVisibleChanged() { if (window.visible) card.forceActiveFocus(); }
+            }
+            Component.onCompleted: forceActiveFocus()
+
+            Rectangle {
+                id: closeButton
+                objectName: "closeButton"
+                anchors.top: parent.top
+                anchors.right: parent.right
+                anchors.margins: 8
+                width: 24
+                height: 24
+                radius: 12
+                color: Theme.surfaceVariant
+                z: 10
+
+                Text {
+                    anchors.centerIn: parent
+                    text: "\u00d7"
+                    color: Theme.fg
+                    font.pixelSize: 18
+                }
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: root.current = ""
+                }
+            }
 
             Loader {
                 id: loader
