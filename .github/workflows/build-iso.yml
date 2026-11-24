@@ -1,21 +1,10 @@
 name: Build ISO
 
 # Manual only. No schedule, no push trigger: a build downloads several GB.
+# Builds the ISO from this checkout (desktop at the root, recipe in pkgs/, builder in iso/).
 on:
   workflow_dispatch:
     inputs:
-      installer_repo:
-        description: Git URL of the Monarch installer repo baked into the ISO
-        default: https://github.com/monarch-os/monarch.git
-      installer_ref:
-        description: Branch or tag of the installer repo
-        default: dev
-      pkgs_repo:
-        description: Git URL of the monarch-pkgs repo
-        default: https://github.com/monarch-os/monarch-pkgs.git
-      pkgs_ref:
-        description: Branch or tag of monarch-pkgs
-        default: main
       boot_test:
         description: Boot the built ISO in QEMU and capture screenshots
         type: boolean
@@ -48,19 +37,16 @@ jobs:
           df -h /
 
       - name: Build ISO in the CachyOS container
-        env:
-          MONARCH_INSTALLER_REPO: ${{ inputs.installer_repo }}
-          MONARCH_INSTALLER_REF: ${{ inputs.installer_ref }}
-          MONARCH_PKGS_REPO: ${{ inputs.pkgs_repo }}
-          MONARCH_PKGS_REF: ${{ inputs.pkgs_ref }}
+        working-directory: iso
         run: |
           date -u
-          ./bin/monarch-iso-make --no-boot-offer --keep-pkg-cache
+          ./bin/monarch-iso-make --no-boot-offer --keep-pkg-cache --local-source .. ../pkgs
           date -u
           df -h /
 
       - name: Collect ISO and checksum
         id: collect
+        working-directory: iso
         run: |
           iso=$(ls release/*.iso | head -n1)
           ls -lh release
@@ -71,8 +57,8 @@ jobs:
         with:
           name: monarch-iso
           path: |
-            release/*.iso
-            release/*.sha256
+            iso/release/*.iso
+            iso/release/*.sha256
           compression-level: 0
           retention-days: 7
           if-no-files-found: error
@@ -91,12 +77,12 @@ jobs:
       - name: Boot in QEMU (UEFI)
         run: |
           iso=$(ls release/*.iso | head -n1)
-          bash test/ci/qemu-boot-check.sh "$iso" uefi out-uefi
+          bash iso/test/ci/qemu-boot-check.sh "$iso" uefi out-uefi
       - name: Boot in QEMU (BIOS)
         if: always()
         run: |
           iso=$(ls release/*.iso | head -n1)
-          bash test/ci/qemu-boot-check.sh "$iso" bios out-bios
+          bash iso/test/ci/qemu-boot-check.sh "$iso" bios out-bios
       - uses: actions/upload-artifact@v4
         if: always()
         with:
