@@ -20,6 +20,13 @@ tail -5 "$OUT/refresh-hypr.log" | tee -a "$res"
 echo 'hl.monitor({ output = "", mode = "1280x720@60", position = "0x0", scale = 1 })' > "$HOME/.config/hypr/monitors.lua"
 say "monitors.lua overridden to 1280x720 (user-owned override file); everything else is Monarch default"
 
+# Diagnose the real uwsm-app in this session-less container (no systemd user manager)
+( uwsm-app -t service -- true ) > "$OUT/uwsm-app-real.log" 2>&1; say "REAL uwsm-app -t service -- true rc=$? : $(head -c 300 "$OUT/uwsm-app-real.log" | tr '\n' ' ')"
+# LABELED TEST SHIM: uwsm-app needs a uwsm/systemd session that a CI container lacks, so run the command directly.
+# Everything else (monarch-shell-start, config, bar) is unmodified Monarch code.
+SHIM=/tmp/shim; mkdir -p $SHIM
+printf '%s\n' '#!/bin/bash' 'while [[ $# -gt 0 && $1 != -- ]]; do shift; done; shift' 'echo "shim uwsm-app: $*" >> /tmp/shim-uwsm.log' 'exec "$@"' > $SHIM/uwsm-app; chmod +x $SHIM/uwsm-app
+export PATH="$SHIM:$PATH"; say "TEST SHIM in PATH: uwsm-app runs the command directly (stand-in for the uwsm session of a real install)"
 started=0
 for attempt in 1 2 3; do
   rm -rf "$XDG_RUNTIME_DIR"/hypr "$XDG_RUNTIME_DIR"/wayland-*
@@ -49,5 +56,5 @@ say "real click slot 5 (x=$X,y=$Y) -> active $(active)"; shot f5-click
 # Monarch keybind SUPER+K etc. are not exercised here. List binds to prove config loaded:
 hyprctl binds -j > "$OUT/binds.json" 2>&1; say "binds loaded: $(python3 -c "import json;print(len(json.load(open('$OUT/binds.json'))))" 2>&1)"
 say "mako running: $(pgrep -x mako >/dev/null && echo yes || echo no); hyprpaper: $(pgrep -x hyprpaper >/dev/null && echo yes || echo no); swayosd-server: $(pgrep -x swayosd-server >/dev/null && echo yes || echo no); hypridle: $(pgrep -x hypridle >/dev/null && echo yes || echo no)"
-cp /tmp/home/.local/state/*/*.log "$OUT/" 2>/dev/null
+cp /tmp/shim-uwsm.log "$OUT/" 2>/dev/null; cp /tmp/home/.local/state/*/*.log "$OUT/" 2>/dev/null
 kill $HPID 2>/dev/null; sleep 1; echo done
