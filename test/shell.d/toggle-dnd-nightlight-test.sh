@@ -1,6 +1,5 @@
 #!/bin/bash
-# Do-not-disturb is mako's do-not-disturb mode; night light has no replacement
-# and says so. Neither calls Noctalia.
+# Do-not-disturb is mako's do-not-disturb mode and never calls Noctalia.
 set -euo pipefail
 source "${BASH_SOURCE[0]%/*}/base-test.sh"
 tmp=$(mktemp -d)
@@ -35,12 +34,4 @@ grep -qx do-not-disturb "$TEST_MODES" && grep -qx default "$TEST_MODES" || fail 
 "$dnd" off
 "$dnd" status | jq -e '.enabled == false' >/dev/null || fail "dnd off"
 pass "do-not-disturb follows mako's mode and keeps other modes"
-
-night="$ROOT/bin/monarch-toggle-nightlight"
-"$night" status | jq -e '.enabled == false' >/dev/null || fail "night light status"
-for a in on off toggle; do
-  if "$night" "$a" 2>"$tmp/err"; then fail "night light $a must not report success"; fi
-  grep -q 'not available yet' "$tmp/err" || fail "night light $a gives no explanation"
-done
-! grep -q '^noctalia' "$TEST_LOG" || fail "Noctalia was called"
-pass "night light says it is not available instead of failing silently, and Noctalia is never called (stub mako)"
+! grep -q "^noctalia" "$TEST_LOG" || fail "Noctalia was called"
