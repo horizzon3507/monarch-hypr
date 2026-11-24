@@ -643,6 +643,24 @@ function updateChipState(previous, text, exitCode) {
     return null;
 }
 
+// Same reading the old update indicator used: `nmcli -t -f STATE,CONNECTIVITY
+// general`. Only an explicit offline state skips the check. nmcli missing or
+// unreadable is "unknown", which still checks (the check reports its own failure).
+function parseNetworkState(text, exitCode) {
+    if (exitCode !== 0) return "unknown";
+    var v = String(text).trim();
+    if (/^(asleep|disconnected|disconnecting|connecting):/.test(v) || /:(none|portal)$/.test(v)) return "offline";
+    if (v === "connected:full") return "online";
+    return "unknown";
+}
+
+// While offline the check is not run and nothing is invented: a known count is
+// kept and marked stale, otherwise there is no chip.
+function updateOfflineState(previous) {
+    if (previous && typeof previous.count === "number") return { count: previous.count, partial: previous.partial === true, stale: true };
+    return null;
+}
+
 // Minutes until the next update check: 6 h while current, 10 min while updates
 // are pending or the last check failed.
 function updateIntervalMinutes(state, lastFailed) {
