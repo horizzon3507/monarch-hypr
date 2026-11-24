@@ -9,7 +9,7 @@ jobs:
       image: archlinux:latest
       options: --privileged
     steps:
-      - run: pacman -Syu --noconfirm --needed hyprland quickshell hyprpaper hypridle hyprlock mako swayosd uwsm mesa grim seatd gcc pkgconf wayland wayland-protocols wlr-protocols git sudo qt6-wayland ttf-dejavu noto-fonts python python-pillow jq
+      - run: pacman -Syu --noconfirm --needed hyprland quickshell hyprpaper hypridle hyprlock mako swayosd uwsm mesa grim seatd gcc pkgconf wayland wayland-protocols wlr-protocols git sudo qt6-wayland ttf-dejavu noto-fonts python python-pillow jq wayland-utils
       - uses: actions/checkout@v4
       - name: Build the virtual pointer helper
         run: |

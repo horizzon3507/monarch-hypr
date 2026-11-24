@@ -40,6 +40,10 @@ export HYPRLAND_INSTANCE_SIGNATURE=$(ls "$XDG_RUNTIME_DIR/hypr" | head -n1)
 export WAYLAND_DISPLAY=$(cd "$XDG_RUNTIME_DIR" && ls wayland-* | grep -v lock | head -n1)
 say "Hyprland up with Monarch config, display $WAYLAND_DISPLAY"
 sleep 12
+wayland-info > "$OUT/wayland-info.txt" 2>&1; say "wayland globals: $(grep -c '^interface' "$OUT/wayland-info.txt")"; grep -o "interface: '[a-z_0-9]*'" "$OUT/wayland-info.txt" | sed "s/interface: //" | tr '\n' ' ' > "$OUT/globals.txt"
+( timeout 8 hyprpaper > "$OUT/hyprpaper-manual.log" 2>&1; echo "rc=$?" >> "$OUT/hyprpaper-manual.log" ) ; say "hyprpaper manual: $(sed 's/\x1b\[[0-9;]*m//g' "$OUT/hyprpaper-manual.log" | head -c 900 | tr '\n' ' ')"
+say "hyprpaper pkg: $(pacman -Q hyprpaper hyprtoolkit hyprland 2>&1 | tr '\n' ' ')"
+say "hyprpaper config seeded in HOME? $(ls "$HOME/.config/hypr" | tr '\n' ' ')"
 hyprctl configerrors > "$OUT/configerrors.txt" 2>&1; say "configerrors: $(tr '\n' ' ' < "$OUT/configerrors.txt" | head -c 600)"
 hyprctl layers > "$OUT/layers.txt" 2>&1; hyprctl monitors > "$OUT/monitors.txt" 2>&1
 ps -eo pid,args | grep -E 'quickshell|hyprpaper|mako|swayosd|hypridle|monarch-shell-start' | grep -v grep > "$OUT/procs.txt"; say "autostarted processes:"; cat "$OUT/procs.txt" | tee -a "$res"
