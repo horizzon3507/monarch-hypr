@@ -1,0 +1,203 @@
+#!/bin/bash
+
+# Builds the autoinstall drive the ISO looks for. See README "Autoinstall".
+
+set -e
+
+BUILD_ROOT=$(realpath "${BASH_SOURCE[0]%/*}/..")
+
+USERNAME=""
+PASSWORD="monarch"
+KEY_FILE=""
+TAILSCALE_AUTHKEY_FILE=""
+DISK="/dev/vda"
+DISK_SIZE="30G"
+HOSTNAME_="monarch"
+TIMEZONE=""
+KEYBOARD=""
+ENCRYPT=false
+DEFER_PROVISIONING=false
+INCLUDE_PREINSTALLS=true
+FULL_NAME=""
+EMAIL=""
+OUTPUT="$BUILD_ROOT/vm-saves/cidata.iso"
+
+usage() {
+  cat <<EOF
+Usage: monarch-iso-cidata (--user NAME | --defer-provisioning) [options]
+
+  --user NAME        Account created by the install
+  --defer-provisioning
+                     Install without an account; create the owner at first boot
+  --password PW      Account, root and LUKS password (default: $PASSWORD)
+  --key FILE         SSH public keys, sshd's own format (default: ~/.ssh/id_ed25519.pub)
+  --tailscale-authkey FILE
+                     Tailscale auth key staged for a first-boot join
+  --disk DEV         Install target inside the guest (default: $DISK)
+  --size SIZE        Guest disk size, e.g. 30G (default: $DISK_SIZE)
+  --hostname NAME    (default: $HOSTNAME_)
+  --timezone TZ      (default: this host's)
+  --keyboard LAYOUT  (default: this host's)
+  --encrypt          Encrypt the root partition (default: no)
+  --no-preinstalls   Install only the Monarch core system
+  --full-name NAME   Git identity (default: git config user.name)
+  --email ADDRESS    Git identity (default: git config user.email)
+  -o, --output FILE  (default: $OUTPUT)
+
+Boot it with:
+  MONARCH_VM_CIDATA=<output> ./bin/monarch-iso-boot release/monarch.iso
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --user) USERNAME="$2"; shift 2 ;;
+    --defer-provisioning) DEFER_PROVISIONING=true; shift ;;
+    --password) PASSWORD="$2"; shift 2 ;;
+    --key) KEY_FILE="$2"; shift 2 ;;
+    --tailscale-authkey) TAILSCALE_AUTHKEY_FILE="$2"; shift 2 ;;
+    --disk) DISK="$2"; shift 2 ;;
+    --size) DISK_SIZE="$2"; shift 2 ;;
+    --hostname) HOSTNAME_="$2"; shift 2 ;;
+    --timezone) TIMEZONE="$2"; shift 2 ;;
+    --keyboard) KEYBOARD="$2"; shift 2 ;;
+    --encrypt) ENCRYPT=true; shift ;;
+    --no-preinstalls) INCLUDE_PREINSTALLS=false; shift ;;
+    --full-name) FULL_NAME="$2"; shift 2 ;;
+    --email) EMAIL="$2"; shift 2 ;;
+    -o | --output) OUTPUT="$2"; shift 2 ;;
+    -h | --help) usage; exit 0 ;;
+    *) echo "Unknown option: $1" >&2; usage >&2; exit 1 ;;
+  esac
+done
+
+if [[ $DEFER_PROVISIONING == true && -n $USERNAME ]]; then
+  echo "monarch-iso-cidata: --user and --defer-provisioning are mutually exclusive" >&2
+  exit 1
+fi
+
+if [[ $DEFER_PROVISIONING != true && -z $USERNAME ]]; then
+  echo "monarch-iso-cidata: --user or --defer-provisioning is required" >&2
+  usage >&2
+  exit 1
+fi
+
+if [[ -n $USERNAME ]] && ! [[ $USERNAME =~ ^[a-z_][a-z0-9_-]*$ ]]; then
+  echo "monarch-iso-cidata: '$USERNAME' is not a valid username" >&2
+  exit 1
+fi
+
+command -v xorrisofs >/dev/null || {
+  echo "monarch-iso-cidata: xorrisofs not found (pacman -S libisoburn)" >&2
+  exit 1
+}
+
+if [[ -z $KEY_FILE && $DEFER_PROVISIONING != true ]]; then
+  KEY_FILE="$HOME/.ssh/id_ed25519.pub"
+fi
+if [[ -n $KEY_FILE && ! -f $KEY_FILE ]]; then
+  echo "monarch-iso-cidata: no SSH key at $KEY_FILE (pass --key)" >&2
+  exit 1
+fi
+
+# The installer fails an install rather than produce a machine nobody can reach;
+# fail here instead, where it costs nothing.
+if [[ -n $KEY_FILE ]] && ! grep -qvE '^[[:space:]]*(#|$)' "$KEY_FILE"; then
+  echo "monarch-iso-cidata: $KEY_FILE holds no usable key" >&2
+  exit 1
+fi
+
+if [[ -n $TAILSCALE_AUTHKEY_FILE && ! -f $TAILSCALE_AUTHKEY_FILE ]]; then
+  echo "monarch-iso-cidata: no Tailscale auth key at $TAILSCALE_AUTHKEY_FILE" >&2
+  exit 1
+fi
+
+if [[ -n $TAILSCALE_AUTHKEY_FILE ]]; then
+  mapfile -t tailscale_authkeys < <(
+    sed -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' \
+      -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' \
+      "$TAILSCALE_AUTHKEY_FILE"
+  )
+  if (( ${#tailscale_authkeys[@]} != 1 )); then
+    echo "monarch-iso-cidata: $TAILSCALE_AUTHKEY_FILE must contain exactly one Tailscale auth key" >&2
+    exit 1
+  fi
+fi
+
+case "${DISK_SIZE^^}" in
+  *G) disk_size_bytes=$(( ${DISK_SIZE%[gG]} * 1024 * 1024 * 1024 )) ;;
+  *M) disk_size_bytes=$(( ${DISK_SIZE%[mM]} * 1024 * 1024 )) ;;
+  *[!0-9]*) echo "monarch-iso-cidata: cannot read a size from '$DISK_SIZE'" >&2; exit 1 ;;
+  *) disk_size_bytes="$DISK_SIZE" ;;
+esac
+
+[[ -n $TIMEZONE ]] || TIMEZONE=$(timedatectl show -p Timezone --value 2>/dev/null || echo UTC)
+[[ -n $KEYBOARD ]] || KEYBOARD=$(localectl status 2>/dev/null | sed -n 's/.*VC Keymap: *//p' | head -1)
+[[ -n $KEYBOARD && $KEYBOARD != "n/a" ]] || KEYBOARD="us"
+[[ -n $FULL_NAME ]] || FULL_NAME=$(git -C "$BUILD_ROOT" config user.name || true)
+[[ -n $EMAIL ]] || EMAIL=$(git -C "$BUILD_ROOT" config user.email || true)
+
+staging=$(mktemp -d)
+trap 'rm -rf "$staging"' EXIT
+
+(
+  cd "$staging"
+
+  disk="$DISK"
+  disk_size="$disk_size_bytes"
+  username="$USERNAME"
+  password="$PASSWORD"
+  password_hash=$(printf '%s' "$PASSWORD" | openssl passwd -6 -stdin)
+  full_name="$FULL_NAME"
+  email_address="$EMAIL"
+  hostname="$HOSTNAME_"
+  timezone="$TIMEZONE"
+  keyboard="$KEYBOARD"
+  encrypt_installation="$ENCRYPT"
+  defer_provisioning="$DEFER_PROVISIONING"
+  include_preinstalls="$INCLUDE_PREINSTALLS"
+
+  source "$BUILD_ROOT/configs/airootfs/root/write-install-config"
+)
+
+if [[ $DEFER_PROVISIONING == true ]]; then
+  rm -f "$staging/user_credentials.json"
+  touch "$staging/defer-provisioning"
+fi
+
+if [[ -n $KEY_FILE ]]; then
+  grep -vE '^[[:space:]]*(#|$)' "$KEY_FILE" >"$staging/authorized_keys"
+fi
+
+if [[ -n $TAILSCALE_AUTHKEY_FILE ]]; then
+  printf '%s\n' "${tailscale_authkeys[0]}" >"$staging/tailscale_authkey"
+fi
+
+jq empty "$staging/user_configuration.json"
+[[ ! -f $staging/user_credentials.json ]] || jq empty "$staging/user_credentials.json"
+
+mkdir -p "${OUTPUT%/*}"
+xorrisofs -output "$OUTPUT" -volid cidata -joliet -rock "$staging" >/dev/null 2>&1
+
+echo "Wrote $OUTPUT"
+if [[ $DEFER_PROVISIONING == true ]]; then
+  echo "  user       deferred until first boot on $DISK ($DISK_SIZE), $HOSTNAME_, $TIMEZONE, $KEYBOARD"
+else
+  echo "  user       $USERNAME on $DISK ($DISK_SIZE), $HOSTNAME_, $TIMEZONE, $KEYBOARD"
+fi
+echo "  encryption $([[ $ENCRYPT == true ]] && echo "yes" || echo "no")"
+echo "  preinstalls $([[ $INCLUDE_PREINSTALLS == true ]] && echo "yes" || echo "no")"
+if [[ -n $KEY_FILE ]]; then
+  echo "  keys       $(wc -l <"$staging/authorized_keys") from $KEY_FILE"
+else
+  echo "  keys       deferred until owner provisioning"
+fi
+if [[ -n $TAILSCALE_AUTHKEY_FILE ]]; then
+  echo "  tailscale  join staged from $TAILSCALE_AUTHKEY_FILE"
+fi
+
+if [[ $ENCRYPT == true ]]; then
+  echo
+  echo "Encrypted installs stay unreachable until the passphrase is typed at the" >&2
+  echo "console, so this drive will not produce a machine that comes up on SSH." >&2
+fi
