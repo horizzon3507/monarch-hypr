@@ -13,7 +13,6 @@ source "$MONARCH_PATH/install/reconcile/config-files.sh"
 bash "$MONARCH_PATH/install/reconcile/disktree-user.sh"
 python3 -I "$MONARCH_PATH/install/reconcile/exegol.py" "$MONARCH_PATH" "$HOME"
 source "$MONARCH_PATH/install/reconcile/about-branding.sh"
-source "$MONARCH_PATH/install/reconcile/noctalia-activation.sh"
 source "$MONARCH_PATH/install/reconcile/todo.sh"
 source "$MONARCH_PATH/install/reconcile/lazyvpn.sh"
 source "$MONARCH_PATH/install/reconcile/pentestenv.sh"
@@ -28,73 +27,23 @@ monarch_reconcile_seeded_file \
   "$MONARCH_PATH/config/alacritty/monarch-text-size.toml" \
   "$HOME/.config/alacritty/monarch-text-size.toml"
 
-monarch_reconcile_seeded_file \
-  "$MONARCH_PATH/config/noctalia/templates/herdr.toml" \
-  "$HOME/.config/noctalia/templates/herdr.toml"
-monarch_reconcile_managed_file \
-  "$MONARCH_PATH/config/noctalia/monarch-herdr.toml" \
-  "$HOME/.config/noctalia/monarch-herdr.toml"
-monarch_reconcile_managed_file \
-  "$MONARCH_PATH/config/noctalia/monarch-workspaces.toml" \
-  "$HOME/.config/noctalia/monarch-workspaces.toml"
-
-monarch_reconcile_managed_file \
-  "$MONARCH_PATH/config/noctalia/monarch-widgets.toml" \
-  "$HOME/.config/noctalia/monarch-widgets.toml"
-
 "$MONARCH_PATH/bin/monarch-state" clear-stale-restarts
-# Optional theme caches must not block desktop reconciliation.
-python3 "$MONARCH_PATH/install/reconcile/noctalia-templates.py" || true
 
-for palette in "$MONARCH_PATH"/config/noctalia/palettes/*.json; do
+# Palettes are managed; shell configs are seeded so user edits survive upgrades.
+for palette in "$MONARCH_PATH"/config/monarch/palettes/*.json; do
   monarch_reconcile_managed_file "$palette" \
-    "$HOME/.config/noctalia/palettes/$(basename "$palette")"
+    "$HOME/.config/monarch/palettes/$(basename "$palette")"
 done
 
-plugins_changed=false
-source "$MONARCH_PATH/install/reconcile/agent-usage.sh"
-monarch_prepare_agent_usage_transition
-for plugin in "$MONARCH_PATH"/default/noctalia/plugins/monarch-*; do
-  [[ -f $plugin/plugin.toml ]] || continue
-  monarch_reconcile_managed_tree "$plugin" \
-    "$HOME/.local/share/noctalia/plugins/$(basename "$plugin")" \
-    plugins_changed
+for shell_config in \
+  waybar/config.jsonc waybar/style.css mako/config walker/config.toml \
+  swayosd/style.css hypr/hyprlock.conf hypr/hypridle.conf hypr/hyprpaper.conf; do
+  monarch_reconcile_seeded_file \
+    "$MONARCH_PATH/config/$shell_config" "$HOME/.config/$shell_config"
 done
 
-plugin_hook="$HOME/.config/monarch/hooks/post-boot.d/noctalia-v5-plugins"
-defer_plugin_activation() {
-  local hook_dir hook_tmp
-
-  hook_dir=$(dirname "$plugin_hook")
-  mkdir -p "$hook_dir"
-  hook_tmp=$(mktemp "$hook_dir/.noctalia-v5-plugins.XXXXXX")
-  trap 'rm -f "$hook_tmp"' EXIT
-  install -m 0755 "$MONARCH_PATH/install/reconcile/noctalia-plugins.sh" "$hook_tmp"
-  mv -fT "$hook_tmp" "$plugin_hook"
-  trap - EXIT
-}
-
-noctalia_ready=false
-if monarch_noctalia_wait 1; then
-  noctalia_ready=true
-  if [[ $plugins_changed == "true" ]]; then
-    monarch-restart-noctalia
-    monarch_noctalia_wait || noctalia_ready=false
-  fi
-fi
-
-if [[ $noctalia_ready == "true" ]]; then
-  plugins_ready=true
-  monarch_noctalia_enable_plugins >/dev/null 2>&1 || plugins_ready=false
-  monarch-theme-apply >/dev/null 2>&1 || true
-  if [[ $plugins_ready == "true" ]]; then
-    rm -f "$plugin_hook"
-  else
-    defer_plugin_activation
-  fi
-else
-  defer_plugin_activation
-fi
+# Render the active theme so every shell component has its color files.
+monarch-theme-render >/dev/null 2>&1 || true
 
 # The optional todo package handles its own plugin activation and legacy copies.
 monarch_reconcile_todo "$MONARCH_PATH"
