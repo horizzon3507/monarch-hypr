@@ -7,7 +7,9 @@ TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/bin" "$TMP/shell" "$TMP/home"
 export HOME="$TMP/home"
-export PATH="$ROOT/bin:$TMP/bin:$PATH"
+# The stubs come first: the real monarch-theme-apply would otherwise shadow the
+# stub and, once monarch-wallpaper exists, restart hyprpaper from a background job.
+export PATH="$TMP/bin:$ROOT/bin:$PATH"
 export MONARCH_PATH="$ROOT"
 export MONARCH_SHELL_DIR="$TMP/shell"
 export STARTED="$TMP/started"
