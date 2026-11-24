@@ -46,6 +46,11 @@ monarch_reconcile_managed_file \
 # Optional theme caches must not block desktop reconciliation.
 python3 "$MONARCH_PATH/install/reconcile/noctalia-templates.py" || true
 
+for palette in "$MONARCH_PATH"/config/monarch/palettes/*.json; do
+  monarch_reconcile_managed_file "$palette" \
+    "$HOME/.config/monarch/palettes/$(basename "$palette")"
+done
+
 for palette in "$MONARCH_PATH"/config/noctalia/palettes/*.json; do
   monarch_reconcile_managed_file "$palette" \
     "$HOME/.config/noctalia/palettes/$(basename "$palette")"
