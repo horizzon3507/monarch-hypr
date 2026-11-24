@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# monarch:summary=Print the active Monarch theme as "custom <name>"
+# monarch:examples=monarch theme current
+
+STATE="${XDG_STATE_HOME:-$HOME/.local/state}/monarch/theme"
+name=Monarch
+[[ -s $STATE ]] && name=$(<"$STATE")
+printf 'custom %s\n' "$name"
