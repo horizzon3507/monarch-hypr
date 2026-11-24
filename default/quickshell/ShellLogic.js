@@ -223,8 +223,8 @@ function parseWifiSnapshot(text) {
 // What a click on a row does. A connected network disconnects. A saved or open
 // network joins with what NetworkManager already has. An unsaved network that
 // needs a password or credentials cannot be joined from this panel yet.
-function wifiRowAction(net) {
-    if (!net || net.connecting) return "";
+function wifiRowAction(net, stale) {
+    if (!net || net.connecting || stale === true) return "";
     if (net.connected) return net.uuid !== "" && net.device !== "" ? "disconnect" : "";
     if (net.saved || net.security === "open") return "join";
     return "credentials";
@@ -238,4 +238,10 @@ function wifiHeader(snapshot) {
     for (var i = 0; i < snapshot.networks.length; i++)
         if (snapshot.networks[i].connected) return "Connected to " + snapshot.networks[i].ssid;
     return snapshot.networks.length > 0 ? "Not connected" : "No networks in range";
+}
+
+// The radio switch changes state from what the panel last read, so it needs a
+// fresh, validated snapshot.
+function wifiRadioEnabled(snapshot, stale) {
+    return snapshot !== null && stale !== true;
 }

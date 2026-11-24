@@ -14,8 +14,12 @@ ColumnLayout {
     property bool loading: true
     property string busy: ""        // action in flight, "" when idle
     property string errorText: ""
+    // True when the last refresh failed: the list on screen is the last good
+    // one and may not match the machine, so it is shown dimmed and nothing that
+    // acts on it (join, disconnect, forget, radio) is allowed until a refresh works.
+    property bool stale: false
 
-    readonly property string header: Logic.wifiHeader(snapshot)
+    readonly property string header: Logic.wifiHeader(stale ? null : snapshot)
 
     function refresh(rescan) {
         if (list.running) return;
@@ -33,9 +37,10 @@ ColumnLayout {
     }
 
     function activate(net) {
-        var what = Logic.wifiRowAction(net);
+        var what = Logic.wifiRowAction(net, stale);
         if (what === "join") act("join", ["monarch-wifi-join", net.ssid]);
         else if (what === "disconnect") act("disconnect", ["monarch-wifi-panel", "disconnect", net.device, net.uuid]);
+        else if (what === "" && stale) errorText = "The Wi-Fi state is out of date: rescan first";
         else if (what === "credentials") errorText = net.ssid + " needs a password: use `monarch wifi connect` for now";
     }
 
@@ -49,9 +54,10 @@ ColumnLayout {
             root.loading = false;
             if (exitCode === 0) {
                 var parsed = Logic.parseWifiSnapshot(listOut.text);
-                if (parsed !== null) { root.snapshot = parsed; return; }
+                if (parsed !== null) { root.snapshot = parsed; root.stale = false; return; }
             }
-            // The last good list stands when a refresh fails.
+            // The last good list stays visible but stale.
+            root.stale = true;
             var message = listErr.text.trim();
             root.errorText = message !== "" ? message : "Could not read the Wi-Fi networks";
         }
@@ -90,11 +96,16 @@ ColumnLayout {
             Layout.fillWidth: true
         }
         Text {
-            visible: root.snapshot !== null && root.snapshot.present
+            visible: root.snapshot !== null && root.snapshot.present && !root.stale
             text: root.snapshot !== null && root.snapshot.enabled ? "Turn off" : "Turn on"
             color: Theme.accent
             font.pixelSize: 13
-            MouseArea { anchors.fill: parent; onClicked: radio.running = true }
+            MouseArea {
+                anchors.fill: parent
+                enabled: Logic.wifiRadioEnabled(root.snapshot, root.stale)
+                onClicked: radio.running = true
+            }
+            opacity: Logic.wifiRadioEnabled(root.snapshot, root.stale) ? 1.0 : 0.4
         }
         Text {
             visible: root.snapshot !== null && root.snapshot.present && root.snapshot.enabled
@@ -126,7 +137,9 @@ ColumnLayout {
             id: row
             required property var modelData
             width: rows.width
-            height: 36
+            // The name elides in a narrow row; hovering the row wraps the full name.
+            height: Math.max(36, ssidText.implicitHeight + 16)
+            opacity: root.stale ? 0.5 : 1.0
             radius: 6
             color: modelData.connected ? Theme.surfaceVariant : "transparent"
             border.width: modelData.connected ? 1 : 0
@@ -139,10 +152,12 @@ ColumnLayout {
                 spacing: 8
 
                 Text {
+                    id: ssidText
                     text: row.modelData.ssid
                     color: Theme.fg
                     font.pixelSize: 14
-                    elide: Text.ElideRight
+                    elide: hover.hovered ? Text.ElideNone : Text.ElideRight
+                    wrapMode: hover.hovered ? Text.WrapAnywhere : Text.NoWrap
                     Layout.fillWidth: true
                 }
                 Text {
@@ -163,7 +178,7 @@ ColumnLayout {
                     font.pixelSize: 12
                 }
                 Text {
-                    visible: row.modelData.saved
+                    visible: row.modelData.saved && !root.stale
                     text: "Forget"
                     color: Theme.error
                     font.pixelSize: 12
@@ -173,6 +188,8 @@ ColumnLayout {
                     }
                 }
             }
+
+            HoverHandler { id: hover }
 
             MouseArea {
                 anchors.fill: parent
