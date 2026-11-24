@@ -64,7 +64,9 @@ assert (config / "palettes/V4-Nord.json").read_bytes() == (
   pathlib.Path(os.environ["MONARCH_PATH"]) / "config/noctalia/palettes/Monarch.json"
 ).read_bytes()
 PY
-[[ $("$ROOT/bin/monarch-bar-position") == left ]] || fail "bar position command sees the migrated position"
+# The Quickshell bar anchors top or bottom only and reads shell.json, so a migrated
+# left edge (kept in the Noctalia fragment above) reads as the default here.
+[[ $("$ROOT/bin/monarch-bar-position") == top ]] || fail "bar position command ignores an unsupported migrated edge"
 pass "custom app settings, compatible preferences and colliding palettes survive V4 migration"
 
 archive="$HOME/.local/state/monarch/reconcile/1-to-2/legacy-noctalia-config"
@@ -75,7 +77,7 @@ printf 'existing-v5-palette\n' >"$HOME/.config/noctalia/palettes/V4-Nord.json"
 rm "$HOME/.local/state/monarch/reconcile/1-to-2/legacy-noctalia"
 bash "$ROOT/install/reconcile/schema/1-to-2/legacy-noctalia.sh"
 grep -qx 'mode = "dark"' "$HOME/.config/noctalia/monarch-v4.toml"
-[[ $("$ROOT/bin/monarch-bar-position") == right ]]
+[[ $("$ROOT/bin/monarch-bar-position") == top ]]
 [[ $(<"$HOME/.config/noctalia/palettes/V4-Nord.json") == existing-v5-palette ]]
 pass "interrupted migration resumes from the archive without overwriting V5 edits"
 
