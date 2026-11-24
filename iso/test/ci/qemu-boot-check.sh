@@ -5,16 +5,22 @@
 set -uo pipefail
 ISO=$1 MODE=$2 OUT=$3
 WAIT=${BOOT_WAIT_SECONDS:-480}
-EXPECT=${BOOT_EXPECT_REGEX:-'monarch|keyboard|installer|install|hostname|disk|login'}
+# Only the installer welcome screen counts as a pass. Generic words are not enough:
+# error screens also mention keyboards, disks and installers.
+EXPECT=${BOOT_EXPECT_REGEX:-'press return to start install'}
+FAIL_ON=${BOOT_FAIL_REGEX:-'kernel panic|emergency mode|emergency shell|no bootable|boot failed|grub rescue|failed to mount|dracut|cannot open root'}
 mkdir -p "$OUT"
 
 sudo apt-get update -qq
 sudo apt-get install -y -qq qemu-system-x86 ovmf imagemagick tesseract-ocr socat >/dev/null
 
+# Disposable GitHub-hosted runner only: opening /dev/kvm to every user is the
+# documented way to let QEMU use KVM there. Never run this on a developer machine.
 ACCEL=tcg
 if [[ -e /dev/kvm ]]; then
   echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules >/dev/null
   sudo udevadm control --reload-rules; sudo udevadm trigger --name-match=kvm
+  [[ -w /dev/kvm ]] || sudo chmod 666 /dev/kvm
   [[ -w /dev/kvm ]] && ACCEL=kvm
 fi
 echo "accel=$ACCEL mode=$MODE" | tee "$OUT/info.txt"
@@ -48,8 +54,14 @@ done
 shot final
 kill "$(cat "$OUT/qemu.pid")" 2>/dev/null || true
 
-tesseract "$OUT/final.png" "$OUT/final-ocr" >/dev/null 2>&1 || true
+# The "Press Return" prompt is dim grey on a dark background, so plain OCR misses
+# it. Stretch the contrast first (validated on the retained baseline screenshots).
+convert "$OUT/final.png" -colorspace Gray -resize 300% -level 8%,28% -negate "$OUT/final-ocr-input.png"
+tesseract "$OUT/final-ocr-input.png" "$OUT/final-ocr" --psm 11 >/dev/null 2>&1 || true
 echo "--- OCR of final screen ---"; cat "$OUT/final-ocr.txt" 2>/dev/null
+if grep -qiE "$FAIL_ON" "$OUT/final-ocr.txt" 2>/dev/null; then
+  echo "BOOT CHECK FAIL ($MODE, $ACCEL): failure text on final screen"; exit 1
+fi
 if grep -qiE "$EXPECT" "$OUT/final-ocr.txt" 2>/dev/null; then
   echo "BOOT CHECK PASS ($MODE, $ACCEL)"; exit 0
 fi

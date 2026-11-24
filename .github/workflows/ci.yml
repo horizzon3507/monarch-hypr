@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [dev, main]
+    branches: [dev, main, hyprland-desktop]
     paths-ignore:
       - 'README.md'
       - 'docs/**'
@@ -49,6 +49,61 @@ jobs:
 
       - name: Run deterministic integration suite
         run: test/run integration
+
+  iso-pkgs-static-tests:
+    name: ISO and package static tests
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Install test dependencies
+        run: pacman -Syu --noconfirm --needed bash git python libarchive pacman-contrib base-devel shellcheck parted util-linux jq
+
+      - uses: actions/checkout@v4
+
+      - name: Run iso/ shell unit tests
+        run: |
+          git config --global --add safe.directory "$PWD"
+          cd iso
+          status=0
+          for t in test/unit/*-test.sh; do
+            echo "== $t"
+            bash "$t" || { echo "::error::FAILED $t"; status=1; }
+          done
+          exit $status
+
+      - name: Run iso/ Python unit tests
+        run: cd iso && python -m unittest discover -s test/unit -p 'test_*.py'
+
+      - name: Run package recipe tests
+        run: |
+          cd pkgs/pkgbuilds/monarch
+          for t in permissions-test.sh defaults-permissions-test.sh; do bash "$t" "$GITHUB_WORKSPACE"; done
+
+  monarch-package-build:
+    name: Monarch package build
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Install build tools
+        run: pacman -Syu --noconfirm --needed base-devel git python sudo
+
+      - uses: actions/checkout@v4
+
+      - name: Build the monarch package with makepkg
+        # Same flags as iso/builder/build-monarch-package.sh. --nodeps only skips
+        # installing runtime dependencies; package() must still find every file it ships.
+        run: |
+          git config --global --add safe.directory "$PWD"
+          useradd -m builder
+          src=/tmp/monarch-src work=/tmp/monarch-pkg
+          mkdir -p "$src" "$work"
+          tar --exclude=./iso --exclude=./pkgs --exclude=./.git -cf - . | tar -C "$src" -xf -
+          printf '%s\n' 0.0.ci >"$src/version"
+          cp -a pkgs/pkgbuilds/monarch/. "$work/"
+          chown -R builder:builder "$work" "$src"
+          su builder -c "cd '$work' && PKGDEST='$work' MONARCH_SRC='$src' MONARCH_LOCAL_PKGVER=0.0.ci MONARCH_LOCAL_REVISION='$(git rev-parse HEAD)' makepkg --noconfirm --skippgpcheck --skipchecksums --nodeps -f"
+          ls -l "$work"/*.pkg.tar.*
+          bsdtar -tf "$work"/monarch-0*.pkg.tar.* | grep -c . 
 
   repository-tests:
     name: Repository availability tests
