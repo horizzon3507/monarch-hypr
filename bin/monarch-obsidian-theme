@@ -6,6 +6,33 @@
 mapfile -t vaults < <(find "$HOME" -maxdepth 4 -name .obsidian -type d 2>/dev/null | sort -u)
 ((${#vaults[@]})) || exit 0
 
+if [[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]]; then
+  # Hyprland session: link the Monarch snippet rendered by monarch-theme-render
+  # into each vault and enable it. Does not touch other snippets. Whether Obsidian
+  # follows the link has not been checked in a running Obsidian.
+  rendered="$HOME/.config/monarch/current/theme/obsidian.css"
+  [[ -f $rendered ]] || monarch-theme-render >/dev/null 2>&1 || true
+  [[ -f $rendered ]] || { echo "The Monarch Obsidian snippet has not been rendered" >&2; exit 1; }
+  status=0
+  for vault in "${vaults[@]}"; do
+    mkdir -p "$vault/snippets" && ln -sfn "$rendered" "$vault/snippets/monarch.css" || { status=1; continue; }
+    appearance="$vault/appearance.json"
+    if [[ ! -f $appearance ]]; then
+      printf '{\n  "enabledCssSnippets": ["monarch"]\n}\n' >"$appearance" || status=1
+    elif ! jq -e '.enabledCssSnippets // [] | index("monarch") != null' "$appearance" >/dev/null 2>&1; then
+      tmp=$(mktemp "$vault/.appearance.XXXXXX") || { status=1; continue; }
+      if jq '.enabledCssSnippets = ((.enabledCssSnippets // []) + ["monarch"])' "$appearance" >"$tmp" 2>/dev/null; then
+        mv -f "$tmp" "$appearance" || status=1
+      else
+        rm -f "$tmp"
+        echo "Could not enable the Monarch snippet in $appearance" >&2
+        status=1
+      fi
+    fi
+  done
+  exit "$status"
+fi
+
 vault_ready() {
   [[ -f $1/snippets/noctalia.css ]] &&
     jq -e '.enabledCssSnippets | index("noctalia") != null' "$1/appearance.json" >/dev/null 2>&1
