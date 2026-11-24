@@ -349,12 +349,14 @@ function brightnessText(map) {
 }
 
 // Output of `monarch-theme-background-list`: active, file name, path, thumbnail
-// path and removable, tab separated. Only absolute paths are accepted. An empty
-// result is a real empty list (a theme with no backgrounds), unlike a failed
-// command, which the panel reports separately.
+// path and removable, tab separated. Only absolute paths are accepted. Blank
+// output is a real empty list (a theme with no backgrounds). Non-blank output
+// with no usable row is a different format or garbage, which is null (unusable)
+// and must not read as "no backgrounds".
 function parseBackgroundList(text) {
     var out = [];
-    var lines = String(text === undefined || text === null ? "" : text).split("\n");
+    var raw = String(text === undefined || text === null ? "" : text);
+    var lines = raw.split("\n");
     for (var i = 0; i < lines.length; i++) {
         var f = lines[i].split("\t");
         if (f.length < 4 || (f[0] !== "true" && f[0] !== "false") || f[1] === "" || f[2].charAt(0) !== "/") continue;
@@ -365,5 +367,6 @@ function parseBackgroundList(text) {
             thumbnail: f[3].charAt(0) === "/" ? f[3] : ""
         });
     }
+    if (out.length === 0 && raw.trim() !== "") return null;
     return out;
 }

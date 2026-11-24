@@ -53,9 +53,10 @@ ColumnLayout {
         stderr: StdioCollector { id: listErr }
         onExited: function (exitCode) {
             root.loading = false;
-            if (exitCode === 0) { root.items = Logic.parseBackgroundList(listOut.text); root.busyNotice = ""; return; }
-            // A failed read is unavailable, never an empty list.
-            var message = listErr.text.trim();
+            var parsed = exitCode === 0 ? Logic.parseBackgroundList(listOut.text) : null;
+            if (parsed !== null) { root.items = parsed; root.busyNotice = ""; return; }
+            // A failed or unrecognized read is unavailable, never an empty list.
+            var message = exitCode !== 0 ? listErr.text.trim() : "";
             root.errorText = message !== "" ? message : "Could not read the backgrounds";
         }
     }
@@ -122,7 +123,9 @@ ColumnLayout {
                 color: modelData.active ? Theme.surfaceVariant : "transparent"
                 border.width: modelData.active ? 1 : 0
                 border.color: Theme.accent
-                opacity: root.settled ? 1.0 : 0.6
+                // A file the image loader rejects is listed but not selectable.
+                readonly property bool broken: thumb.status === Image.Error
+                opacity: broken ? 0.4 : (root.settled ? 1.0 : 0.6)
 
                 RowLayout {
                     anchors.fill: parent
@@ -131,6 +134,7 @@ ColumnLayout {
                     spacing: 10
 
                     Image {
+                        id: thumb
                         visible: row.modelData.thumbnail !== ""
                         source: row.modelData.thumbnail !== "" ? "file://" + row.modelData.thumbnail : ""
                         sourceSize.width: 64
@@ -141,7 +145,7 @@ ColumnLayout {
                         Layout.preferredHeight: 36
                     }
                     Text {
-                        text: row.modelData.name
+                        text: row.broken ? row.modelData.name + " (not a usable image)" : row.modelData.name
                         color: Theme.fg
                         font.pixelSize: 13
                         elide: Text.ElideMiddle
@@ -150,7 +154,7 @@ ColumnLayout {
                 }
                 MouseArea {
                     anchors.fill: parent
-                    onClicked: root.act("background", ["monarch-wallpaper", "set", row.modelData.path])
+                    onClicked: if (!row.broken) root.act("background", ["monarch-wallpaper", "set", row.modelData.path])
                 }
             }
         }
