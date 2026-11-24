@@ -17,6 +17,14 @@ done
 grep -q 'stale' "$QS/NetworkPanel.qml" && grep -q 'wifiRadioEnabled' "$QS/NetworkPanel.qml" || fail "the panel gates actions on a stale list"
 grep -q 'ElideNone' "$QS/NetworkPanel.qml" && grep -q 'expanded = !row.expanded' "$QS/NetworkPanel.qml" || fail "the full network name is reachable through a separate control"
 grep -q 'readonly property bool settled' "$QS/NetworkPanel.qml" && grep -q 'if (!settled)' "$QS/NetworkPanel.qml" || fail "actions wait for an in-flight refresh or action"
+# Every state-changing path goes through the shared gate: the only places that
+# start the action or radio processes are act() and toggleRadio(), and both call
+# mayMutate() first. (Forget once bypassed the busy check.)
+[[ $(grep -c 'action.running = true' "$QS/NetworkPanel.qml") == 1 ]] || fail "one place starts the action process"
+[[ $(grep -c 'radio.running = true' "$QS/NetworkPanel.qml") == 1 ]] || fail "one place starts the radio process"
+awk '/function act\(/{f=1} f&&/mayMutate\(\)/{ok=1} f&&/action.running = true/{exit !ok}' "$QS/NetworkPanel.qml" || fail "act() checks the gate before it runs"
+awk '/function toggleRadio\(/{f=1} f&&/mayMutate\(\)/{ok=1} f&&/radio.running = true/{exit !ok}' "$QS/NetworkPanel.qml" || fail "toggleRadio() checks the gate before it runs"
+! grep -Eq 'onClicked:.*(action|radio)\.running' "$QS/NetworkPanel.qml" || fail "no click handler starts a process directly"
 grep -Eq 'visible: true' "$QS/NetworkPanel.qml" || fail "Rescan is always reachable"
 ! grep -q 'HoverHandler' "$QS/NetworkPanel.qml" || fail "the full name does not depend on hover"
 grep -q 'listError = ""' "$QS/NetworkPanel.qml" && grep -q 'noticeText = ""' "$QS/NetworkPanel.qml" || fail "a good refresh clears the obsolete notice and list error"
