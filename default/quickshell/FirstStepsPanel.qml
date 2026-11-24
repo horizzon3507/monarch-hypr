@@ -307,9 +307,11 @@ ColumnLayout {
                         Text { text: modelData.name; color: Theme.fg; font.pixelSize: 13; font.bold: true }
                         Text { text: modelData.detail; color: Theme.fg; opacity: 0.65; font.pixelSize: 11 }
                     }
-                    Text { visible: present; text: "\u2713 Installed"; color: Theme.accent; font.pixelSize: 11 }
+                    Text { visible: present; text: "\u2713 Installed"; color: Theme.accent; font.pixelSize: 11; Layout.preferredWidth: 96; horizontalAlignment: Text.AlignRight }
                     Action {
                         visible: !present
+                        Layout.preferredWidth: 96
+                        horizontalAlignment: Text.AlignRight
                         text: root.activeTool === modelData.id ? "In progress..." : "Install"
                         active: root.idle && root.tools !== null && root.activeTool === ""
                         onTriggered: root.install(modelData.id)
