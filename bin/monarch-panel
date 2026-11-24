@@ -14,7 +14,7 @@ SHELL_DIR="${MONARCH_SHELL_DIR:-$MONARCH_ROOT/default/quickshell}"
 
 usage() {
   echo "Usage: monarch-panel toggle|open <panel> | close | active" >&2
-  echo "Panels: wifi-qr, network, theme, display, background" >&2
+  echo "Panels: wifi-qr, network, theme, display, background, crashes" >&2
   exit 2
 }
 

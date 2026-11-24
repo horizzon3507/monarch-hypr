@@ -157,7 +157,7 @@ function bluetoothText(adapterEnabled, connected) {
 
 // Panels the host knows. Names come from the IPC call, so anything else is
 // refused rather than loaded.
-var PANELS = ["wifi-qr", "network", "theme", "display", "background"];
+var PANELS = ["wifi-qr", "network", "theme", "display", "background", "crashes"];
 
 function panelName(name) {
     var n = String(name === undefined || name === null ? "" : name);
@@ -369,4 +369,36 @@ function parseBackgroundList(text) {
     }
     if (out.length === 0 && raw.trim() !== "") return null;
     return out;
+}
+
+// Output of `monarch-crash-history list --json`:
+//   {"crashes":[{id,application,date,signal,core,...}],"limit":N,"hasMore":bool}
+// Entries without a well-formed id are dropped: the id goes back to the helper
+// for a report, and the helper accepts only that shape. null means the output
+// was not usable (a failed read), which differs from an empty list.
+function parseCrashList(text) {
+    var data;
+    try { data = JSON.parse(text); } catch (e) { return null; }
+    if (!data || typeof data !== "object" || !Array.isArray(data.crashes)) return null;
+    var rows = [];
+    for (var i = 0; i < data.crashes.length; i++) {
+        var c = data.crashes[i];
+        if (!c || typeof c.id !== "string" || !/^[a-f0-9]{32}:[0-9]{1,10}:[0-9]{1,20}$/.test(c.id)) continue;
+        rows.push({
+            id: c.id,
+            application: typeof c.application === "string" && c.application !== "" ? c.application : "unknown",
+            date: typeof c.date === "string" ? c.date : "",
+            signal: typeof c.signal === "string" ? c.signal : "",
+            core: typeof c.core === "string" ? c.core : ""
+        });
+    }
+    return { crashes: rows, hasMore: data.hasMore === true };
+}
+
+// `monarch-crash-history export` prints {"path": "..."}; "" when unusable.
+function parseExportPath(text) {
+    try {
+        var d = JSON.parse(text);
+        return d && typeof d.path === "string" && d.path.charAt(0) === "/" ? d.path : "";
+    } catch (e) { return ""; }
 }
