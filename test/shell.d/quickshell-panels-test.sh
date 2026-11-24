@@ -16,10 +16,11 @@ grep -q 'WlrLayershell.layer: WlrLayer.Overlay' "$QS/PanelHost.qml" || fail "pan
 pass "panel host and Wi-Fi QR panel exist, are registered and use theme colors"
 
 # The password is requested only by the deliberate click and dropped with the card.
-grep -q 'monarch-wifi-qr", "--png"' "$QS/WifiQr.qml" || fail "the QR comes from monarch-wifi-qr --png"
+grep -q 'monarch-wifi-qr", "--data"' "$QS/WifiQr.qml" || fail "the QR comes from monarch-wifi-qr --data"
+! grep -q 'file://' "$QS/WifiQr.qml" || fail "the panel never opens a file path from a helper"
 grep -q 'monarch-wifi-password' "$QS/WifiQr.qml" || fail "the password comes from monarch-wifi-password"
 ! grep -q 'command: \[.*"--password"' "$QS/WifiQr.qml" || fail "the password is not read at generation"
-grep -q 'Component.onDestruction: password = ""' "$QS/WifiQr.qml" || fail "the password is dropped with the card"
+grep -q 'Component.onDestruction: { password = ""; info = null; }' "$QS/WifiQr.qml" || fail "the password is dropped with the card"
 pass "the password is read on click only and dropped with the card"
 
 # monarch-panel builds the IPC call and refuses anything else.
@@ -51,10 +52,11 @@ const j = JSON.stringify;
 const out = [];
 out.push(L.panelName("wifi-qr") === "wifi-qr" && L.panelName("nope") === "" && L.panelName(null) === "" && L.panelName("wifi-qr;x") === "");
 out.push(L.togglePanel("", "wifi-qr") === "wifi-qr" && L.togglePanel("wifi-qr", "wifi-qr") === "" && L.togglePanel("wifi-qr", "bad") === "wifi-qr");
-out.push(j(L.parseWifiQr("meta\twlan0\tWPA\t/run/x/wifi-qr-1.png\tMy\tNet")) === j({iface: "wlan0", security: "WPA", png: "/run/x/wifi-qr-1.png", ssid: "My\tNet"}));
+out.push(j(L.parseWifiQr("meta\twlan0\tWPA\tdata:image/png;base64,iVBOR=\tMy\tNet")) === j({iface: "wlan0", security: "WPA", image: "data:image/png;base64,iVBOR=", ssid: "My\tNet"}));
 out.push(L.parseWifiQr("") === null && L.parseWifiQr("meta\twlan0\tWPA\t\tname") === null && L.parseWifiQr("junk") === null && L.parseWifiQr(undefined) === null);
+out.push(L.parseWifiQr("meta\twlan0\tWPA\t/run/x/wifi-qr-1.png\tname") === null && L.parseWifiQr("meta\twlan0\tWPA\tfile:///etc/passwd\tname") === null && L.parseWifiQr("meta\twlan0\tWPA\tdata:text/html;base64,AAAA\tname") === null);
 out.push(L.wifiSecured("WPA") && L.wifiSecured("WEP") && !L.wifiSecured("nopass") && !L.wifiSecured(""));
 console.log(out.map(Boolean).join(" "));
 ')
-[[ $out == "true true true true true" ]] || fail "panel logic" "$out"
+[[ $out == "true true true true true true" ]] || fail "panel logic" "$out"
 pass "panel names, toggling, QR output parsing and secured detection behave"

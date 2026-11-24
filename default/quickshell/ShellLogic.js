@@ -171,15 +171,17 @@ function togglePanel(current, name) {
     return current === next ? "" : next;
 }
 
-// Output of `monarch-wifi-qr --png`: one line
-//   meta<TAB>interface<TAB>security<TAB>png<TAB>ssid
-// The SSID goes last because it is the only field that may contain a tab.
-// Returns null when the line is not in that shape or has no image path.
+// Output of `monarch-wifi-qr --data`: one line
+//   meta<TAB>interface<TAB>security<TAB>data:image/png;base64,...<TAB>ssid
+// The image arrives in memory, so the credential-bearing QR never touches the
+// disk. The SSID goes last because it is the only field that may contain a tab.
+// Returns null when the line is not in that shape or the image is not a PNG data
+// URI (a file path from a helper is refused, never opened).
 function parseWifiQr(text) {
     var line = String(text === undefined || text === null ? "" : text).split("\n")[0];
     var m = /^meta\t([^\t]*)\t([^\t]*)\t([^\t]*)\t(.*)$/.exec(line);
-    if (!m || m[3] === "") return null;
-    return { iface: m[1], security: m[2], png: m[3], ssid: m[4] };
+    if (!m || !/^data:image\/png;base64,[A-Za-z0-9+\/=]+$/.test(m[3])) return null;
+    return { iface: m[1], security: m[2], image: m[3], ssid: m[4] };
 }
 
 // A WPA/WEP network has a password to reveal, an open one does not.

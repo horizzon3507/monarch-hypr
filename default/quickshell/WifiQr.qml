@@ -4,8 +4,8 @@ import Quickshell.Io
 import "ShellLogic.js" as Logic
 
 // The connected Wi-Fi network as a QR code, with the password behind one
-// deliberate click. The code is a PNG written by `monarch-wifi-qr --png`
-// (qrencode); this only displays it.
+// deliberate click. The code is a PNG data URI from `monarch-wifi-qr --data`
+// (qrencode); it is held in memory only and nothing is written to disk.
 ColumnLayout {
     id: root
     spacing: 12
@@ -26,12 +26,12 @@ ColumnLayout {
 
     Component.onCompleted: generate()
 
-    // Leaving the panel drops the secret; the host unloads this item.
-    Component.onDestruction: password = ""
+    // Leaving the panel drops the secret and the image; the host unloads this item.
+    Component.onDestruction: { password = ""; info = null; }
 
     Process {
         id: qr
-        command: ["monarch-wifi-qr", "--png"]
+        command: ["monarch-wifi-qr", "--data"]
         stdout: StdioCollector {
             id: qrOut
         }
@@ -81,7 +81,7 @@ ColumnLayout {
 
     Image {
         visible: root.info !== null
-        source: root.info ? "file://" + root.info.png : ""
+        source: root.info ? root.info.image : ""
         cache: false
         sourceSize.width: 320
         sourceSize.height: 320
