@@ -8,7 +8,6 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
 mkdir -p "$work/src/monarch"
-cp "$root/build-noctalia-templates.py" "$work/src/"
 cp -a "$source_tree"/{assets,bin,install,themes,config,default,applications,etc,LICENSE,README.md,boot.sh,install.sh,icon.png,icon.txt,logo.svg,logo.txt} \
   "$work/src/monarch/"
 printf '%s\n' fixture >"$work/src/monarch/assets/permissions-test.conf"

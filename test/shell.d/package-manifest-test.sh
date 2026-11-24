@@ -49,7 +49,7 @@ for package in "${all[@]}"; do
   all_packages[$package]=true
 done
 
-for package in chromium gpu-screen-recorder grim localsend mpv mpv-mpris neovim hyprland noctalia networkmanager sddm slurp uwsm yay zbar; do
+for package in chromium gpu-screen-recorder grim localsend mpv mpv-mpris neovim hyprland networkmanager sddm slurp uwsm yay zbar; do
   [[ -v required_packages[$package] ]] || fail "$package is a required package"
 done
 [[ -v required_packages[linux-cachyos-headers] ]] || fail "CachyOS kernel headers are required"
