@@ -61,3 +61,78 @@ function parseColors(text) {
         return colors(null);
     }
 }
+
+// ---- Bar logic -------------------------------------------------------------
+
+// Workspace ids the bar always shows, even when empty and not yet created.
+var PERSISTENT_WORKSPACES = 5;
+
+// Ids to draw: 1..5 always, plus any existing numbered workspace above that.
+// Named (negative id) and special workspaces are left out.
+function workspaceSlots(existingIds) {
+    var seen = {};
+    var ids = [];
+    var i;
+    for (i = 1; i <= PERSISTENT_WORKSPACES; i++) {
+        seen[i] = true;
+        ids.push(i);
+    }
+    var extra = (existingIds || []).filter(function (id) {
+        return typeof id === "number" && isFinite(id) && id > PERSISTENT_WORKSPACES && Math.floor(id) === id;
+    });
+    extra.sort(function (a, b) { return a - b; });
+    for (i = 0; i < extra.length; i++) {
+        if (!seen[extra[i]]) {
+            seen[extra[i]] = true;
+            ids.push(extra[i]);
+        }
+    }
+    return ids;
+}
+
+// Dispatcher string to focus a workspace, in the Lua form documented for the
+// Hyprland session (unverified on a live compositor). Rejects non-integers.
+function workspaceDispatch(id) {
+    var n = Number(id);
+    if (!isFinite(n) || Math.floor(n) !== n || n < 1) return "";
+    return "hl.dsp.focus({ workspace = " + n + " })";
+}
+
+function pad2(n) {
+    return (n < 10 ? "0" : "") + n;
+}
+
+var DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function clockText(date) {
+    if (!(date instanceof Date) || isNaN(date.getTime())) return "";
+    return DAYS[date.getDay()] + " " + date.getDate() + " " + MONTHS[date.getMonth()]
+        + "  " + pad2(date.getHours()) + ":" + pad2(date.getMinutes());
+}
+
+// Battery fraction (0..1, as UPowerDevice.percentage documents it as
+// energy / energyCapacity) to whole percent, clamped.
+function batteryPercent(fraction) {
+    var f = Number(fraction);
+    if (!isFinite(f)) return 0;
+    return Math.round(clamp(f, 0, 1) * 100);
+}
+
+// Text for the battery indicator. `charging` is true while charging or full on AC.
+function batteryText(fraction, charging, showPercent) {
+    var pct = batteryPercent(fraction);
+    var mark = charging ? "+" : "";
+    return showPercent ? (mark + pct + "%") : (charging ? "charging" : (pct <= 15 ? "low" : ""));
+}
+
+// Volume fraction (1.0 = 100%) to whole percent, capped at 150.
+function volumePercent(volume) {
+    var v = Number(volume);
+    if (!isFinite(v)) return 0;
+    return Math.round(clamp(v, 0, 1.5) * 100);
+}
+
+function volumeText(volume, muted) {
+    return muted ? "muted" : (volumePercent(volume) + "%");
+}
