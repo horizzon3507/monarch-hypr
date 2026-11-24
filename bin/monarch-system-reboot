@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# monarch:summary=Request reboot through Noctalia
+# monarch:summary=Request reboot
 # monarch:examples=monarch reboot | monarch system reboot
 # monarch:aliases=monarch reboot
 
-noctalia msg session reboot
+systemctl reboot
