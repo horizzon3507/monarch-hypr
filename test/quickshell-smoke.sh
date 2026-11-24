@@ -86,6 +86,18 @@ run_entry() {
 
   local errors
   errors=$(grep -a 'ERROR' "$log" | sed 's/\x1b\[[0-9;]*m//g')
+  # The runner has no PipeWire or NetworkManager. These two exact messages mean
+  # "service absent", not "config broken"; they are still printed as notes.
+  # Every other ERROR line (type errors, bad imports, bindings) still fails.
+  local absent
+  absent=$(grep -F -e 'quickshell.service.pipewire.loop: Failed to create pipewire context.' \
+    -e 'quickshell.network: Network will not work. Could not find an available backend.' <<<"$errors" || true)
+  if [[ $expect == pass && -n $absent ]]; then
+    echo "note - $name: service-absent errors tolerated (no daemons on the runner):"
+    sed 's/^/    /' <<<"$absent"
+    errors=$(grep -vF -e 'quickshell.service.pipewire.loop: Failed to create pipewire context.' \
+      -e 'quickshell.network: Network will not work. Could not find an available backend.' <<<"$errors" || true)
+  fi
   if [[ $expect == pass ]]; then
     if [[ $loaded == 1 && -z $errors ]]; then
       echo "ok - $name loads"
