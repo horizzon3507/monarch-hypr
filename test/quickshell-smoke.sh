@@ -66,7 +66,9 @@ unset QT_QPA_PLATFORM
 failures=0
 total=0
 
-# run_entry NAME FILE EXPECT   (EXPECT: pass, or fail:<text expected in the log>)
+# run_entry NAME FILE EXPECT
+# EXPECT: pass | fail:<text expected in the log, config must not load>
+#       | bind:<text expected in the log, config loads but a binding is broken>
 run_entry() {
   local name=$1 file=$2 expect=$3 log="$work/$1.log" loaded=0 pid
   total=$((total + 1))
@@ -81,11 +83,15 @@ run_entry() {
     sleep 1
     grim "$screenshots/$name.png" 2>>"$log" || true
   fi
+  # Bindings are evaluated when the window scene is built, shortly after load.
+  [[ $loaded == 0 ]] || sleep 0.5
   kill "$pid" 2>/dev/null
   wait "$pid" 2>/dev/null
 
   local errors
-  errors=$(grep -a 'ERROR' "$log" | sed 's/\x1b\[[0-9;]*m//g')
+  # ERROR lines, plus runtime binding failures, which Quickshell only logs as
+  # WARN (for example "WARN scene: ... ReferenceError: x is not defined").
+  errors=$(grep -aE 'ERROR|ReferenceError|TypeError' "$log" | sed 's/\x1b\[[0-9;]*m//g')
   # The runner has no PipeWire or NetworkManager. These two exact messages mean
   # "service absent", not "config broken"; they are still printed as notes.
   # Every other ERROR line (type errors, bad imports, bindings) still fails.
@@ -106,6 +112,15 @@ run_entry() {
       sed 's/\x1b\[[0-9;]*m//g' "$log" | grep -a 'ERROR\|WARN' | sed 's/^/    /'
       failures=$((failures + 1))
     fi
+  elif [[ $expect == bind:* ]]; then
+    local bneedle=${expect#bind:}
+    if [[ $loaded == 1 && $errors == *"$bneedle"* ]]; then
+      echo "ok - $name loads but is flagged with: $bneedle"
+    else
+      echo "not ok - $name was expected to be flagged with: $bneedle"
+      sed 's/\x1b\[[0-9;]*m//g' "$log" | sed 's/^/    /' | tail -n 10
+      failures=$((failures + 1))
+    fi
   else
     local needle=${expect#fail:}
     if [[ $loaded == 0 && $errors == *"$needle"* ]]; then
@@ -123,6 +138,7 @@ if [[ ${#entries[@]} -eq 0 ]]; then
   run_entry self-test-good "$fixtures/good.qml" pass
   run_entry self-test-bad-import "$fixtures/bad-import.qml" 'is not installed'
   run_entry self-test-bad-property "$fixtures/bad-property.qml" 'non-existent property'
+  run_entry self-test-bad-binding "$fixtures/bad-binding.qml" 'bind:ReferenceError'
   [[ ! -f $ROOT/default/quickshell/shell.qml ]] || entries=("$ROOT/default/quickshell/shell.qml")
 fi
 for entry in "${entries[@]}"; do
