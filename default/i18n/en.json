@@ -292,7 +292,7 @@
     "suspend.enabled": "Suspend now available in system menu",
     "update.kernelReboot": "Linux kernel has been updated. Reboot?",
     "update.rebootRequired": "Updates require reboot. Ready?",
-    "update.niriReboot": "Niri has been updated. Reboot?",
+    "update.hyprlandReboot": "Hyprland has been updated. Reboot?",
     "service.restarting": "Restarting %1",
     "reminder.defaultLabel": "%1-min reminder",
     "reminder.schedule": "%1 in %2 (%3)",

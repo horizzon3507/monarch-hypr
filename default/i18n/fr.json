@@ -292,7 +292,7 @@
     "suspend.enabled": "Veille disponible dans le menu système",
     "update.kernelReboot": "Le noyau Linux a été mis à jour. Redémarrer ?",
     "update.rebootRequired": "Les mises à jour nécessitent un redémarrage. Prêt ?",
-    "update.niriReboot": "Niri a été mis à jour. Redémarrer ?",
+    "update.hyprlandReboot": "Hyprland a été mis à jour. Redémarrer ?",
     "service.restarting": "Redémarrage de %1",
     "reminder.defaultLabel": "Rappel de %1 min",
     "reminder.schedule": "%1 dans %2 (%3)",

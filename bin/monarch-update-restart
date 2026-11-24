@@ -51,9 +51,10 @@ elif [[ -f $HOME/.local/state/monarch/reboot-required ]]; then
   reboot_reason=update.rebootRequired
 fi
 
-running_niri=$(readlink /proc/$(pgrep -x niri)/exe 2>/dev/null)
-if [[ -z $reboot_reason && $running_niri == *"(deleted)"* ]]; then
-  reboot_reason=update.niriReboot
+# A compositor binary replaced on disk while it runs needs a new session.
+running_compositor=$(readlink "/proc/$(pgrep -x Hyprland | head -n1)/exe" 2>/dev/null)
+if [[ -z $reboot_reason && $running_compositor == *"(deleted)"* ]]; then
+  reboot_reason=update.hyprlandReboot
 fi
 
 if [[ -n $reboot_reason ]] && gum confirm "$(monarch_t "$reboot_reason")"; then
