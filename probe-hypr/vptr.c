@@ -25,7 +25,12 @@ int main(int argc, char **argv) {
   zwlr_virtual_pointer_v1_motion_absolute(p, now(), atoi(argv[1]), atoi(argv[2]), atoi(argv[3]), atoi(argv[4]));
   zwlr_virtual_pointer_v1_frame(p); wl_display_roundtrip(d); usleep(300000);
   if (argc > 5 && !strcmp(argv[5], "click")) {
-    zwlr_virtual_pointer_v1_button(p, now(), BTN_LEFT, WL_POINTER_BUTTON_STATE_PRESSED); zwlr_virtual_pointer_v1_frame(p); wl_display_roundtrip(d); usleep(150000);
+    /* jiggle so the surface has received enter + a motion before the button */
+    for (int i = 0; i < 3; i++) {
+      zwlr_virtual_pointer_v1_motion_absolute(p, now(), atoi(argv[1]) + (i % 2), atoi(argv[2]), atoi(argv[3]), atoi(argv[4]));
+      zwlr_virtual_pointer_v1_frame(p); wl_display_roundtrip(d); usleep(300000);
+    }
+    zwlr_virtual_pointer_v1_button(p, now(), BTN_LEFT, WL_POINTER_BUTTON_STATE_PRESSED); zwlr_virtual_pointer_v1_frame(p); wl_display_roundtrip(d); usleep(300000);
     zwlr_virtual_pointer_v1_button(p, now(), BTN_LEFT, WL_POINTER_BUTTON_STATE_RELEASED); zwlr_virtual_pointer_v1_frame(p); wl_display_roundtrip(d);
   }
   usleep(200000); return 0;
