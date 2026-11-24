@@ -594,6 +594,13 @@ while true; do
   fi
 done
 
+# A direct route to a provider leaf (monarch-menu setup.power) opens the
+# provider's list, exactly as picking that row does.
+provider=$(field "$route" provider)
+if [[ -n $provider && -n ${PROVIDER_LIST[$provider]:-} ]]; then
+  value=$(${PROVIDER_LIST[$provider]} | monarch-menu-select "$(menu_title "$route" 2>/dev/null)") || exit 0
+  exec ${PROVIDER_ACTION[$provider]} "$value"
+fi
 route_action=$(field "$route" action)
 [[ -n $route_action ]] && exec setsid bash -c "$route_action" </dev/null
 exit 0
