@@ -95,7 +95,27 @@ def derive_variant(block, name):
         roles[accent + "_fixed_dim"] = mix(roles[accent], "#ffffff", 0.45)
         roles["on_" + accent + "_fixed"] = readable_on(mix(roles[accent], "#000000", 0.8), roles[accent + "_fixed"])
         roles["on_" + accent + "_fixed_variant"] = readable_on(mix(roles[accent], "#000000", 0.6), roles[accent + "_fixed"])
+    add_terminal(roles, block.get("terminal"))
     return roles
+
+
+def add_terminal(roles, terminal):
+    """term_* roles from the palette's terminal block; absent keys fall back to the surface pair."""
+    terminal = terminal if isinstance(terminal, dict) else {}
+
+    def pick(value, fallback):
+        return value.lower() if isinstance(value, str) and HEX.match(value) else fallback
+
+    for group in ("normal", "bright"):
+        block = terminal.get(group) if isinstance(terminal.get(group), dict) else {}
+        for color in ("black", "red", "green", "yellow", "blue", "magenta", "cyan", "white"):
+            roles["term_%s_%s" % (group, color)] = pick(block.get(color), roles["on_surface"])
+    roles["term_fg"] = pick(terminal.get("foreground"), roles["on_surface"])
+    roles["term_bg"] = pick(terminal.get("background"), roles["surface"])
+    roles["term_sel_fg"] = pick(terminal.get("selectionFg"), roles["on_surface"])
+    roles["term_sel_bg"] = pick(terminal.get("selectionBg"), roles["primary"])
+    roles["term_cursor"] = pick(terminal.get("cursor"), roles["on_surface"])
+    roles["term_cursor_text"] = pick(terminal.get("cursorText"), roles["surface"])
 
 
 def derive(palette, only=None):
