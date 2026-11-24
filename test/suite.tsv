@@ -202,3 +202,4 @@ test/monarch-display-text-size-test.sh	displays	medium	isolated
 test/monarch-wallpaper-test.sh	desktop-shell	medium	isolated
 test/shell.d/quickshell-panels-test.sh	desktop-shell	medium	isolated
 test/shell.d/quickshell-network-panel-test.sh	desktop-shell	medium	isolated
+test/monarch-theme-derive-test.sh	themes	medium	isolated
