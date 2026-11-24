@@ -3,8 +3,8 @@
 set -euo pipefail
 
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)
-monarch_root=${MONARCH_SOURCE_PATH:-$root/../monarch}
-monarch_pkgs_root=${MONARCH_PKGS_SOURCE_PATH:-$root/../monarch-pkgs}
+monarch_root=${MONARCH_SOURCE_PATH:-$root/..}
+monarch_pkgs_root=${MONARCH_PKGS_SOURCE_PATH:-$root/../pkgs}
 runtime_pkgbuild="$monarch_pkgs_root/pkgbuilds/monarch/PKGBUILD"
 
 [[ -f $runtime_pkgbuild ]]
