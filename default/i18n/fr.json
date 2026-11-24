@@ -554,7 +554,13 @@
     "system.restart.label": "Redémarrer",
     "system.shutdown.label": "Éteindre",
     "system.crashes.label": "Plantages",
-    "system.crashes.description": "Consulter les plantages et exporter un rapport de diagnostic"
+    "system.crashes.description": "Consulter les plantages et exporter un rapport de diagnostic",
+    "setup.network.panel.label": "Panneau réseau",
+    "style.theme-panel.label": "Panneau des thèmes",
+    "style.background-panel.label": "Panneau des fonds d’écran",
+    "trigger.hardware.display-panel.label": "Panneau des écrans",
+    "system.crash-panel.label": "Panneau des plantages",
+    "system.usage-panel.label": "Utilisation des agents"
   },
   "groups": {
     "ac": "Détection de l’alimentation secteur",

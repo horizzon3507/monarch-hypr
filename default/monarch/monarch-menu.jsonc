@@ -483,4 +483,14 @@
   "system.restart": {"icon":"󰜉","keywords":["reboot","power"],"action":"monarch-system-reboot"},
   "system.shutdown": {"icon":"󰐥","keywords":["poweroff","turn off","power"],"action":"monarch-system-shutdown"},
   "system.crashes": {"icon":"󰨇","keywords":["crash","diagnostic","logs","report"],"action":"monarch-crash-history"},
+
+  // Shell panels. Each row is offered only while the Quickshell shell answers, and
+  // falls back to the terminal route if the panel cannot be opened. The terminal
+  // rows above stay; these do not replace them.
+  "setup.network.panel": {"icon":"󰌘","when":"monarch-panel active >/dev/null 2>&1","action":"monarch-panel open network || monarch-launch-wifi"},
+  "style.theme-panel": {"icon":"󰏘","when":"monarch-panel active >/dev/null 2>&1","action":"monarch-panel open theme || monarch-menu-theme"},
+  "style.background-panel": {"icon":"","when":"monarch-panel active >/dev/null 2>&1","action":"monarch-panel open background || monarch-menu-background"},
+  "trigger.hardware.display-panel": {"icon":"󰍺","when":"monarch-panel active >/dev/null 2>&1","action":"monarch-panel open display || monarch-menu-display"},
+  "system.crash-panel": {"icon":"󰨇","when":"monarch-panel active >/dev/null 2>&1","action":"monarch-panel open crashes || monarch-crash-history"},
+  "system.usage-panel": {"icon":"󰚩","when":"monarch-panel active >/dev/null 2>&1","action":"monarch-panel open usage || monarch-launch-tui --app-id=org.monarch.agent-usage monarch-agent-usage manage"},
 }

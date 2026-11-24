@@ -128,7 +128,7 @@ assert_equals "no menu row points at Waybar" "$output" ""
 
 output=$(jq -r '.[] | select(.id | test("^system\\.[^.]+$")) | .label' <<<"$SHIPPED_TREE" | tr '\n' ' ')
 assert_equals "system retains session and power actions before crash history" "${output% }" \
-  "Lock Screensaver Suspend Hibernate Logout Restart Shutdown Crashes"
+  "Lock Screensaver Suspend Hibernate Logout Restart Shutdown Crashes Crash panel Agent usage"
 
 output=$("$MENU" --rows learn | cut -f2 | tr '\n' ' ')
 assert_contains "documentation contains About" "$output" "About"

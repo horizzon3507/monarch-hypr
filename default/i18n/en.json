@@ -730,6 +730,12 @@
     "system.restart.label": "Restart",
     "system.shutdown.label": "Shutdown",
     "system.crashes.label": "Crashes",
-    "system.crashes.description": "View crashes and export a diagnostic report"
+    "system.crashes.description": "View crashes and export a diagnostic report",
+    "setup.network.panel.label": "Network panel",
+    "style.theme-panel.label": "Theme panel",
+    "style.background-panel.label": "Background panel",
+    "trigger.hardware.display-panel.label": "Display panel",
+    "system.crash-panel.label": "Crash panel",
+    "system.usage-panel.label": "Agent usage"
   }
 }
