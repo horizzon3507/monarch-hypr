@@ -1,21 +1,87 @@
 #!/bin/bash
 
-# monarch:summary=Toggle nightlight screen temperature (not available yet)
+# monarch:summary=Toggle nightlight screen temperature
 # monarch:args=[toggle|on|off|status]
-# monarch:examples=monarch toggle nightlight status
+# monarch:examples=monarch toggle nightlight | monarch toggle nightlight status
 
-# Noctalia provided the night light. Nothing replaces it in the Hyprland desktop
-# yet (a Hyprland-native tool such as hyprsunset has not been chosen or
-# packaged), so this reports that plainly instead of failing silently. `status`
-# keeps printing the JSON the bar and menu read, always off.
+# hyprsunset (a Hyprland blue-light filter) is the night light. Its daemon is
+# started on demand with a temperature and stays running; "off" switches its
+# identity matrix back on (no colour change) through `hyprctl hyprsunset`.
+# Commands used, from the hyprsunset 0.4 CLI and IPC:
+#   hyprsunset -t <K>                   start filtering at <K> kelvin
+#   hyprctl hyprsunset temperature <K>  filter on (1000-20000), clears identity
+#   hyprctl hyprsunset identity true    filter off
+#   hyprctl hyprsunset identity get     prints "true" (off) or "false" (on)
+# A daemon that is not running means the filter is off.
+
+set -uo pipefail
+
+temperature=${MONARCH_NIGHTLIGHT_TEMPERATURE:-4000}
+if [[ ! $temperature =~ ^[0-9]+$ ]] || ((temperature < 1000 || temperature > 20000)); then
+  echo "MONARCH_NIGHTLIGHT_TEMPERATURE must be an integer from 1000 to 20000." >&2
+  exit 1
+fi
+
+daemon_running() { pgrep -x hyprsunset >/dev/null 2>&1; }
+
+# Prints on|off; fails when the daemon runs but does not answer.
+current() {
+  local reply
+  daemon_running || { echo off; return 0; }
+  reply=$(hyprctl hyprsunset identity get 2>/dev/null) || return 1
+  case $reply in
+    true) echo off ;;
+    false) echo on ;;
+    *) return 1 ;;
+  esac
+}
+
+# hyprctl answers "ok" to a successful set.
+send() {
+  local reply
+  reply=$(hyprctl hyprsunset "$@" 2>/dev/null) || return 1
+  [[ $reply == ok ]]
+}
+
+turn_on() {
+  type -P hyprsunset >/dev/null || { echo "Night light needs hyprsunset, which is not installed." >&2; return 1; }
+  if daemon_running; then
+    send temperature "$temperature" || { echo "hyprsunset did not accept the temperature." >&2; return 1; }
+    return 0
+  fi
+  setsid -f hyprsunset -t "$temperature" >/dev/null 2>&1 || { echo "Could not start hyprsunset." >&2; return 1; }
+  local attempt
+  for ((attempt = 0; attempt < 30; attempt++)); do
+    [[ $(current 2>/dev/null) == on ]] && return 0
+    sleep 0.1
+  done
+  echo "hyprsunset did not start filtering." >&2
+  return 1
+}
+
+turn_off() {
+  daemon_running || return 0
+  send identity true || { echo "hyprsunset did not switch the filter off." >&2; return 1; }
+}
 
 case "${1:-toggle}" in
-  toggle | on | off)
-    echo "Night light is not available yet: no replacement for the Noctalia night light is set up." >&2
-    exit 1
+  toggle)
+    state=$(current) || { echo "Night light state is unavailable." >&2; exit 1; }
+    if [[ $state == on ]]; then turn_off; else turn_on; fi
     ;;
+  on) turn_on ;;
+  off) turn_off ;;
   status | --status)
-    printf '{"enabled":false,"tooltip":"Night light is not available yet"}\n'
+    if state=$(current); then
+      if [[ $state == on ]]; then
+        printf '{"enabled":true,"tooltip":"Night light on"}\n'
+      else
+        printf '{"enabled":false,"tooltip":"Night light off"}\n'
+      fi
+    else
+      printf '{"enabled":false,"tooltip":"Night light state is unavailable"}\n'
+      exit 1
+    fi
     ;;
   *)
     echo "Usage: $0 [toggle|on|off|status]" >&2
