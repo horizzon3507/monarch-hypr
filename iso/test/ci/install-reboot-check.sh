@@ -97,8 +97,19 @@ g "sessions" ssh_guest 'loginctl list-sessions --no-legend; ls /usr/share/waylan
 g "processes" ssh_guest 'pgrep -a "Hyprland|quickshell|sddm|uwsm|hyprpaper|mako|swayosd" || echo none'
 g "sddm config" ssh_sudo 'cat /etc/sddm.conf.d/* 2>/dev/null | head -40'
 g "hyprctl" ssh_guest 'u=$(id -u); XDG_RUNTIME_DIR=/run/user/$u hyprctl -i "$(ls /run/user/$u/hypr 2>/dev/null | head -1)" version 2>&1 | head -5'
+# Log in at the SDDM greeter with the keyboard, the way a person would. The
+# test account password is the harness default; this is a disposable VM.
+capture_console "success-greeter-before-login"
+type_text "$GUEST_PASSWORD"; sleep 1; press ret
+for i in 1 2 3 4 5 6; do
+  sleep 15
+  capture_console "success-after-login-$((i * 15))s"
+done
+g "sessions after login" ssh_guest 'loginctl list-sessions --no-legend'
+g "processes after login" ssh_guest 'pgrep -a "Hyprland|quickshell|hyprpaper|mako|swayosd|hypridle|sddm-greeter" || echo none'
+g "hyprctl after login" ssh_guest 'u=$(id -u); export XDG_RUNTIME_DIR=/run/user/$u; sig=$(ls "$XDG_RUNTIME_DIR/hypr" 2>/dev/null | head -1); echo "sig=$sig"; HYPRLAND_INSTANCE_SIGNATURE=$sig hyprctl version 2>&1 | head -4; HYPRLAND_INSTANCE_SIGNATURE=$sig hyprctl layers 2>&1 | head -30'
+g "user units" ssh_guest 'systemctl --user list-units --no-legend --state=failed; systemctl --user list-units --no-legend "app-uwsm*" "wayland-wm*" | head'
 g "wallpaper state before restart" ssh_guest 'pgrep -a hyprpaper || echo "hyprpaper not running"; find ~/.config/monarch ~/.local/state/monarch -maxdepth 3 \( -name "background*" -o -name "*wallpaper*" \) -exec ls -l {} + 2>&1 | head'
-capture_console "success-before-shell-restart"
 g "monarch restart shell" ssh_guest 'u=$(id -u); export XDG_RUNTIME_DIR=/run/user/$u; export HYPRLAND_INSTANCE_SIGNATURE=$(ls "$XDG_RUNTIME_DIR/hypr" 2>/dev/null | head -1); timeout 60 monarch restart shell 2>&1 | tail -20'
 sleep 10
 g "after restart" ssh_guest 'pgrep -a "hyprpaper|quickshell|mako|swayosd|hypridle" || echo none'
