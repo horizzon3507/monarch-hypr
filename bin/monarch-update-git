@@ -16,4 +16,4 @@ fi
 git -C $MONARCH_PATH pull --autostash
 git -C $MONARCH_PATH --no-pager diff --check || git -C $MONARCH_PATH reset --merge
 
-niri msg action reload-config &>/dev/null || true
+hyprctl reload &>/dev/null || true

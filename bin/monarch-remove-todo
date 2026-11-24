@@ -30,20 +30,5 @@ if [[ $legacy == "true" ]]; then
   monarch-tui-remove "Todo"
 fi
 
-# The bar widget needs no removal: it is declared by the monarch-indicators
-# Noctalia plugin and hides itself as soon as this package's binary is gone.
-
-# Remove the dedicated niri include file and its one-line include in user.kdl.
-NIRI_DIR="$HOME/.config/niri"
-rm -f "$NIRI_DIR/monarch-todo.kdl"
-USER_KDL="$NIRI_DIR/user.kdl"
-if [[ -f "$USER_KDL" ]] && grep -q 'monarch:todo:begin' "$USER_KDL"; then
-  echo "Removing the Todo keybinding..."
-  sed -i '/\/\/ monarch:todo:begin/,/\/\/ monarch:todo:end/d' "$USER_KDL"
-fi
-if pgrep -x niri >/dev/null 2>&1; then
-  niri msg action load-config-file >/dev/null 2>&1 || true
-fi
-
 echo -e "\nmonarch-todo removed!"
 echo "The task store remains at \${MONARCH_TODO_FILE:-~/.local/state/monarch/todo.json}."
