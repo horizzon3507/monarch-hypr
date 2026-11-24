@@ -31,7 +31,7 @@ assert_failure() {
   pass "$description"
 }
 
-mkdir -p "$TMP/bin" "$TMP/video" "$TMP/usb/1-1" "$TMP/config/niri"
+mkdir -p "$TMP/bin" "$TMP/video" "$TMP/usb/1-1" "$TMP/config/hypr"
 
 cat >"$TMP/bin/v4l2-ctl" <<'EOF'
 #!/bin/bash
@@ -70,15 +70,11 @@ status=$(PATH="$TMP/bin:$ROOT/bin:$PATH" XDG_CONFIG_HOME="$TMP/config" \
 [[ $(jq -r '.enabled' <<<"$status") == true ]] || fail "touchpad starts enabled"
 pass "touchpad starts enabled"
 
-cat >"$TMP/config/niri/runtime.kdl" <<'EOF'
-input {
-  touchpad {
-    off
-  }
-  touch {
-    off
-  }
-}
+cat >"$TMP/config/hypr/runtime.lua" <<'EOF'
+-- monarch-input touchpad off
+hl.device({ name = "elan-touchpad", enabled = false })
+-- monarch-input touch off
+hl.device({ name = "elan-touchscreen", enabled = false })
 EOF
 
 for device in touchpad touchscreen; do

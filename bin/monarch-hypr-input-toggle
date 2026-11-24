@@ -1,13 +1,14 @@
 #!/bin/bash
 
-# monarch:summary=Enable, disable, or toggle a niri input device class via libinput
+# monarch:summary=Enable, disable, or toggle a Hyprland input device class
 # monarch:args=<touchpad|touch> [on|off|toggle]
 # monarch:hidden=true
 
 # Backs monarch-toggle-touchpad / monarch-toggle-touchscreen. The actual state
-# lives in ~/.config/niri/runtime.kdl, owned by monarch-niri-runtime, which sets
-# niri's `input { <class> { off } }` (applied by libinput on live-reload) instead
-# of poking the kernel's unreliable sysfs `inhibited` attribute.
+# lives in ~/.config/hypr/runtime.lua, owned by monarch-hypr-runtime, which writes
+# an `hl.device({ name = ..., enabled = false })` entry per device (hl.device is
+# documented but its runtime effect is unverified on 0.57.2) instead of poking
+# the kernel's unreliable sysfs `inhibited` attribute.
 
 device="${1:-}"
 action="${2:-toggle}"
@@ -20,7 +21,7 @@ case "$device" in
     ;;
 esac
 
-state=$(monarch-niri-runtime input "$device" "$action") || exit 1
+state=$(monarch-hypr-runtime input "$device" "$action") || exit 1
 
 case "$device" in
   touchpad) notify-send -u low "  Touchpad $state" ;;

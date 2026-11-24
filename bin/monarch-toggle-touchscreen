@@ -9,7 +9,7 @@ if [[ -z "$(monarch-hw-touchscreen)" ]]; then
 fi
 
 if [[ ${1:-toggle} == "status" || ${1:-toggle} == "--status" ]]; then
-  if grep -qF 'touch {' "${XDG_CONFIG_HOME:-$HOME/.config}/niri/runtime.kdl" 2>/dev/null; then
+  if grep -qxF -- '-- monarch-input touch off' "${XDG_CONFIG_HOME:-$HOME/.config}/hypr/runtime.lua" 2>/dev/null; then
     printf '{"enabled":false,"tooltip":"Touchscreen disabled - enable it"}\n'
   else
     printf '{"enabled":true,"tooltip":"Touchscreen enabled - disable it"}\n'
@@ -17,7 +17,7 @@ if [[ ${1:-toggle} == "status" || ${1:-toggle} == "--status" ]]; then
   exit 0
 fi
 
-# The toggle is driven through niri's own input config (see
-# monarch-niri-input-toggle), which disables the device via libinput rather than
+# The toggle is driven through the Hyprland runtime file (see
+# monarch-hypr-input-toggle), which disables the device rather than
 # the kernel's unreliable sysfs `inhibited` attribute.
-exec monarch-niri-input-toggle touch "${1:-toggle}"
+exec monarch-hypr-input-toggle touch "${1:-toggle}"
