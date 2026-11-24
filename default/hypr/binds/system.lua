@@ -4,7 +4,6 @@ local bind, cmd = monarch.bind, monarch.cmd
 bind("SUPER + Q", hl.dsp.window.close(), "Close active window")
 bind("SUPER + SHIFT + Q", hl.dsp.window.close(), "Close active window")
 cmd("CTRL + ALT + Delete", "monarch-hypr-window-close-all", "Close all windows")
-cmd("SUPER + L", "monarch-system-lock", "Lock screen")
 bind("SUPER + CTRL + ALT + Q", hl.dsp.exit(), "Exit Hyprland")
 
 cmd("SUPER + Return", 'uwsm-app -- xdg-terminal-exec --dir="$(monarch-cmd-terminal-cwd)"', "Terminal")

@@ -1,24 +1,12 @@
 -- Menus, captures, toggles and control panels.
 local cmd = monarch.cmd
 
--- Menus (the launcher, emoji picker, clipboard manager and power menu are in shell.lua)
-cmd("SUPER + CTRL + C", "monarch-menu trigger.capture", "Capture menu")
-cmd("SUPER + CTRL + O", "monarch-menu trigger.toggle", "Toggle menu")
-cmd("SUPER + CTRL + H", "monarch-menu trigger.hardware", "Hardware menu")
-cmd("SUPER + ALT + space", "monarch-menu", "Monarch menu")
-cmd("SUPER + K", "monarch-menu-keybindings", "Show key bindings")
+-- Menus and toggles that belong to the shell layer (launcher, menus, DND, idle, nightlight) are in shell.lua
 cmd("XF86Calculator", "gnome-calculator", "Calculator")
 
 -- Aesthetics
-cmd("SUPER + CTRL + space", "monarch-menu style.background", "Background picker")
-cmd("SUPER + SHIFT + CTRL + space", "monarch-menu style", "Style menu")
 cmd("SUPER + BackSpace", "monarch-hypr-window-transparency-toggle", "Toggle window transparency")
 cmd("SUPER + SHIFT + BackSpace", "monarch-hypr-window-gaps-toggle", "Toggle window gaps")
-
--- Toggles
-cmd("SUPER + CTRL + comma", "monarch-toggle-notification-silencing", "Toggle Do Not Disturb")
-cmd("SUPER + CTRL + I", "monarch-toggle-idle", "Toggle idle lock")
-cmd("SUPER + CTRL + N", "monarch-toggle-nightlight", "Toggle nightlight")
 
 -- Captures
 cmd("Print", "monarch-capture-screenshot smart edit", "Screenshot (with editor)")
@@ -30,9 +18,7 @@ cmd("SUPER + Print", "monarch-capture-color", "Color picker")
 cmd("SUPER + CTRL + Print", "monarch-capture-text-extraction", "OCR from screenshot")
 
 -- Sharing, transcoding, reminders
-cmd("SUPER + CTRL + S", "monarch-menu trigger.share", "Share")
 cmd("SUPER + CTRL + semicolon", "monarch-transcode", "Transcode")
-cmd("SUPER + CTRL + R", "monarch-menu trigger.reminder.set", "Set reminder")
 cmd("SUPER + CTRL + ALT + R", "monarch-reminder show", "Show reminders")
 cmd("SUPER + SHIFT + CTRL + R", "monarch-reminder clear", "Clear reminders")
 

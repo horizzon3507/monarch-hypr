@@ -73,7 +73,7 @@ rule({ class = "^(jetbrains-.*)$" }, { no_follow_mouse = true })
 -- Float LocalSend and the fzf file picker
 rule({ class = "(Share|localsend)" }, { float = true, center = true })
 rule({ class = "localsend" }, { size = "1100 700" })
-rule({ class = "com.moonlight_stream.Moonlight" }, { fullscreen = true, idle_inhibit = "fullscreen" })
+rule({ class = "com.moonlight_stream.Moonlight" }, { fullscreen_state = "1 1", idle_inhibit = "fullscreen" })
 rule({ class = "qemu" }, { tag = "-default-opacity", opacity = "1 1" })
 rule({ class = "com.libretro.RetroArch" }, { fullscreen = true, tag = "-default-opacity", opacity = "1 1", idle_inhibit = "fullscreen" })
 -- Float Steam

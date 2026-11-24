@@ -2,7 +2,6 @@
 -- (with their on-screen display) are bound in shell.lua.
 local cmd = monarch.cmd
 
-cmd("XF86AudioMicMute", "monarch-audio-input-mute", "Mute microphone", { locked = true, repeating = true })
 cmd("XF86KbdBrightnessUp", "monarch-brightness-keyboard up", "Keyboard brightness up", { locked = true, repeating = true })
 cmd("XF86KbdBrightnessDown", "monarch-brightness-keyboard down", "Keyboard brightness down", { locked = true, repeating = true })
 cmd("XF86KbdLightOnOff", "monarch-brightness-keyboard cycle", "Keyboard backlight cycle", { locked = true })
