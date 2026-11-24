@@ -20,6 +20,14 @@ grep -q 'Settings.textScale' "$QS/Bar.qml" || fail "bar follows the text size se
   || fail "bar components use theme colors, not literals"
 pass "bar follows settings and theme without hard-coded colors"
 
+# The clock is centered on the bar window, not placed between side widgets.
+grep -q 'anchors.centerIn: parent' "$QS/Bar.qml" || fail "the clock is centered on the bar"
+# Inactive workspace labels use the foreground color (dimmed by opacity only),
+# never the outline color, which is nearly invisible on the bar background.
+! grep -q 'Theme.outline : Theme.fg\|slot.ws !== null ? Theme.fg : Theme.outline' "$QS/Workspaces.qml" \
+  || fail "inactive workspace labels stay readable"
+pass "clock is centered and inactive workspace labels are readable"
+
 if ! command -v node >/dev/null 2>&1; then
   pass "skipped bar logic checks: node is not installed"
   exit 0
