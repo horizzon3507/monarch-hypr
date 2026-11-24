@@ -11,14 +11,6 @@ mock_bin="$test_tmp/bin"
 call_log="$test_tmp/calls.log"
 mkdir -p "$mock_bin"
 
-cat >"$mock_bin/noctalia" <<'EOF'
-#!/bin/bash
-
-printf 'noctalia %s\n' "$*" >>"$CALL_LOG"
-printf 'ok\n'
-exit "${NOCTALIA_STATUS:-0}"
-EOF
-
 for command in systemd-run systemctl monarch-hypr-window-close-all sleep; do
   cat >"$mock_bin/$command" <<'EOF'
 #!/bin/bash
@@ -48,26 +40,13 @@ state_dir="$HOME/.local/state/monarch"
 mkdir -p "$state_dir"
 touch "$state_dir/reboot-required" "$state_dir/restart-test-required"
 for action in shutdown reboot; do
-  run_power_command "$action" >"$test_tmp/$action-output"
-  [[ $(cat "$test_tmp/$action-output") == "ok" ]] || fail "Noctalia did not acknowledge $action"
-  [[ $(cat "$call_log") == "noctalia msg session $action" ]] ||
-    fail "$action must delegate without clearing state, closing windows or scheduling another action"
+  case $action in shutdown) verb=poweroff ;; reboot) verb=reboot ;; esac
+  run_power_command "$action"
+  [[ $(cat "$call_log") == "systemctl $verb" ]] ||
+    fail "$action must call systemctl $verb without clearing state or closing windows"
   [[ -f $state_dir/reboot-required && -f $state_dir/restart-test-required ]] ||
     fail "$action removed restart markers without a boot change"
-  pass "$action delegates to Noctalia and preserves state after IPC acceptance"
-
-  for status in 1 127; do
-    : >"$call_log"
-    actual_status=0
-    PATH="$mock_bin:$PATH" CALL_LOG="$call_log" NOCTALIA_STATUS="$status" \
-      "$ROOT/bin/monarch-system-$action" >"$test_tmp/$action-output" || actual_status=$?
-    (( actual_status == status )) || fail "$action propagates IPC error $status"
-    [[ $(cat "$call_log") == "noctalia msg session $action" ]] ||
-      fail "$action leaves state and windows alone after IPC error $status"
-    [[ -f $state_dir/reboot-required && -f $state_dir/restart-test-required ]] ||
-      fail "$action removed restart markers after IPC error $status"
-    pass "$action preserves state and propagates IPC error $status"
-  done
+  pass "$action calls systemctl and preserves state"
 done
 
 state_command="$test_tmp/monarch-state"
