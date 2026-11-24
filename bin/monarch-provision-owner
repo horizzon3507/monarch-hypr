@@ -419,7 +419,7 @@ greeter_screen() {
     rows=$(stty size 2>/dev/null </dev/tty | awk '{print $1}')
     [[ $rows =~ ^[0-9]+$ ]] || rows=${LINES:-24}
 
-    tagline="A Modern Cybersecurity Desktop powered by Niri"
+    tagline="A Modern Cybersecurity Desktop powered by Hyprland"
     hint="Press Return to Start Setup"
 
     printf '%s%s' "$HIDE_CURSOR" "$CLEAR"
