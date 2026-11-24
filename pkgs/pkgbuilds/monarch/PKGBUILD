@@ -1,7 +1,7 @@
 pkgbase=monarch
 pkgname=(monarch monarch-settings)
 pkgver=0.1.0
-pkgrel=7
+pkgrel=8
 pkgdesc="Monarch desktop runtime and defaults"
 arch=('any')
 url="https://github.com/monarch-os/monarch"
@@ -17,6 +17,7 @@ depends=(
   'hyprland'
   'hyprland-guiutils'
   'noctalia'
+  'quickshell'
   'uwsm'
   'sddm'
   'xdg-desktop-portal-hyprland'
