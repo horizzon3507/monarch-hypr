@@ -198,6 +198,9 @@ function parseWifiSnapshot(text) {
     var data;
     try { data = JSON.parse(text); } catch (e) { return null; }
     if (!data || typeof data !== "object" || !Array.isArray(data.networks)) return null;
+    // A snapshot with the wrong types is unknown, not evidence that the adapter
+    // is missing or the radio is off: only real booleans count.
+    if (typeof data.enabled !== "boolean" || typeof data.present !== "boolean") return null;
     var rows = [];
     for (var i = 0; i < data.networks.length; i++) {
         var n = data.networks[i];
@@ -214,7 +217,7 @@ function parseWifiSnapshot(text) {
             connecting: n.connecting === true
         });
     }
-    return { enabled: data.enabled === true, present: data.present === true, networks: rows };
+    return { enabled: data.enabled, present: data.present, networks: rows };
 }
 
 // What a click on a row does. A connected network disconnects. A saved or open

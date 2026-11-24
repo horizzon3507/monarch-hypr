@@ -32,6 +32,8 @@ out.push(L.panelName("network") === "network" && L.panelName("Network") === "");
 const parsed = L.parseWifiSnapshot(snap([row({ssid: "A", signal: 250}), row({ssid: ""}), {ssid: 5}, null, row({ssid: "B", signal: "x", saved: "yes"})]));
 out.push(parsed.networks.length === 2 && parsed.networks[0].signal === 100 && parsed.networks[1].signal === 0 && parsed.networks[1].saved === false);
 out.push(L.parseWifiSnapshot("nope") === null && L.parseWifiSnapshot("{}") === null && L.parseWifiSnapshot("null") === null && L.parseWifiSnapshot("") === null);
+out.push(L.parseWifiSnapshot(JSON.stringify({enabled: "yes", present: true, networks: []})) === null && L.parseWifiSnapshot(JSON.stringify({enabled: true, present: 1, networks: []})) === null && L.parseWifiSnapshot(JSON.stringify({networks: []})) === null);
+out.push(L.parseWifiSnapshot(snap([], {present: false})).present === false);
 out.push(L.wifiRowAction(row({connected: true, uuid: "u"})) === "disconnect" && L.wifiRowAction(row({connected: true})) === "");
 out.push(L.wifiRowAction(row({saved: true})) === "join" && L.wifiRowAction(row({security: "open"})) === "join");
 out.push(L.wifiRowAction(row({})) === "credentials" && L.wifiRowAction(row({security: "802.1X"})) === "credentials");
@@ -43,5 +45,5 @@ out.push(L.wifiHeader(L.parseWifiSnapshot(snap([row({ssid: "Home", connected: tr
 out.push(L.wifiHeader(L.parseWifiSnapshot(snap([row({})]))) === "Not connected" && L.wifiHeader(L.parseWifiSnapshot(snap([]))) === "No networks in range");
 console.log(out.map(Boolean).join(" "));
 ')
-[[ $out == "true true true true true true true true true true true true" ]] || fail "network panel logic" "$out"
+[[ $out == "true true true true true true true true true true true true true true" ]] || fail "network panel logic" "$out"
 pass "snapshot parsing, row actions and the header text behave"
