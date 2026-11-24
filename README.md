@@ -19,7 +19,7 @@ This repository is a work in progress. The goal is a lightly opinionated desktop
 - **Desktop shell**: a small custom [Quickshell](https://quickshell.org) shell (bar and panels for network, theme, display, background, crash history, first steps and agent usage). The lock screen, idle handling, notifications, launcher and on-screen displays stay on hyprlock, hypridle, mako, Walker and swayosd.
 - **Noctalia and Niri** are still shipped while the retirement is staged. They are going away in later changes, so do not build on them.
 
-Not done yet, and not claimed: a published ISO, a completed install, a reboot into the desktop, fingerprint login on the lock screen, and any run on real hardware. [docs/fork-status.md](docs/fork-status.md) lists what has been run and where, and is the source of truth when this page and it disagree.
+Not done yet, and not claimed: a published or validated ISO release (intermediate CI builds of this fork have booted to the installer in a VM, see the status page), a completed install, a reboot into the desktop, fingerprint login on the lock screen, and any run on real hardware. [docs/fork-status.md](docs/fork-status.md) lists what has been run and where, and is the source of truth when this page and it disagree.
 
 ### Trying it
 
