@@ -16,10 +16,10 @@ jobs:
       image: archlinux:latest
       options: --privileged
     steps:
-      - run: pacman -Syu --noconfirm --needed hyprland quickshell mesa grim git sudo qt6-wayland pciutils sway
+      - run: pacman -Syu --noconfirm --needed strace seatd hyprland quickshell mesa grim git sudo qt6-wayland pciutils sway
       - uses: actions/checkout@v4
       - run: |
-          useradd -m tester; chmod 666 /dev/dri/* || true; chown -R tester: "$GITHUB_WORKSPACE"
+          useradd -m tester; chmod 666 /dev/dri/* || true; (seatd -g tester & ) ; sleep 1; chown -R tester: "$GITHUB_WORKSPACE"
           sudo -u tester bash "$GITHUB_WORKSPACE/probe-hypr/probe.sh" /tmp/probe-out || true
           find /tmp/probe-out -name status -exec sh -c 'echo "$1: $(cat $1)"' _ {} \;
       - uses: actions/upload-artifact@v4
