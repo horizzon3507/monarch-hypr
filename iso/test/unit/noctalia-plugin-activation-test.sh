@@ -3,7 +3,7 @@
 set -euo pipefail
 
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)
-monarch_root=${MONARCH_SOURCE_PATH:-$root/../monarch}
+monarch_root=${MONARCH_SOURCE_PATH:-$root/..}
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 

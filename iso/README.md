@@ -163,7 +163,7 @@ For example, build local changes while keeping the workstation responsive:
 
 ```bash
 MONARCH_ISO_BUILD_CPUS=8 MONARCH_ISO_BUILD_MEMORY=12G \
-  ./bin/monarch-iso-make --local-source ../monarch ../monarch-pkgs
+  ./bin/monarch-iso-make --local-source .. ../pkgs
 ```
 
 Remote branches and tags are checked before the expensive container build

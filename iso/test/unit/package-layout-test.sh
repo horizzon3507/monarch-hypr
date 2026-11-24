@@ -3,8 +3,8 @@
 set -euo pipefail
 
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)
-monarch_root=${MONARCH_SOURCE_PATH:-$root/../monarch}
-monarch_pkgs_root=${MONARCH_PKGS_SOURCE_PATH:-$root/../monarch-pkgs}
+monarch_root=${MONARCH_SOURCE_PATH:-$root/..}
+monarch_pkgs_root=${MONARCH_PKGS_SOURCE_PATH:-$root/../pkgs}
 runtime_pkgbuild="$monarch_pkgs_root/pkgbuilds/monarch/PKGBUILD"
 
 [[ -f $runtime_pkgbuild ]]
@@ -41,6 +41,7 @@ if grep -qE "^(provides|conflicts|replaces)=\('monarch-dns'\)" "$runtime_pkgbuil
 fi
 
 grep -qF 'cp -a /monarch-pkgs/pkgbuilds/monarch "$work_dir/"' "$root/builder/build-monarch-package.sh"
+grep -qF -- '--exclude=./iso --exclude=./pkgs' "$root/builder/build-monarch-package.sh"
 ! grep -q 'settings_package' "$root/builder/build-iso.sh"
 ! grep -qxF monarch-settings "$root/builder/target-bootstrap.packages"
 grep -qF 'resolve_expected_packages' "$root/builder/build-iso.sh"
