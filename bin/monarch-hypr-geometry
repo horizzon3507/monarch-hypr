@@ -1,0 +1,45 @@
+#!/bin/bash
+
+# monarch:summary=Print monitor and window rectangles from Hyprland for the capture tools
+# monarch:args=<monitors|windows|focused|mode>
+# monarch:hidden=true
+
+# monitors  name<TAB>x<TAB>y<TAB>width<TAB>height<TAB>focused, in logical pixels
+#           (the space slurp reports): physical size divided by scale, with the
+#           sides swapped for rotated outputs.
+# windows   "x,y WxH" for each mapped window on the focused monitor's workspace
+# focused   name of the focused monitor
+# mode      "<physical width> <physical height>" of the focused monitor
+#
+# Field names come from `hyprctl monitors -j` and `hyprctl clients -j`
+# (name, x, y, width, height, scale, transform, focused, activeWorkspace.id,
+# at, size, workspace.id, mapped, hidden). Not yet confirmed on Hyprland 0.57.2.
+
+set -uo pipefail
+
+monitors_json() { hyprctl monitors -j 2>/dev/null || printf '[]'; }
+
+case "${1:-}" in
+  monitors)
+    monitors_json | jq -r '.[] |
+      (if (.transform // 0) % 2 == 1 then [.height, .width] else [.width, .height] end) as $px |
+      [.name, .x, .y, (($px[0] / (.scale // 1)) | round), (($px[1] / (.scale // 1)) | round), (.focused // false)] | @tsv'
+    ;;
+  windows)
+    workspace=$(monitors_json | jq -r '[.[] | select(.focused)][0].activeWorkspace.id // empty')
+    [[ -n $workspace ]] || exit 0
+    hyprctl clients -j 2>/dev/null | jq -r --argjson ws "$workspace" '
+      .[] | select(.workspace.id == $ws and (.mapped != false) and ((.hidden // false) | not)) |
+      "\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"'
+    ;;
+  focused)
+    monitors_json | jq -r '[.[] | select(.focused)][0].name // empty'
+    ;;
+  mode)
+    monitors_json | jq -r '[.[] | select(.focused)][0] | "\(.width // 0) \(.height // 0)"'
+    ;;
+  *)
+    echo "Usage: $0 <monitors|windows|focused|mode>" >&2
+    exit 2
+    ;;
+esac
