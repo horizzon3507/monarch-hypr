@@ -97,6 +97,12 @@ g "sessions" ssh_guest 'loginctl list-sessions --no-legend; ls /usr/share/waylan
 g "processes" ssh_guest 'pgrep -a "Hyprland|quickshell|sddm|uwsm|hyprpaper|mako|swayosd" || echo none'
 g "sddm config" ssh_sudo 'cat /etc/sddm.conf.d/* 2>/dev/null | head -40'
 g "hyprctl" ssh_guest 'u=$(id -u); XDG_RUNTIME_DIR=/run/user/$u hyprctl -i "$(ls /run/user/$u/hypr 2>/dev/null | head -1)" version 2>&1 | head -5'
+g "wallpaper state before restart" ssh_guest 'pgrep -a hyprpaper || echo "hyprpaper not running"; find ~/.config/monarch ~/.local/state/monarch -maxdepth 3 \( -name "background*" -o -name "*wallpaper*" \) -exec ls -l {} + 2>&1 | head'
+capture_console "success-before-shell-restart"
+g "monarch restart shell" ssh_guest 'u=$(id -u); export XDG_RUNTIME_DIR=/run/user/$u; export HYPRLAND_INSTANCE_SIGNATURE=$(ls "$XDG_RUNTIME_DIR/hypr" 2>/dev/null | head -1); timeout 60 monarch restart shell 2>&1 | tail -20'
+sleep 10
+g "after restart" ssh_guest 'pgrep -a "hyprpaper|quickshell|mako|swayosd|hypridle" || echo none'
+capture_console "success-after-shell-restart"
 ssh_sudo 'journalctl -b --no-pager' >"$OUT/journal-cold-boot.log" 2>/dev/null
 g "journal: sddm/uwsm/hyprland/quickshell (last 60)" bash -c "grep -iE 'sddm|uwsm|hyprland|quickshell' '$OUT/journal-cold-boot.log' | tail -60"
 note "RESULT: install, reboot and cold boot reached SSH. Read report.txt and the screenshots for the session outcome; no desktop claim is made by this script."
