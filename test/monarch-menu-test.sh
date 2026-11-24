@@ -403,7 +403,7 @@ rm -f "$USER_MENU"
 # evaluated in one payload.
 STATE=$("$MENU" --state)
 output=$(jq -r '.tree[0].id + " " + .tree[-1].id' <<<"$STATE")
-assert_equals "--state emits the tree in declaration order" "$output" "apps system.crashes"
+assert_equals "--state emits the tree in declaration order" "$output" "apps system.usage-panel"
 
 output=$(jq -r '.tree[] | select(.id == "learn.bash") | .action' <<<"$STATE")
 assert_contains "--state carries the fields the panel renders" "$output" "devhints.io/bash"
