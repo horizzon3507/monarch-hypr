@@ -157,7 +157,7 @@ function bluetoothText(adapterEnabled, connected) {
 
 // Panels the host knows. Names come from the IPC call, so anything else is
 // refused rather than loaded.
-var PANELS = ["wifi-qr", "network", "theme", "display", "background", "crashes", "first-steps"];
+var PANELS = ["wifi-qr", "network", "theme", "display", "background", "crashes", "first-steps", "usage"];
 
 function panelName(name) {
     var n = String(name === undefined || name === null ? "" : name);
@@ -517,3 +517,82 @@ function firstStepsShortcuts(text) {
     }
     return out;
 }
+
+// ---- Agent usage -----------------------------------------------------------
+
+var PROVIDER_NAMES = { codex: "Codex", claude: "Claude", synthetic: "Synthetic", openrouter: "OpenRouter" };
+
+function providerName(p) {
+    var id = String(p && (p.provider || p.id) || "unknown");
+    return PROVIDER_NAMES[id] || (id.charAt(0).toUpperCase() + id.slice(1));
+}
+
+// `monarch-agent-usage-fetch` output: {"providers":[...],"ok":bool}. An
+// unusable envelope, or a failed fetch with nothing in it, is null
+// (unavailable), never "no providers".
+function parseUsage(text) {
+    var d;
+    try { d = JSON.parse(text); } catch (e) { return null; }
+    if (!d || typeof d !== "object" || !Array.isArray(d.providers) || typeof d.ok !== "boolean") return null;
+    if (!d.ok && d.providers.length === 0) return null;
+    var out = [];
+    for (var i = 0; i < d.providers.length; i++) {
+        if (d.providers[i] && typeof d.providers[i] === "object") out.push(usageProvider(d.providers[i]));
+    }
+    return { providers: out, ok: d.ok };
+}
+
+function usageIssue(p) {
+    var e = p.error;
+    if (e && typeof e === "object") return String(e.message || e.description || e.kind || "Provider unavailable");
+    return e ? String(e) : "";
+}
+
+function usageReset(t) {
+    return String(t).replace(/^(\d{4}-\d\d-\d\d)T(\d\d:\d\d):\d\dZ$/, "$1 $2 UTC");
+}
+
+function usageWindows(p) {
+    var usage = p.usage || {}, labels = p.rateWindowLabels || {}, rows = [], seen = [];
+    function add(key, w, label) {
+        if (!w || typeof w !== "object" || w.usageKnown === false || seen.indexOf(w) >= 0 || isNaN(parseFloat(w.usedPercent))) return;
+        seen.push(w);
+        rows.push({
+            title: String(label || labels[key] || w.title || w.label || key),
+            used: Math.max(0, Math.min(100, parseFloat(w.usedPercent))),
+            reset: w.resetsAt ? usageReset(w.resetsAt) : ""
+        });
+    }
+    ["primary", "secondary", "tertiary"].forEach(function (k) { add(k, usage[k]); });
+    (usage.extraRateWindows || []).forEach(function (x) { if (x && x.usageKnown !== false) add("Additional quota", x.window || x, x.title || x.name); });
+    (usage.windows || []).forEach(function (x) { if (x) add("Quota", x.window || x, x.title || x.name); });
+    return rows;
+}
+
+function usageProvider(p) {
+    var usage = p.usage || {}, identity = usage.identity || {}, cost = usage.providerCost;
+    var credits = p.credits || usage.credits;
+    var lines = [];
+    if (cost && typeof cost === "object") {
+        var used = parseFloat(cost.used), limit = parseFloat(cost.limit);
+        var hideSpend = cost.balance !== undefined && cost.balance !== null && used === 0 && (isNaN(limit) || limit === 0);
+        if (!isNaN(used) && !hideSpend) {
+            lines.push("Spend: " + used + (limit > 0 ? " of " + limit : "") + (cost.currencyCode ? " " + cost.currencyCode : "") + (cost.period ? " (" + cost.period + ")" : ""));
+        }
+        if (cost.balance !== undefined && cost.balance !== null) lines.push("Balance: " + cost.balance + (cost.currencyCode ? " " + cost.currencyCode : ""));
+    }
+    if (credits && typeof credits === "object" && credits.remaining !== undefined && credits.remaining !== null) lines.push("Credits: " + credits.remaining);
+    var windows = usageWindows(p), issue = usageIssue(p);
+    return {
+        key: String(p.provider || p.id || "unknown") + ":" + String(p.account || ""),
+        name: providerName(p),
+        plan: String(identity.plan || identity.accountEmail || p.source || ""),
+        issue: issue,
+        windows: windows,
+        lines: lines,
+        stale: p.stale === true,
+        empty: windows.length === 0 && issue === "" && lines.length === 0
+    };
+}
+
+function usageColor(used) { return used >= 90 ? "error" : (used >= 70 ? "warn" : "ok"); }

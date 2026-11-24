@@ -211,3 +211,4 @@ test/monarch-theme-vscode-test.sh	themes	medium	isolated
 test/shell.d/quickshell-background-panel-test.sh	desktop-shell	medium	isolated
 test/shell.d/quickshell-crash-panel-test.sh	desktop-shell	medium	isolated
 test/shell.d/quickshell-first-steps-test.sh	desktop-shell	medium	isolated
+test/shell.d/quickshell-usage-panel-test.sh	desktop-shell	medium	isolated
