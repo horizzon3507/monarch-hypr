@@ -44,6 +44,12 @@ if bad:
 PY
 pass "derived accent foregrounds reach 4.5:1 on their containers in every palette"
 
+# Terminal colors come through, and the fallback is the surface pair.
+[[ $(python3 "$DERIVE" "$PALETTES/Monarch.json" dark | jq -r '.dark | [.term_normal_red, .term_fg, .term_cursor_text] | join(",")') == "#f7768e,#a9b1d6,#1a1b26" ]] || fail "terminal colors are read from the palette"
+printf '%s' '{"dark":{"mSurface":"#101010","mOnSurface":"#eeeeee","mSurfaceVariant":"#202020","mOnSurfaceVariant":"#cccccc","mOutline":"#444444","mPrimary":"#3366ff","mOnPrimary":"#ffffff","mSecondary":"#aa66ff","mOnSecondary":"#000000","mTertiary":"#66aaff","mOnTertiary":"#000000","mError":"#ff3355","mOnError":"#000000"}}' >"$TMP/min.json"
+[[ $(python3 "$DERIVE" "$TMP/min.json" | jq -r '.dark | [.term_normal_red, .term_fg, .term_bg] | join(",")') == "#eeeeee,#eeeeee,#101010" ]] || fail "a palette without terminal colors falls back to the surface pair"
+pass "terminal colors are read, with a fallback to the surface pair"
+
 # Deterministic, and one mode on request.
 python3 "$DERIVE" "$PALETTES/Monarch.json" >"$TMP/a.json"
 python3 "$DERIVE" "$PALETTES/Monarch.json" >"$TMP/b.json"
