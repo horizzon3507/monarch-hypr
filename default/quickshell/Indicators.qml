@@ -20,7 +20,8 @@ RowLayout {
         visible: sink !== null && sink.audio !== null
         text: visible ? "vol " + Logic.volumeText(sink.audio.volume, sink.audio.muted) : ""
         font.pixelSize: root.fontSize
-        color: visible && sink.audio.muted ? Theme.outline : Theme.fg
+        color: Theme.fg
+        opacity: visible && sink.audio.muted ? 0.6 : 1.0
     }
 
     Text {
