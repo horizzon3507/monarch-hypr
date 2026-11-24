@@ -154,8 +154,6 @@
   "style.bar.position": {"icon":""},
   "style.bar.position.top": {"icon":"󰁝","checked":"[[ $(monarch-bar-position) == top ]]","action":"monarch-bar-position top"},
   "style.bar.position.bottom": {"icon":"󰁅","checked":"[[ $(monarch-bar-position) == bottom ]]","action":"monarch-bar-position bottom"},
-  "style.bar.position.left": {"icon":"󰁍","checked":"[[ $(monarch-bar-position) == left ]]","action":"monarch-bar-position left"},
-  "style.bar.position.right": {"icon":"󰁔","checked":"[[ $(monarch-bar-position) == right ]]","action":"monarch-bar-position right"},
 
   // Setup
   "setup.audio": {"icon":"","action":"monarch-launch-audio"},

@@ -88,8 +88,8 @@ output=$("$MENU" --rows style.screensaver | cut -f2 | tr '\n' ' ')
 assert_equals "a level renders its own children only" "${output% }" "Edit Text Set From Image Restore Default"
 
 output=$(jq -r '.[] | select(.id | test("^style\\.bar\\.position\\.[^.]+$")) | [.label, .checked, .action] | join("|")' <<<"$SHIPPED_TREE")
-assert_equals "bar position exposes four stateful choices" "$output" \
-  $'Top|[[ $(monarch-bar-position) == top ]]|monarch-bar-position top\nBottom|[[ $(monarch-bar-position) == bottom ]]|monarch-bar-position bottom\nLeft|[[ $(monarch-bar-position) == left ]]|monarch-bar-position left\nRight|[[ $(monarch-bar-position) == right ]]|monarch-bar-position right'
+assert_equals "bar position exposes the two supported stateful choices" "$output" \
+  $'Top|[[ $(monarch-bar-position) == top ]]|monarch-bar-position top\nBottom|[[ $(monarch-bar-position) == bottom ]]|monarch-bar-position bottom'
 
 output=$(jq -r '.[] | select(.id == "style.backgrounds") | .action' <<<"$SHIPPED_TREE")
 assert_equals "Backgrounds opens the Monarch selector directly" "$output" "noctalia msg panel-toggle monarch/theme:background"
