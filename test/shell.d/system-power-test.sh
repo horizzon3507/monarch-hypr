@@ -19,7 +19,7 @@ printf 'ok\n'
 exit "${NOCTALIA_STATUS:-0}"
 EOF
 
-for command in systemd-run systemctl monarch-niri-window-close-all sleep; do
+for command in systemd-run systemctl monarch-hypr-window-close-all sleep; do
   cat >"$mock_bin/$command" <<'EOF'
 #!/bin/bash
 

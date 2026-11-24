@@ -203,5 +203,5 @@ binds {
 
     // --- Quit / reload ---
     Mod+Ctrl+Alt+Q { quit; }
-    Ctrl+Alt+Delete hotkey-overlay-title="Close all windows" { spawn "monarch-niri-window-close-all"; }
+    Ctrl+Alt+Delete hotkey-overlay-title="Close all windows" { spawn "monarch-hypr-window-close-all"; }
 }
