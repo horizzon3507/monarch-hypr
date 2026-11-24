@@ -81,7 +81,7 @@ jobs:
       - name: Run package recipe tests
         run: |
           cd pkgs/pkgbuilds/monarch
-          for t in permissions-test.sh defaults-permissions-test.sh; do bash "$t"; done
+          for t in permissions-test.sh defaults-permissions-test.sh; do bash "$t" "$GITHUB_WORKSPACE"; done
 
   repository-tests:
     name: Repository availability tests
