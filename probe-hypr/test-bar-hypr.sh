@@ -35,14 +35,15 @@ hyprctl monitors > "$OUT/monitors.txt" 2>&1
 
 # Test copy of the bar: ONLY change is a console.log line in the workspace onClicked (labeled PROBE)
 INSTR=/tmp/qs-instr; rm -rf "$INSTR"; cp -r "$ROOT/default/quickshell" "$INSTR"
-python3 - "$INSTR/Workspaces.qml" <<'PY'
+if [[ ${UNMODIFIED:-1} == 1 ]]; then INSTR="$ROOT/default/quickshell"; fi
+[[ $INSTR == /tmp/* ]] && python3 - "$INSTR/Workspaces.qml" <<'PY'
 import sys
 p=sys.argv[1]; s=open(p).read()
 a='var request = Logic.workspaceDispatch(slot.modelData);'
 assert a in s
 open(p,'w').write(s.replace(a,a+'\n                    console.log("PROBE onClicked slot", slot.modelData, "request:", request);'))
 PY
-say "bar under test: default/quickshell copied to $INSTR with one console.log added in onClicked"
+say "bar under test: $INSTR (UNMODIFIED=${UNMODIFIED:-1}; /tmp copy = one console.log added)"
 fc-list | grep -ci dejavu | xargs -I{} echo "dejavu font files: {}" | tee -a "$res"
 QT_QPA_PLATFORM=wayland quickshell --path "$INSTR" > "$OUT/quickshell.log" 2>&1 &
 QPID=$!
