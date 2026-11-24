@@ -16,7 +16,7 @@ fi
 printf '%s\t%s\t%s\t%s\n' "$([[ $current == default ]] && echo true || echo false)" "Monarch Default" default "$MONARCH_ROOT/default/plymouth/preview-unlock.png"
 
 declare -A palette_names=()
-for palette in "$HOME/.config/noctalia/palettes"/*.json; do
+for palette in "$HOME/.config/monarch/palettes"/*.json; do
   [[ -f $palette ]] || continue
   name=${palette##*/}
   name=${name%.json}

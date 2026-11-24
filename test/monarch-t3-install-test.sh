@@ -18,7 +18,7 @@ printf 'package %s\n' "$*" >>"$TEST_LOG"
 STUB
 cat >"$fake_bin/monarch-theme-apply" <<STUB
 #!/bin/bash
-"$ROOT/bin/monarch-theme-set-t3-code" "$ROOT/config/noctalia/palettes/Monarch.json" dark
+"$ROOT/bin/monarch-theme-set-t3-code" "$ROOT/config/monarch/palettes/Monarch.json" dark
 STUB
 cat >"$fake_bin/t3" <<'STUB'
 #!/bin/bash

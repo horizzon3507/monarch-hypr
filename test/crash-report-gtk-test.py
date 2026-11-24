@@ -79,7 +79,7 @@ class Reviewer(unittest.TestCase):
       app.register(None)
       with patch.object(Window, "run"):
         window = Window(app, draft)
-      window.palette = json.loads((ROOT / "config/noctalia/palettes/Monarch.json").read_text())["dark"]
+      window.palette = json.loads((ROOT / "config/monarch/palettes/Monarch.json").read_text())["dark"]
       window.apply_palette()
       window.documents()
       self.assertFalse(window.next_button.get_sensitive())

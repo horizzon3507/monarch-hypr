@@ -437,7 +437,7 @@ cmp "$MONARCH_NVIM_CONFIG_DIR/lua/config/remote_clipboard.lua" \
 [[ -f $HOME/.local/share/noctalia/plugins/monarch-theme/plugin.toml ]]
 [[ ! -e $HOME/.local/share/noctalia/plugins/monarch-theme/removed.luau ]]
 [[ -f $HOME/.local/share/noctalia/plugins/third-party/plugin.toml ]]
-[[ -f $HOME/.config/noctalia/palettes/Monarch.json ]]
+[[ -f $HOME/.config/monarch/palettes/Monarch.json ]]
 cmp "$ROOT/config/noctalia/monarch-workspaces.toml" \
   "$HOME/.config/noctalia/monarch-workspaces.toml"
 cmp "$ROOT/config/noctalia/monarch-widgets.toml" \

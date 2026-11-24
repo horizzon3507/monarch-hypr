@@ -6,7 +6,7 @@
 set -euo pipefail
 
 BUNDLES_DIR="${MONARCH_THEME_BUNDLES_DIR:-$HOME/.config/monarch/themes}"
-PALETTES_DIR="${MONARCH_THEME_PALETTES_DIR:-$HOME/.config/noctalia/palettes}"
+PALETTES_DIR="${MONARCH_THEME_PALETTES_DIR:-$HOME/.config/monarch/palettes}"
 
 fail() {
   echo "monarch-theme-bundle: $1" >&2

@@ -36,7 +36,7 @@ source=${scheme%% *}
 name=${scheme#* }
 
 case "$source" in
-  custom) dir="$HOME/.config/noctalia/palettes" ;;
+  custom) dir="$HOME/.config/monarch/palettes" ;;
   community) dir="$HOME/.local/state/noctalia/community-palettes" ;;
   *)
     cat >&2 <<EOF

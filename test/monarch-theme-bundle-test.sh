@@ -45,7 +45,7 @@ export PATH="$TEST_ROOT/bin:$PATH"
 make_theme() {
   local repo=$1 name=$2 id=$3
   mkdir -p "$repo/backgrounds"
-  cp "$ROOT/config/noctalia/palettes/Monarch.json" "$repo/palette.json"
+  cp "$ROOT/config/monarch/palettes/Monarch.json" "$repo/palette.json"
   cp "$ROOT/themes/monarch/1-monarch.png" "$repo/backgrounds/wallpaper.png"
   cp "$ROOT/themes/monarch/preview.png" "$repo/preview.png"
   jq -n --arg id "$id" --arg name "$name" \

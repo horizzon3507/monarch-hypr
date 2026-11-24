@@ -58,7 +58,7 @@ This directory contains Monarch files managed by pacman. Any changes will be:
 **Reading `/usr/share/monarch/` is SAFE and useful** - do it freely to:
 - Understand how monarch commands work: `monarch refresh --help` or `cat $(which monarch-refresh-niri)`
 - See default configs before customizing: `cat /usr/share/monarch/config/noctalia/config.toml`
-- Inspect the shipped Monarch color scheme: `cat /usr/share/monarch/config/noctalia/palettes/Monarch.json`
+- Inspect the shipped Monarch color scheme: `cat /usr/share/monarch/config/monarch/palettes/Monarch.json`
 - Reference default Niri settings: `cat /usr/share/monarch/default/niri/config.kdl`
 
 **Always use these safe locations instead:**
@@ -225,7 +225,7 @@ Theming is owned by Noctalia, not Monarch. There are no Monarch custom themes to
 
 - Pick a color scheme: open the Noctalia settings panel (Mod+Shift+Comma) and use the color scheme picker, or `noctalia msg color-scheme-set custom <Name>`. Available schemes are the shipped `Monarch` plus Noctalia's built-ins (Catppuccin, Gruvbox, Nord, …).
 - Toggle dark/light globally: control center or `noctalia msg theme-mode-toggle` (GTK/Qt follow automatically).
-- Tweak the Monarch palette: edit `~/.config/noctalia/palettes/Monarch.json` (it has `dark` and `light` blocks), then re-select it in the picker.
+- Tweak the Monarch palette: edit `~/.config/monarch/palettes/Monarch.json` (it has `dark` and `light` blocks), then re-select it in the picker.
 - After a scheme change, Noctalia re-themes apps via its templates. The residual system layer (wallpaper folder, keyboard RGB, Chromium policy color, Plymouth) is re-synced by `monarch theme apply`, which Noctalia runs automatically on its `colors_changed` hook; you can also run it by hand.
 - Import a personal wallpaper into the active theme with `monarch theme background-import [path]`. Without a path, Monarch opens the desktop file chooser. Name collisions create a numbered copy and shipped backgrounds are never modified.
 
@@ -419,7 +419,7 @@ This skill intentionally does not cover Monarch source development. Do not use t
 - "Set a reminder to pickup jack in 15 minutes" -> `monarch reminder 15 "Pickup Jack"`
 - "Show my reminders" -> `monarch reminder show`
 - "Clear all reminders" -> `monarch reminder clear`
-- "Customize the Monarch palette" -> Edit `~/.config/noctalia/palettes/Monarch.json` (`dark`/`light` blocks), then re-select Monarch in the Noctalia picker
+- "Customize the Monarch palette" -> Edit `~/.config/monarch/palettes/Monarch.json` (`dark`/`light` blocks), then re-select Monarch in the Noctalia picker
 - "Re-apply theming to my wallpaper / keyboard RGB / Plymouth" -> `monarch theme apply` (Noctalia runs this automatically on a scheme change)
 - "Reset Noctalia to defaults" -> `monarch refresh noctalia`
 - "Move the bar to the right edge" -> Edit `[bar.default] position` in `~/.config/noctalia/config.toml` or use the Settings panel (Mod+Shift+Comma)

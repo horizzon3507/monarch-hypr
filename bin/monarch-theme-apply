@@ -35,7 +35,7 @@
 # gallery, so changing the desktop theme never changes either one implicitly.
 #
 # Colors are read from the palette JSON shipped under
-# ~/.config/noctalia/palettes/<Scheme>.json (mPrimary = accent, mSurface =
+# ~/.config/monarch/palettes/<Scheme>.json (mPrimary = accent, mSurface =
 # background), preferring the active appearance block. v5 kept v4's palette
 # schema and only moved the file: colorschemes/<S>/<S>.json became the flat
 # palettes/<S>.json. Built-in Noctalia schemes ship no such JSON, so the
@@ -44,7 +44,7 @@
 
 set -uo pipefail
 
-SCHEMES_DIR="${MONARCH_THEME_PALETTES_DIR:-$HOME/.config/noctalia/palettes}"
+SCHEMES_DIR="${MONARCH_THEME_PALETTES_DIR:-$HOME/.config/monarch/palettes}"
 USER_BG_ROOT="${MONARCH_THEME_BACKGROUNDS_DIR:-$HOME/.config/monarch/backgrounds}"
 FARM_DIR="$USER_BG_ROOT/current"          # symlink farm wallpaper.directory points at
 EXTRA_SOURCES_DIR="$USER_BG_ROOT/sources" # user-mounted wallpaper folders (dir symlinks)
