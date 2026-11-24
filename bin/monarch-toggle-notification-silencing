@@ -11,31 +11,56 @@
 
 mode=do-not-disturb
 
-dnd_on() {
-  makoctl mode 2>/dev/null | grep -qx "$mode"
+# 0 = on, 1 = off, 2 = unknown (makoctl missing or mako not answering). An
+# unknown state is never reported as off.
+dnd_state() {
+  local modes
+  modes=$(makoctl mode 2>/dev/null) || return 2
+  if grep -qx "$mode" <<<"$modes"; then return 0; fi
+  return 1
 }
 
 print_status() {
-  if dnd_on; then
-    printf '{"enabled":true,"tooltip":"Do not disturb - allow notifications"}\n'
-  else
-    printf '{"enabled":false,"tooltip":"Silence notifications"}\n'
-  fi
+  dnd_state
+  case $? in
+    0) printf '{"enabled":true,"tooltip":"Do not disturb - allow notifications"}\n' ;;
+    1) printf '{"enabled":false,"tooltip":"Silence notifications"}\n' ;;
+    *)
+      echo "Do-not-disturb state is unavailable: mako is not answering." >&2
+      printf '{"enabled":null,"tooltip":"Do-not-disturb state unavailable"}\n'
+      return 1
+      ;;
+  esac
+}
+
+# Change the mode, then check it took. A failed or ignored change is an error.
+set_mode() {
+  local want=$1 flag=-a state
+  [[ $want == on ]] || flag=-r
+  dnd_state
+  state=$?
+  [[ $state != 2 ]] || { echo "Do-not-disturb state is unavailable: mako is not answering." >&2; return 1; }
+  if [[ $want == on && $state == 0 ]] || [[ $want == off && $state == 1 ]]; then return 0; fi
+  makoctl mode "$flag" "$mode" >/dev/null 2>&1 || { echo "makoctl could not change the mode." >&2; return 1; }
+  dnd_state
+  state=$?
+  if [[ $want == on && $state == 0 ]] || [[ $want == off && $state == 1 ]]; then return 0; fi
+  echo "Do-not-disturb did not change." >&2
+  return 1
 }
 
 case "${1:-toggle}" in
   toggle)
-    if dnd_on; then makoctl mode -r "$mode" >/dev/null 2>&1; else makoctl mode -a "$mode" >/dev/null 2>&1; fi
+    dnd_state
+    case $? in
+      0) set_mode off ;;
+      1) set_mode on ;;
+      *) echo "Do-not-disturb state is unavailable: mako is not answering." >&2; exit 1 ;;
+    esac
     ;;
-  on)
-    dnd_on || makoctl mode -a "$mode" >/dev/null 2>&1
-    ;;
-  off)
-    ! dnd_on || makoctl mode -r "$mode" >/dev/null 2>&1
-    ;;
-  status | --status)
-    print_status
-    ;;
+  on) set_mode on ;;
+  off) set_mode off ;;
+  status | --status) print_status ;;
   *)
     echo "Usage: $0 [toggle|on|off|status]" >&2
     exit 1
