@@ -607,3 +607,66 @@ function usageProvider(p) {
 }
 
 function usageColor(used) { return used >= 90 ? "error" : (used >= 70 ? "warn" : "ok"); }
+
+// Runtime state chips (bar). Each source stays the owner of its own state; the
+// bar only asks. A value is true, false or null, where null means "could not be
+// read". Only a literal true makes a chip, and null is never turned into false.
+
+// `monarch-toggle-{idle,notification-silencing,nightlight} status` prints
+// {"enabled":bool,...}. A non-zero exit is "unavailable" (night light exits 1
+// when hyprsunset cannot be asked), so it is unknown, not off.
+function parseToggleStatus(text, exitCode) {
+    if (exitCode !== 0) return null;
+    var d;
+    try { d = JSON.parse(text); } catch (e) { return null; }
+    return d && typeof d === "object" && typeof d.enabled === "boolean" ? d.enabled : null;
+}
+
+// `monarch-capture-screenrecording --status` is pgrep for the user's
+// gpu-screen-recorder: 0 running, 1 none. Anything else (pgrep error, missing
+// command) could not be read.
+function parseRecordingStatus(exitCode) {
+    if (exitCode === 0) return true;
+    if (exitCode === 1) return false;
+    return null;
+}
+
+// Update chip state from the latest `monarch-update-available --all --json`.
+// Available -> {count, partial, stale:false}. Current -> null (no chip). A
+// failed or malformed check keeps the previous count but marks it stale, so a
+// transient failure neither hides pending updates nor claims they are current.
+function updateChipState(previous, text, exitCode) {
+    var check = parseUpdateCheck(text, exitCode);
+    if (check.status === "available") return { count: check.count, partial: check.complete === false, stale: false };
+    if (check.status === "current") return null;
+    if (previous && typeof previous.count === "number") return { count: previous.count, partial: previous.partial === true, stale: true };
+    return null;
+}
+
+// Minutes until the next update check: 6 h while current, 10 min while updates
+// are pending or the last check failed.
+function updateIntervalMinutes(state, lastFailed) {
+    return state === null && !lastFailed ? 360 : 10;
+}
+
+// Chips in display order. `urgent` marks the privacy-relevant one (recording).
+// `action` is the command a click runs.
+function stateChips(s) {
+    var st = s || {};
+    var chips = [];
+    if (st.recording === true)
+        chips.push({ id: "recording", text: "rec", urgent: true, dim: false,
+                     action: ["monarch-capture-screenrecording", "--stop-recording"] });
+    if (st.caffeine === true)
+        chips.push({ id: "caffeine", text: "awake", urgent: false, dim: false, action: ["monarch-toggle-idle"] });
+    if (st.dnd === true)
+        chips.push({ id: "dnd", text: "dnd", urgent: false, dim: false, action: ["monarch-toggle-notification-silencing"] });
+    if (st.nightlight === true)
+        chips.push({ id: "nightlight", text: "night", urgent: false, dim: false, action: ["monarch-toggle-nightlight"] });
+    var u = st.update;
+    if (u && typeof u.count === "number" && u.count >= 1)
+        chips.push({ id: "update", text: "upd " + (u.partial ? "\u2265" : "") + u.count + (u.stale ? "?" : ""),
+                     urgent: false, dim: u.stale === true,
+                     action: ["monarch-launch-floating-terminal-with-presentation", "--app-id=org.monarch.update", "monarch-update"] });
+    return chips;
+}
