@@ -12,6 +12,7 @@ grep -q '"monarch-toggle-idle", "status"' "$IND" || fail "caffeine chip asks the
 grep -q '"monarch-toggle-notification-silencing", "status"' "$IND" || fail "dnd chip asks the notification toggle"
 grep -q '"monarch-toggle-nightlight", "status"' "$IND" || fail "night light chip asks the night light toggle"
 grep -q '"monarch-update-available", "--all", "--json"' "$IND" || fail "update chip asks the update check"
+grep -q '"nmcli", "-t", "-f", "STATE,CONNECTIVITY", "general"' "$IND" || fail "the update check is gated on the network state"
 ! grep -Eq 'runtime|\.local/state|FileView' "$IND" || fail "chips do not read state files"
 ! grep -Eq '#[0-9a-fA-F]{6}' "$IND" || fail "chips use theme colors"
 pass "chips ask the owning commands, not state files, and use theme colors"
@@ -33,7 +34,7 @@ fi
 out=$(QS="$QS" node -e '
 const fs = require("fs");
 const src = fs.readFileSync(process.env.QS + "/ShellLogic.js", "utf8").replace(".pragma library", "");
-const L = new Function(src + "; return {parseToggleStatus, parseRecordingStatus, updateChipState, updateIntervalMinutes, stateChips};")();
+const L = new Function(src + "; return {parseToggleStatus, parseRecordingStatus, parseNetworkState, updateOfflineState, updateChipState, updateIntervalMinutes, stateChips};")();
 const j = JSON.stringify;
 const on = j({enabled: true, tooltip: "x"}), off = j({enabled: false});
 const out = [];
@@ -74,8 +75,14 @@ out.push(L.updateChipState(null, j({status: "available", count: 2, complete: fal
 out.push(L.updateChipState(a, j({status: "current", count: 0, complete: false}), 1).stale === true);
 // interval: 6 h when current and last check fine, 10 min otherwise
 out.push(L.updateIntervalMinutes(null, false) === 360 && L.updateIntervalMinutes(null, true) === 10 && L.updateIntervalMinutes(a, false) === 10);
+// offline gate: only an explicit offline state skips the check; a known count stays stale, nothing is invented
+for (const v of ["asleep:none", "disconnected:none", "connecting:limited", "disconnecting:none", "connected:portal", "connected:none"]) out.push(L.parseNetworkState(v + "\n", 0) === "offline");
+out.push(L.parseNetworkState("connected:full\n", 0) === "online" && L.parseNetworkState("connected:limited", 0) === "unknown");
+out.push(L.parseNetworkState("", 127) === "unknown" && L.parseNetworkState("disconnected:none", 1) === "unknown");
+out.push(L.updateOfflineState(null) === null && L.updateOfflineState({count: 4, partial: true, stale: false}).stale === true && L.updateOfflineState({count: 4, partial: true, stale: false}).partial === true);
+out.push(L.stateChips({update: L.updateOfflineState({count: 4, partial: false, stale: false})})[0].text === "upd 4?");
 console.log(out.map(Boolean).join(" "));
 ')
-expected=$(printf 'true %.0s' $(seq 1 24)); expected=${expected% }
+expected=$(printf 'true %.0s' $(seq 1 34)); expected=${expected% }
 [[ $out == "$expected" ]] || fail "state chip logic" "$out"
 pass "chips show only states read as on; unreadable states are unknown; update states and intervals are right"

@@ -83,7 +83,23 @@ RowLayout {
 
     // The update check syncs a temporary package database, so it runs rarely:
     // after a short delay at start, then every 6 h while current, every 10 min
-    // while updates are pending or the check failed.
+    // while updates are pending or the check failed. It is not run while the
+    // network is known to be offline (the gate is re-read every minute); a known
+    // count stays, marked stale.
+    Process {
+        id: netProc
+        command: ["nmcli", "-t", "-f", "STATE,CONNECTIVITY", "general"]
+        stdout: StdioCollector { id: netOut }
+        onExited: function (exitCode) {
+            if (Logic.parseNetworkState(netOut.text, exitCode) === "offline") {
+                root.setChip("update", Logic.updateOfflineState(root.chipState.update));
+                updateTimer.interval = 60000;
+                updateTimer.restart();
+            } else if (!updateProc.running) {
+                updateProc.running = true;
+            }
+        }
+    }
     Process {
         id: updateProc
         command: ["monarch-update-available", "--all", "--json"]
@@ -100,7 +116,7 @@ RowLayout {
         id: updateTimer
         interval: 90000
         running: true
-        onTriggered: if (!updateProc.running) updateProc.running = true
+        onTriggered: if (!netProc.running && !updateProc.running) netProc.running = true
     }
 
     Repeater {
