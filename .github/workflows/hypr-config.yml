@@ -46,8 +46,8 @@ jobs:
 
       - name: Verify the SDDM greeter config
         run: |
-          sudo -u tester env XDG_RUNTIME_DIR=/tmp/xdg bash -euo pipefail -c '
+          sudo -u tester env XDG_RUNTIME_DIR=/tmp/xdg GITHUB_WORKSPACE="$GITHUB_WORKSPACE" bash -euo pipefail -c '
             mkdir -p "$XDG_RUNTIME_DIR" && chmod 700 "$XDG_RUNTIME_DIR"
-            Hyprland --verify-config --config "$GITHUB_WORKSPACE/default/sddm/hyprland.lua" | tee /tmp/sddm.out
+            Hyprland --verify-config --config "$GITHUB_WORKSPACE/default/sddm/hyprland.lua" 2>&1 | tee /tmp/sddm.out
             grep -q "config ok" /tmp/sddm.out
           '
