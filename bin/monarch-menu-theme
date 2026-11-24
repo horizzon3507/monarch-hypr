@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# monarch:summary=Pick a Monarch theme from a Walker list and apply it
+# monarch:hidden=true
+
+set -uo pipefail
+
+choice=$(monarch-theme-list | while IFS=$'\t' read -r selected name slug preview; do
+  [[ $selected == true ]] && printf '󰄬\t%s\t\t%s\n' "$name" "$name" || printf '\t%s\t\t%s\n' "$name" "$name"
+done | monarch-menu-select "Theme") || exit 0
+[[ -n $choice ]] && exec monarch-theme-set "$choice"

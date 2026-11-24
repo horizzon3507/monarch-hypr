@@ -36,7 +36,7 @@
   //   rootGroup   visible root category which groups its global search results
 
   // Root
-  "apps": {"icon":"󰀻","aliases":["app","applications"],"action":"noctalia msg panel-toggle launcher"},
+  "apps": {"icon":"󰀻","aliases":["app","applications"],"action":"walker"},
   "trigger": {"icon":"󱓞"},
   "setup": {"icon":"","aliases":["settings"]},
   "style": {"icon":""},
@@ -51,8 +51,8 @@
   "learn.first-steps": {"icon":"󰧑","action":"monarch-setup-first-steps"},
   "learn.keybindings": {"icon":"","action":"monarch-menu-keybindings"},
   "learn.monarch": {"icon":"󰆥","action":"monarch-launch-webapp 'https://docs.monarchlinux.com/'"},
-  "learn.niri": {"icon":"","action":"monarch-launch-webapp 'https://yalter.github.io/niri/'"},
-  "learn.noctalia": {"icon":"󰕮","action":"monarch-launch-webapp 'https://docs.noctalia.dev/noctalia/'"},
+  "learn.hyprland": {"icon":"","action":"monarch-launch-webapp 'https://wiki.hypr.land/'"},
+  "learn.shell": {"icon":"󰕮","action":"monarch-launch-webapp 'https://quickshell.org/docs/'"},
   "learn.arch": {"icon":"󰣇","action":"monarch-launch-webapp 'https://wiki.archlinux.org/title/Main_page'"},
   "learn.neovim": {"icon":"","action":"monarch-launch-webapp 'https://www.lazyvim.org/keymaps'"},
   "learn.bash": {"icon":"󱆃","action":"monarch-launch-webapp 'https://devhints.io/bash'"},
@@ -60,7 +60,7 @@
   "learn.about": {"icon":"","action":"monarch-launch-about"},
 
   // Trigger
-  "trigger.emoji": {"icon":"","aliases":["emojis"],"action":"noctalia msg panel-toggle launcher /emo"},
+  "trigger.emoji": {"icon":"","aliases":["emojis"],"action":"walker -m symbols"},
   "trigger.reminder": {"icon":"󰔛"},
   "trigger.capture": {"icon":""},
   "trigger.transcode": {"icon":"󰧸","action":"monarch-transcode"},
@@ -100,7 +100,7 @@
   "trigger.share.receive": {"icon":"󰥦","action":"monarch-launch-or-focus localsend"},
   // Hidden rather than greyed when nothing is connected. The guard is the same
   // detection the QR command uses, so the row and the panel never disagree.
-  "trigger.share.wifi": {"icon":"󰐲","aliases":["wifi-qr"],"when":"monarch-wifi-device >/dev/null 2>&1","action":"noctalia msg panel-open monarch/wifi-qr:panel"},
+  "trigger.share.wifi": {"icon":"󰐲","aliases":["wifi-qr"],"when":"monarch-wifi-device >/dev/null 2>&1","action":"monarch-launch-floating-terminal-with-presentation monarch-wifi-qr"},
 
   // Trigger > Toggle
   "trigger.toggle.screensaver": {"icon":"󱄄","checked":"! monarch-toggle-enabled screensaver-off","action":"monarch-toggle-screensaver"},
@@ -114,32 +114,32 @@
   "trigger.toggle.passwordless-sudo": {"icon":"󰟵","checked":"sudo -n -- /usr/bin/monarch-sudo-passwordless __status \"$(id -u)\"","action":"monarch-launch-floating-terminal-with-presentation monarch-sudo-passwordless"},
 
   // Trigger > Hardware
-  "trigger.hardware.displays": {"icon":"󰍺","keywords":["monitor","screen","resolution"],"action":"noctalia msg panel-toggle monarch/display:panel"},
-  "trigger.hardware.display-scaling": {"icon":"󰍹","action":"monarch-niri-monitor-scaling-cycle"},
-  "trigger.hardware.laptop-display": {"icon":"󰛧","when":"monarch-hw-external-monitors","action":"monarch-niri-monitor-internal toggle"},
-  "trigger.hardware.mirror-display": {"icon":"󰍹","when":"monarch-hw-external-monitors","action":"monarch-niri-monitor-internal-mirror toggle"},
+  "trigger.hardware.displays": {"icon":"󰍺","keywords":["monitor","screen","resolution"],"action":"monarch-menu-display"},
+  "trigger.hardware.display-scaling": {"icon":"󰍹","action":"monarch-hypr-monitor-scaling-cycle"},
+  "trigger.hardware.laptop-display": {"icon":"󰛧","when":"monarch-hw-external-monitors","action":"monarch-hypr-monitor-internal toggle"},
+  "trigger.hardware.mirror-display": {"icon":"󰍹","when":"monarch-hw-external-monitors","action":"monarch-hypr-monitor-internal-mirror toggle"},
   "trigger.hardware.hybrid-gpu": {"icon":"","when":"monarch-hw-hybrid-gpu","action":"monarch-launch-floating-terminal-with-presentation monarch-toggle-hybrid-gpu"},
   "trigger.hardware.touchpad": {"icon":"󰟸","when":"monarch-hw-touchpad","checked":"monarch-toggle-touchpad status | jq -e '.enabled'","action":"monarch-toggle-touchpad"},
   "trigger.hardware.touchpad-haptics": {"icon":"󰌌","when":"monarch-hw-dell-xps-haptic-touchpad && monarch-cmd-present dell-xps-touchpad-haptics"},
   "trigger.hardware.touchscreen": {"icon":"󰆽","when":"monarch-hw-touchscreen","checked":"monarch-toggle-touchscreen status | jq -e '.enabled'","action":"monarch-toggle-touchscreen"},
 
   // Actions > Speed Test
-  "trigger.tests.network": {"icon":"󰓅","action":"noctalia msg panel-open monarch/network:speedtest"},
-  "trigger.tests.disk": {"icon":"󰋊","action":"noctalia msg panel-open monarch/network:disk-speedtest"},
+  "trigger.tests.network": {"icon":"󰓅","action":"monarch-launch-floating-terminal-with-presentation monarch-network-speedtest down 10"},
+  "trigger.tests.disk": {"icon":"󰋊","action":"monarch-launch-floating-terminal-with-presentation monarch-disk-speedtest"},
 
   "trigger.hardware.touchpad-haptics.low": {"icon":"󰌌","checked":"[[ $(dell-xps-touchpad-haptics get) == low ]]","action":"dell-xps-touchpad-haptics set low"},
   "trigger.hardware.touchpad-haptics.mid": {"icon":"󰌌","checked":"[[ $(dell-xps-touchpad-haptics get) == mid ]]","action":"dell-xps-touchpad-haptics set mid"},
   "trigger.hardware.touchpad-haptics.high": {"icon":"󰌌","checked":"[[ $(dell-xps-touchpad-haptics get) == high ]]","action":"dell-xps-touchpad-haptics set high"},
 
   // Style
-  "style.dark-mode": {"icon":"󰟥","checked":"[[ $(noctalia msg theme-mode-get) == dark ]]","action":"noctalia msg theme-mode-toggle"},
-  "style.theme": {"icon":"󰏘","action":"noctalia msg panel-toggle monarch/theme:theme"},
+  "style.dark-mode": {"icon":"󰟥","checked":"[[ $(monarch-theme-mode get) == dark ]]","action":"monarch-theme-mode toggle"},
+  "style.theme": {"icon":"󰏘","action":"monarch-menu-theme"},
   "style.font": {"icon":"","provider":"fonts"},
   "style.text-size": {"icon":"󰛖","provider":"text-size"},
-  "style.backgrounds": {"icon":"","aliases":["background","wallpaper"],"keywords":["desktop","image","import","picture","custom"],"action":"noctalia msg panel-toggle monarch/theme:background"},
+  "style.backgrounds": {"icon":"","aliases":["background","wallpaper"],"keywords":["desktop","image","import","picture","custom"],"action":"monarch-menu-background"},
   "style.bar": {"icon":"󰍜"},
-  "style.niri": {"icon":"","action":"notify-send -u low 'Editing config file' \"$HOME/.config/niri/user.kdl\"; monarch-launch-editor \"$HOME/.config/niri/user.kdl\""},
-  "style.unlock": {"icon":"󰟵","action":"noctalia msg panel-toggle monarch/theme:unlock"},
+  "style.hypr": {"icon":"","action":"notify-send -u low 'Editing config file' \"$HOME/.config/hypr/looknfeel.lua\"; monarch-launch-editor \"$HOME/.config/hypr/looknfeel.lua\""},
+  "style.unlock": {"icon":"󰟵","action":"monarch-menu-theme"},
   "style.screensaver": {"icon":"󱄄"},
   "style.about": {"icon":""},
 
@@ -162,7 +162,6 @@
   "setup.power": {"icon":"󱐋","provider":"power-profiles"},
   "setup.sleep": {"icon":"󰒲"},
   "setup.defaults": {"icon":"","aliases":["default"]},
-  "setup.plugins": {"icon":"󰆧","action":"noctalia msg settings-open plugins"},
   "setup.language": {"icon":"󰗊","action":"monarch-launch-floating-terminal-with-presentation monarch-setup-language"},
   "setup.monarch-language": {"icon":"󰗊"},
   "setup.monarch-language.auto": {"checked":"[[ $(monarch-language --preference) == auto ]]","action":"monarch-language auto"},
@@ -172,7 +171,7 @@
   "setup.config": {"icon":""},
 
   // Setup > Network
-  "setup.network.overview": {"icon":"󰌘","aliases":["band"],"action":"noctalia msg panel-open monarch/network:panel"},
+  "setup.network.overview": {"icon":"󰌘","aliases":["band"],"action":"monarch-launch-wifi"},
   "setup.network.wifi": {"icon":"󱚾","aliases":["wifi"],"keywords":["network","internet","wireless"],"action":"monarch-launch-wifi"},
   "setup.network.dns": {"icon":"󰱔","aliases":["dns"]},
 
@@ -243,9 +242,9 @@
   "setup.defaults.editor.emacs": {"icon":"","when":"monarch-cmd-present emacs","checked":"[[ $(monarch-default-editor) == emacs ]]","action":"monarch-default-editor emacs"},
 
   // Setup > Config
-  "setup.config.input": {"icon":"","keywords":["keyboard","mouse","touchpad","layout"],"action":"notify-send -u low 'Editing input settings' \"$HOME/.config/niri/user.kdl\"; monarch-launch-editor \"$HOME/.config/niri/user.kdl\" && monarch-refresh-niri"},
-  "setup.config.niri": {"icon":"","action":"notify-send -u low 'Editing config file' \"$HOME/.config/niri/user.kdl\"; monarch-launch-editor \"$HOME/.config/niri/user.kdl\" && monarch-refresh-niri"},
-  "setup.config.noctalia": {"icon":"󰕮","action":"notify-send -u low 'Editing config file' \"$HOME/.config/noctalia/config.toml\"; monarch-launch-editor \"$HOME/.config/noctalia/config.toml\" && noctalia msg config-reload"},
+  "setup.config.input": {"icon":"","keywords":["keyboard","mouse","touchpad","layout"],"action":"notify-send -u low 'Editing input settings' \"$HOME/.config/hypr/input.lua\"; monarch-launch-editor \"$HOME/.config/hypr/input.lua\" && monarch-refresh-hypr"},
+  "setup.config.hypr": {"icon":"","action":"notify-send -u low 'Editing config file' \"$HOME/.config/hypr/bindings.lua\"; monarch-launch-editor \"$HOME/.config/hypr/bindings.lua\" && monarch-refresh-hypr"},
+  "setup.config.shell": {"icon":"󰕮","action":"notify-send -u low 'Editing config file' \"$HOME/.config/monarch/shell.json\"; monarch-launch-editor \"$HOME/.config/monarch/shell.json\""},
   "setup.config.xcompose": {"icon":"󰞅","action":"notify-send -u low 'Editing config file' \"$HOME/.XCompose\"; monarch-launch-editor \"$HOME/.XCompose\" && monarch-restart-xcompose"},
 
   // Install
@@ -461,11 +460,11 @@
   "update.channel.stable": {"icon":"󰕥","checked":"[[ \"$(monarch-version-channel)\" == \"stable\" ]]","action":"monarch-launch-floating-terminal-with-presentation \"monarch-channel-set stable\""},
   "update.channel.dev": {"icon":"󰂓","checked":"[[ \"$(monarch-version-channel)\" == \"dev\" ]]","action":"monarch-launch-floating-terminal-with-presentation \"monarch-channel-set dev\""},
 
-  "update.config.niri": {"icon":"","action":"monarch-launch-floating-terminal-with-presentation monarch-refresh-niri"},
+  "update.config.hypr": {"icon":"","action":"monarch-launch-floating-terminal-with-presentation monarch-refresh-hypr"},
   "update.config.plymouth": {"icon":"󱣴","action":"monarch-launch-floating-terminal-with-presentation monarch-refresh-plymouth"},
-  "update.config.noctalia": {"icon":"󰕮","action":"monarch-launch-floating-terminal-with-presentation monarch-refresh-noctalia"},
+  "update.config.shell": {"icon":"󰕮","action":"monarch-launch-floating-terminal-with-presentation monarch-refresh-shell"},
 
-  "update.process.noctalia": {"icon":"󰕮","action":"monarch-restart-noctalia"},
+  "update.process.shell": {"icon":"󰕮","action":"monarch-restart-shell"},
 
   "update.hardware.audio": {"icon":"","action":"monarch-launch-floating-terminal-with-presentation monarch-restart-pipewire"},
   "update.hardware.wifi": {"icon":"󱚾","action":"monarch-launch-floating-terminal-with-presentation monarch-restart-wifi"},

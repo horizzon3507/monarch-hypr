@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# monarch:summary=Pick a display and an action (scale, on, off) from a Walker list
+# monarch:hidden=true
+
+set -uo pipefail
+
+output=$(monarch-display-list | while IFS=$'\t' read -r name state scale mode focused desc; do
+  printf '󰍹\t%s\t%s %s %s\t%s\n' "$name" "$state" "${mode:-}" "${scale:+${scale}x}" "$name"
+done | monarch-menu-select "Display") || exit 0
+[[ -n $output ]] || exit 0
+
+action=$(monarch-menu-select "$output" "Scale 1x" "Scale 1.25x" "Scale 1.5x" "Scale 2x" "Turn on" "Turn off") || exit 0
+case "$action" in
+  Scale*) exec monarch-display-scale "$output" "$(awk '{sub(/x$/,"",$2); print $2}' <<<"$action")" ;;
+  "Turn on") exec monarch-display-toggle "$output" on ;;
+  "Turn off") exec monarch-display-toggle "$output" off ;;
+esac

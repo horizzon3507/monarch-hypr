@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# monarch:summary=Pick a background for the active theme from a Walker list and apply it
+# monarch:hidden=true
+
+set -uo pipefail
+
+choice=$(monarch-theme-background-list | while IFS=$'\t' read -r active name path thumb removable; do
+  [[ $active == true ]] && mark="󰄬" || mark=""
+  printf '%s\t%s\t\t%s\n' "$mark" "$name" "$path"
+done | monarch-menu-select "Background") || exit 0
+[[ -n $choice ]] && exec monarch-wallpaper set "$choice"

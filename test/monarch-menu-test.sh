@@ -92,7 +92,7 @@ assert_equals "bar position exposes the two supported stateful choices" "$output
   $'Top|[[ $(monarch-bar-position) == top ]]|monarch-bar-position top\nBottom|[[ $(monarch-bar-position) == bottom ]]|monarch-bar-position bottom'
 
 output=$(jq -r '.[] | select(.id == "style.backgrounds") | .action' <<<"$SHIPPED_TREE")
-assert_equals "Backgrounds opens the Monarch selector directly" "$output" "noctalia msg panel-toggle monarch/theme:background"
+assert_equals "Backgrounds opens the Monarch selector directly" "$output" "monarch-menu-background"
 
 output=$(jq -r '.[0] | [.id, .label] | join("|")' <<<"$SHIPPED_TREE")
 assert_equals "--tree exposes menu data without guards" "$output" "apps|Apps"
@@ -107,13 +107,6 @@ assert_equals "root search can find nested entries before guards load" "$output"
 output=$("$MENU" --initial root | jq -r 'map(select(.id == "trigger.hardware.touchpad-haptics.low" or .id == "install.browser.chrome")) | length')
 assert_equals "initial search excludes entries awaiting visibility or disabled guards" "$output" "0"
 
-if ! grep -q 'onImportClicked() importBackground()' "$ROOT/default/noctalia/plugins/monarch-theme/background.luau" ||
-  ! grep -q 'ctrl+i.*importBackground' "$ROOT/default/noctalia/plugins/monarch-theme/background.luau"; then
-  echo "Background selector does not expose import from pointer and keyboard" >&2
-  exit 1
-fi
-echo "ok - Background selector exposes import from pointer and keyboard"
-
 output=$(jq -r '.[] | select(.id | test("^setup\\.network\\.dns\\.[^.]+$")) | .label' <<<"$SHIPPED_TREE" | tr '\n' ' ')
 assert_equals "DNS exposes each provider directly" "${output% }" "DHCP Cloudflare Google Custom"
 
@@ -127,9 +120,11 @@ output=$(jq -r '.[] | select(.id | test("^setup\\.defaults\\.agent\\.[^.]+$")) |
 assert_equals "default agents follow Monarch's supported catalog" "${output% }" \
   "Antigravity Claude Codex Copilot Crush Cursor CLI Grok Muse Code omp OpenCode Hermes Ori Pi"
 
-output=$(jq -r '.[] | select(.id == "setup.plugins") | .action' <<<"$SHIPPED_TREE")
-assert_equals "plugin setup opens Noctalia's native plugin manager" "$output" \
-  "noctalia msg settings-open plugins"
+output=$(jq -r '.[] | select(.id == "setup.config.shell") | .action' <<<"$SHIPPED_TREE")
+assert_contains "shell config edits shell.json" "$output" ".config/monarch/shell.json"
+
+output=$(jq -r '.[] | select(.id | test("aybar|octalia plugin")) | .id' <<<"$SHIPPED_TREE")
+assert_equals "no menu row points at Waybar" "$output" ""
 
 output=$(jq -r '.[] | select(.id | test("^system\\.[^.]+$")) | .label' <<<"$SHIPPED_TREE" | tr '\n' ' ')
 assert_equals "system retains session and power actions before crash history" "${output% }" \
@@ -147,11 +142,6 @@ output=$(jq -r '.[] | select(.id | test("^install\\.ai\\.[^.]+$")) | .label' <<<
 assert_equals "AI follows Monarch's supported catalog" "${output% }" \
   "ChatGPT Desktop Dictation LM Studio Ollama T3 Code Hermes Desktop"
 
-if ! grep -q '^local WINDOW_ROWS = 10$' "$ROOT/default/noctalia/plugins/monarch-menu/panel.luau"; then
-  fail "menu viewport keeps its last row above the footer"
-fi
-pass "menu viewport keeps its last row above the footer"
-
 output=$(jq -r '.[] | select(.id | test("^remove\\.ai\\.[^.]+$")) | .label' <<<"$SHIPPED_TREE" | tr '\n' ' ')
 assert_equals "AI removal mirrors the install catalog" "${output% }" \
   "ChatGPT Desktop Dictation LM Studio Ollama T3 Code Hermes Desktop"
@@ -167,8 +157,8 @@ output=$(jq -r '.[] | select(.id == "install.service.tailscale") | .disabled' <<
 assert_equals "Tailscale install state uses package presence" "$output" "monarch-pkg-present tailscale"
 
 output=$(jq -r '.[] | select(.id == "setup.config.input") | .action' <<<"$SHIPPED_TREE")
-assert_contains "input settings edit the user-owned Niri override" "$output" ".config/niri/user.kdl"
-assert_contains "input settings validate and reload Niri" "$output" "monarch-refresh-niri"
+assert_contains "input settings edit the user-owned Hyprland input file" "$output" ".config/hypr/input.lua"
+assert_contains "input settings reload Hyprland" "$output" "monarch-refresh-hypr"
 
 assert_equals "the Input route resolves inside Config" "$("$MENU" --resolve input)" "setup.config.input"
 
@@ -240,7 +230,7 @@ if "$MENU" --initial nope >/dev/null 2>&1; then
 fi
 pass "an unknown initial route is rejected before the panel loads it"
 
-mkdir -p "$HOME/.config/niri" "$TMPDIR/keybindings-bin"
+mkdir -p "$TMPDIR/keybindings-bin"
 cat >"$TMPDIR/keybindings-bin/xkbcli" <<'EOF'
 #!/bin/bash
 exit 0
@@ -255,27 +245,27 @@ cat <<'CONFIG'
 # navigate_down = "j"
 CONFIG
 EOF
-chmod +x "$TMPDIR/keybindings-bin/xkbcli" "$TMPDIR/keybindings-bin/herdr"
-cat >"$HOME/.config/niri/config.kdl" <<EOF
-include "$ROOT/default/niri/binds.kdl"
+cat >"$TMPDIR/keybindings-bin/hyprctl" <<'EOF'
+#!/bin/bash
+[[ $* == "binds -j" ]] || exit 1
+cat <<'JSON'
+[
+  {"modmask": 64, "key": "Q", "description": "Close active window"},
+  {"modmask": 68, "key": "E", "description": "Emoji picker"},
+  {"modmask": 64, "key": "X", "description": ""}
+]
+JSON
 EOF
+chmod +x "$TMPDIR/keybindings-bin/xkbcli" "$TMPDIR/keybindings-bin/herdr" "$TMPDIR/keybindings-bin/hyprctl"
 output=$(PATH="$TMPDIR/keybindings-bin:$PATH" "$ROOT/bin/monarch-menu-keybindings" --print)
-assert_contains "keybindings list the close-window aliases together" "$output" \
-  "SUPER + Q / SUPER SHIFT + Q"
-assert_equals "keybindings list close-window once" \
-  "$(grep -Fc 'Close active window' <<<"$output")" "1"
+assert_contains "keybindings read the live Hyprland binds" "$output" "SUPER + Q  →  Close active window"
+assert_contains "keybindings decode every modifier" "$output" "SUPER CTRL + E  →  Emoji picker"
+assert_equals "keybindings skip binds without a description" "$(grep -c ' X' <<<"$output" || true)" "0"
 
 output=$(PATH="$TMPDIR/keybindings-bin:$PATH" "$ROOT/bin/monarch-menu-keybindings" --json)
-assert_equals "keybindings expose structured rows to the native panel" \
+assert_equals "keybindings expose structured rows" \
   "$(jq -r 'map(select(.label == "Close active window")) | .[0] | [.shortcut, .searchText] | @tsv' <<<"$output")" \
-  $'SUPER + Q / SUPER SHIFT + Q\tClose active window SUPER + Q / SUPER SHIFT + Q'
-
-KEYBINDINGS_PANEL="$ROOT/default/noctalia/plugins/monarch-menu/keybindings.luau"
-if grep -q 'WINDOW_ROWS' "$KEYBINDINGS_PANEL" ||
-  ! grep -q 'for _, binding in rows do' "$KEYBINDINGS_PANEL"; then
-  fail "keybindings pass the complete list to the native scroll container"
-fi
-pass "keybindings pass the complete list to the native scroll container"
+  $'SUPER + Q\tClose active window SUPER + Q'
 
 output=$(PATH="$TMPDIR/keybindings-bin:$PATH" HERDR_CONFIG_PATH=/dev/null \
   "$ROOT/bin/monarch-menu-herdr-keybindings" --json)
@@ -308,7 +298,7 @@ EOF
 output=$("$MENU" --rows learn | cut -f2 | tr '\n' ' ')
 assert_contains "an overridden label is used" "$output" "Shell"
 assert_equals "an overridden entry keeps its position" "${output% }" \
-  "First steps Keybindings Monarch Niri Noctalia Arch Neovim Shell Herdr About"
+  "First steps Keybindings Monarch Hyprland Quickshell Arch Neovim Shell Herdr About"
 
 output=$("$MENU" --rows '' | cut -f1 | tr '\n' ' ')
 assert_contains "a new top-level id appends to the root menu" "$output" "personal"
@@ -425,23 +415,6 @@ assert_contains "--state carries search keywords" "$output" "snip"
 output=$(jq -r '.tree[] | select(.id == "setup.network.wifi") | .searchText' <<<"$STATE")
 assert_contains "--state prepares search text outside the plugin" "$output" "wireless"
 
-if ! grep -q 'query ~= "" and isCategory' "$ROOT/default/noctalia/plugins/monarch-menu/model.luau"; then
-  fail "search includes matching categories"
-fi
-pass "search includes matching categories"
-
-if ! grep -q 'labelLower == queryLower' "$ROOT/default/noctalia/plugins/monarch-menu/model.luau" ||
-  ! grep -q 'a.matchRank > b.matchRank' "$ROOT/default/noctalia/plugins/monarch-menu/model.luau"; then
-  fail "search ranks exact labels before fuzzy matches"
-fi
-pass "search ranks exact labels before fuzzy matches"
-
-if ! grep -q 'groupLeaders' "$ROOT/default/noctalia/plugins/monarch-menu/model.luau" ||
-  ! grep -q 'a.group ~= b.group' "$ROOT/default/noctalia/plugins/monarch-menu/model.luau"; then
-  fail "search keeps result groups contiguous"
-fi
-pass "search keeps result groups contiguous"
-
 # Guards are keyed `<id>:<w|c|d>` so the consumer decodes them natively.
 output=$(jq -r '.guards | keys | map(split(":")[1]) | unique | join(" ")' <<<"$STATE")
 assert_equals "--state reports all three guard kinds" "$output" "c d w"
@@ -523,83 +496,54 @@ if "$MENU" --provider learn >/dev/null 2>&1; then
 fi
 pass "--provider rejects an entry with no provider"
 
-# ── Routing to the panel ─────────────────────────────────────────────────────
+# ── Walker front end ─────────────────────────────────────────────────────────
 
-# The menu itself is a Noctalia panel now, so the command only dispatches. A
-# fake `noctalia` on PATH records what it was asked to do.
+# A fake `walker` on PATH answers dmenu calls: it prints WALKER_TEST_SELECTION,
+# or the first row when none is set, and the typed text for --inputonly.
 FAKE_BIN="$TMPDIR/bin"
 mkdir -p "$FAKE_BIN"
-cat >"$FAKE_BIN/noctalia" <<'EOF'
+cat >"$FAKE_BIN/walker" <<'EOF'
 #!/bin/bash
-if [[ ${1:-} == msg && ${2:-} == panel-open && ${3:-} == monarch/menu:* ]]; then
-  payload=${4:-}
-  selection_file=$(jq -r '.selectionFile' <<<"$payload")
-  done_file=$(jq -r '.doneFile' <<<"$payload")
-  options_file=$(jq -r '.optionsFile // empty' <<<"$payload")
-  selection=${NOCTALIA_TEST_SELECTION:-}
-  if [[ -z $selection && -n $options_file ]]; then
-    selection=$(jq -r '.[0].value' "$options_file")
-  fi
-  printf '%s\n' "$selection" >"$selection_file"
-  : >"$done_file"
+[[ $1 == --dmenu ]] || exit 1
+if [[ " $* " == *" --inputonly "* ]]; then
+  printf '%s\n' "${WALKER_TEST_SELECTION:-}"
   exit 0
 fi
-echo "$*"
+rows=$(cat)
+if [[ -n ${WALKER_TEST_SELECTION:-} ]]; then
+  printf '%s\n' "$WALKER_TEST_SELECTION"
+else
+  head -n1 <<<"$rows"
+fi
 EOF
-chmod +x "$FAKE_BIN/noctalia"
+chmod +x "$FAKE_BIN/walker"
 export PATH="$FAKE_BIN:$PATH"
 
-assert_equals "keybindings open in the native Monarch panel" \
-  "$("$ROOT/bin/monarch-menu-keybindings")" \
-  "msg panel-toggle monarch/menu:keybindings {\"kind\":\"niri\"}"
+assert_equals "select returns the chosen option" \
+  "$(WALKER_TEST_SELECTION='medium' "$ROOT/bin/monarch-menu-select" Resolution high medium low)" "medium"
 
-assert_contains "Herdr keybindings open in the native Monarch panel" \
-  "$(PATH="$TMPDIR/keybindings-bin:$PATH" HERDR_CONFIG_PATH=/dev/null \
-    "$ROOT/bin/monarch-menu-herdr-keybindings")" \
-  "msg panel-toggle monarch/menu:keybindings {\"kind\":\"herdr\""
+assert_equals "select maps a glyph row back to its value" \
+  "$(WALKER_TEST_SELECTION=$'G  Label  Detail' "$ROOT/bin/monarch-menu-select" Pick $'G\tLabel\tDetail\tthe-value')" "the-value"
 
-assert_equals "native select returns the chosen option" \
-  "$(NOCTALIA_TEST_SELECTION=medium "$ROOT/bin/monarch-menu-select" Resolution high medium low)" "medium"
-
-if ! grep -q 'panel-open monarch/menu:select' "$ROOT/bin/monarch-menu-select"; then
-  fail "native select uses the compact panel"
+if WALKER_TEST_SELECTION='nothing like it' "$ROOT/bin/monarch-menu-select" Resolution high low >/dev/null 2>&1; then
+  fail "select rejects a choice that is not a row"
 fi
-pass "native select uses the compact panel"
+pass "select rejects a choice that is not a row"
 
 files_dir="$TMPDIR/files"
 mkdir -p "$files_dir/.hidden"
 touch -t 202601010000 "$files_dir/older.png" "$files_dir/.ignored.png"
 touch -t 202601020000 "$files_dir/newer.jpg" "$files_dir/.hidden/ignored.jpg"
-assert_equals "native file picker returns the newest matching visible file" \
+assert_equals "file picker returns the newest matching visible file" \
   "$("$ROOT/bin/monarch-menu-file" "Select image" "$files_dir" "png jpg")" \
   "$files_dir/newer.jpg"
 
-assert_equals "native input returns the submitted text" \
-  "$(NOCTALIA_TEST_SELECTION='Ship it' "$ROOT/bin/monarch-menu-input" Reminder)" "Ship it"
+assert_equals "input returns the submitted text" \
+  "$(WALKER_TEST_SELECTION='Ship it' "$ROOT/bin/monarch-menu-input" Reminder)" "Ship it"
 
-if ! grep -q 'panel-open monarch/menu:input' "$ROOT/bin/monarch-menu-input"; then
-  fail "native input uses the compact panel"
+if grep -qi 'noctalia' "$ROOT/bin/monarch-menu" "$ROOT/bin/monarch-menu-select" "$ROOT/bin/monarch-menu-input" "$ROOT/bin/monarch-menu-keybindings"; then
+  fail "the menu commands no longer reference Noctalia"
 fi
-pass "native input uses the compact panel"
-
-if ! grep -q 'mode == "menu" and not menu' "$ROOT/default/noctalia/plugins/monarch-menu/panel.luau"; then
-  fail "native input handles keys without loading the menu tree"
-fi
-pass "native input handles keys without loading the menu tree"
-
-if ! grep -A4 'refreshInitial(context, function(loaded)' \
-  "$ROOT/default/noctalia/plugins/monarch-menu/panel.luau" | grep -q 'if not loaded then'; then
-  fail "a rejected initial route does not start a full state callback"
-fi
-pass "a rejected initial route does not start a full state callback"
-
-assert_equals "a bare call toggles the panel at the root" \
-  "$("$MENU")" "msg panel-toggle monarch/menu:panel root"
-
-assert_equals "a route is passed as the panel context" \
-  "$("$MENU" style)" "msg panel-toggle monarch/menu:panel style"
-
-assert_equals "close closes the panel" \
-  "$("$MENU" close)" "msg panel-close monarch/menu:panel"
+pass "the menu commands no longer reference Noctalia"
 
 printf '\nAll menu tests passed.\n'

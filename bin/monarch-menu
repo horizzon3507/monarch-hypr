@@ -6,11 +6,11 @@
 
 # The menu's content is data: default/monarch/monarch-menu.jsonc, overlaid by
 # ~/.config/monarch/extensions/monarch-menu.jsonc — see that file for the entry
-# schema. The menu is drawn by the monarch/menu Noctalia panel; this command
-# loads the data for it, evaluates the guards, and routes the keybinds to it.
+# schema. The menu is drawn by Walker (dmenu mode); this command loads the
+# data, evaluates the guards, and walks the levels.
 
 # Guard expressions call monarch-* commands, and this runs from a keybind, from
-# the Noctalia panel and from a plain shell — none of which can be relied on to
+# the menu itself and from a plain shell — none of which can be relied on to
 # have Monarch's bin on PATH. Without this every guard fails and rows silently
 # vanish, differently depending on the caller.
 PATH="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd):$PATH"
@@ -529,19 +529,71 @@ esac
 
 # ── Entry point ──────────────────────────────────────────────────────────────
 
-# The menu itself is the monarch/menu Noctalia panel. This only routes: the
-# route is passed as the panel's context, and panel-toggle means a second press
-# of the same keybind closes it.
-PANEL="monarch/menu:panel"
-
+# The menu is drawn by Walker in dmenu mode, one level at a time: pick a row,
+# and it runs its action, opens its provider list, or descends into its
+# children. Escape goes back up one level, or closes at the root.
 case "${1:-}" in
-close) exec noctalia msg panel-close "$PANEL" ;;
+close) pkill -x walker; exit 0 ;;
 --*)
-  # Anything else starting with a dash is a typo, not a route: without this it
-  # would fall through and toggle the panel, which looks like the flag worked.
+  # Anything else starting with a dash is a typo, not a route.
   monarch_message 'menu.unknownOption' "$1" >&2
   exit 2
   ;;
 esac
 
-exec noctalia msg panel-toggle "$PANEL" "${1:-root}"
+# A second press of the same keybind closes the menu.
+if pgrep -x walker >/dev/null 2>&1 && pgrep -f 'walker --dmenu' >/dev/null 2>&1; then
+  pkill -x walker
+  exit 0
+fi
+
+load_menu
+prime_guard_helpers
+route=$(resolve_route "${1:-root}")
+[[ -n $route ]] || exit 1
+
+while true; do
+  rows=()
+  keys=()
+  while IFS=$'\x1f' read -r key icon label when checked disabled; do
+    [[ -z $key ]] && continue
+    [[ -n $when ]] && ! guard_passes "$when" && continue
+    mark=""
+    [[ -n $checked ]] && guard_passes "$checked" && mark="  ✓"
+    rows+=("${icon:+$icon  }$label$mark")
+    keys+=("$key")
+  done < <(level_rows "$route")
+
+  if ((${#rows[@]} == 0)); then
+    # A leaf with no children: run it.
+    break
+  fi
+
+  choice=$(printf '%s\n' "${rows[@]}" | walker --dmenu --placeholder "$(menu_title "$route" 2>/dev/null)") || choice=""
+  if [[ -z $choice ]]; then
+    [[ $route == root || $route == "$(resolve_route "${1:-root}")" ]] && exit 0
+    if [[ $route == *.* ]]; then route=${route%.*}; else route=root; fi
+    continue
+  fi
+
+  picked=""
+  for index in "${!rows[@]}"; do
+    [[ ${rows[index]} == "$choice" ]] && picked=${keys[index]}
+  done
+  [[ -n $picked ]] || exit 0
+  route=$picked
+
+  action=$(field "$route" action)
+  provider=$(field "$route" provider)
+  if [[ -n $provider && -n ${PROVIDER_LIST[$provider]:-} ]]; then
+    value=$(${PROVIDER_LIST[$provider]} | monarch-menu-select "$(menu_title "$route" 2>/dev/null)") || exit 0
+    exec ${PROVIDER_ACTION[$provider]} "$value"
+  fi
+  if [[ -n $action ]]; then
+    exec setsid bash -c "$action" </dev/null
+  fi
+done
+
+route_action=$(field "$route" action)
+[[ -n $route_action ]] && exec setsid bash -c "$route_action" </dev/null
+exit 0
