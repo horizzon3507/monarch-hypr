@@ -4,6 +4,8 @@ User guides live in [GitBook](https://docs.monarchlinux.com/). Keep technical do
 
 Common contribution rules live in [AGENTS.md](../AGENTS.md). Task procedures live in [agents/skills/](../agents/skills/development.md), including the [testing guide](../agents/skills/testing.md).
 
+- [Fork status](fork-status.md)
+- [Fork architecture notes](fork-architecture.md)
 - [Product decisions](product-decisions.md)
 - [Development reference](development.md)
 - [Network panel contracts](network-panel.md)

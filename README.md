@@ -1,3 +1,9 @@
+# monarch-hypr
+
+> **Fork notice.** monarch-hypr is an independent fork of [monarch-os/monarch](https://github.com/monarch-os/monarch) (MIT). It replaces the Niri + Noctalia desktop with a customized Hyprland desktop and keeps the CachyOS base. It is not affiliated with or endorsed by the upstream project. The `upstream-base` branch holds the unmodified upstream history this fork started from. See [CREDITS.md](CREDITS.md).
+>
+> **Status.** Work in progress. No bootable ISO is published yet; see [docs/fork-status.md](docs/fork-status.md).
+
 # Monarch
 
 [![Documentation](https://img.shields.io/badge/Documentation-Read_the_docs-7e33ff?style=flat-square)](https://docs.monarchlinux.com/)
