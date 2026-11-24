@@ -6,10 +6,12 @@
 # monarch:examples=monarch system lock
 
 lock_status=0
-noctalia msg session lock >/dev/null 2>&1 || lock_status=$?
-if (( lock_status != 0 )); then
-  echo "Noctalia could not accept the screen lock request" >&2
-fi
+pgrep -x hyprlock >/dev/null 2>&1 || hyprlock >/dev/null 2>&1 &
+sleep 0.2
+pgrep -x hyprlock >/dev/null 2>&1 || {
+  lock_status=1
+  echo "Hyprlock could not start" >&2
+}
 
 if pgrep -x "1password" >/dev/null; then
   1password --lock &
