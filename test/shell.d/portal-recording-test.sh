@@ -14,19 +14,20 @@ cat >"$test_tmp/bin/pgrep" <<'EOF'
 exit 1
 EOF
 
-cat >"$test_tmp/bin/niri" <<'EOF'
+cat >"$test_tmp/bin/hyprctl" <<'EOF'
 #!/bin/bash
 case "$*" in
-  'msg --json focused-output')
-    printf '%s\n' '{"name":"eDP-1","current_mode":0,"modes":[{"width":1920,"height":1080}]}'
+  'monitors -j')
+    printf '%s\n' '[{"name":"eDP-1","x":0,"y":0,"width":1920,"height":1080,"scale":1,"transform":0,"focused":true,"activeWorkspace":{"id":1}}]'
     ;;
-  'msg --json outputs')
-    printf '%s\n' '{"eDP-1":{"name":"eDP-1","logical":{"x":0,"y":0,"width":1920,"height":1080}}}'
-    ;;
-  'msg --json workspaces') printf '%s\n' '[{"id":1,"is_focused":true}]' ;;
-  'msg --json windows') printf '%s\n' '[]' ;;
+  'clients -j') printf '%s\n' '[]' ;;
 esac
 EOF
+cat >"$test_tmp/bin/monarch-hypr-geometry" <<EOF
+#!/bin/bash
+exec "$ROOT/bin/monarch-hypr-geometry" "\$@"
+EOF
+chmod +x "$test_tmp/bin/monarch-hypr-geometry"
 
 cat >"$test_tmp/bin/slurp" <<'EOF'
 #!/bin/bash
