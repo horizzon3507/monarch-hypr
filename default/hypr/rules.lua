@@ -88,6 +88,17 @@ rule({ title = "WebcamOverlay" }, {
   float = true, pin = true, no_initial_focus = true, no_dim = true, move = "100%-w-40 100%-w-40",
 })
 
+-- Webcam overlay windows (circle and rectangle): floating, pinned, never focused,
+-- fully opaque, no border or shadow. A very large rounding makes the square
+-- circle window a circle; the compositor clamps it to half the window size.
+local webcam = "org.monarch.webcam-overlay.(circle|rectangle)"
+rule({ class = webcam }, {
+  float = true, pin = true, no_focus = true, no_initial_focus = true, no_dim = true,
+  tag = "-default-opacity", opacity = "1 override 1 override 1 override",
+  border_size = 0, no_shadow = true, no_blur = true,
+})
+rule({ class = "org.monarch.webcam-overlay.circle" }, { rounding = 9999 })
+
 -- Default opacity, applied after the app rules have had a chance to opt out
 rule({ tag = "default-opacity" }, { opacity = "0.97 0.9" })
 
