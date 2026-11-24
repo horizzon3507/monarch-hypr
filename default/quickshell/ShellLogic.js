@@ -157,7 +157,7 @@ function bluetoothText(adapterEnabled, connected) {
 
 // Panels the host knows. Names come from the IPC call, so anything else is
 // refused rather than loaded.
-var PANELS = ["wifi-qr", "network", "theme", "display", "background", "crashes"];
+var PANELS = ["wifi-qr", "network", "theme", "display", "background", "crashes", "first-steps"];
 
 function panelName(name) {
     var n = String(name === undefined || name === null ? "" : name);
@@ -401,4 +401,119 @@ function parseExportPath(text) {
         var d = JSON.parse(text);
         return d && typeof d.path === "string" && d.path.charAt(0) === "/" ? d.path : "";
     } catch (e) { return ""; }
+}
+
+// ---- First steps -----------------------------------------------------------
+
+var FIRST_STEPS = ["network", "update", "shortcuts", "appearance", "software"];
+
+// The phase a guide opens at, from `monarch-setup-first-steps state`
+// ({"shown":bool,"pending":bool,"phase":"..."}). Unknown phases start over.
+function firstStepsPhase(text) {
+    try {
+        var d = JSON.parse(text);
+        var p = d && typeof d.phase === "string" ? d.phase : "";
+        return FIRST_STEPS.indexOf(p) >= 0 || p === "done" ? p : "welcome";
+    } catch (e) { return "welcome"; }
+}
+
+// Phase after "next": welcome starts the steps, the last step ends at done.
+function nextPhase(phase) {
+    var i = FIRST_STEPS.indexOf(phase);
+    if (i < 0) return phase === "welcome" ? FIRST_STEPS[0] : "";
+    return i + 1 < FIRST_STEPS.length ? FIRST_STEPS[i + 1] : "done";
+}
+
+function prevPhase(phase) {
+    var i = FIRST_STEPS.indexOf(phase);
+    return i > 0 ? FIRST_STEPS[i - 1] : (i === 0 ? "welcome" : "");
+}
+
+// `monarch-setup-first-steps tools-state`. null when unusable, so the panel
+// shows "state unavailable" instead of treating it as "nothing installed".
+function parseToolsState(text) {
+    var d;
+    try { d = JSON.parse(text); } catch (e) { return null; }
+    if (!d || typeof d !== "object" || !d.installed || typeof d.installed !== "object" || typeof d.connected !== "boolean") return null;
+    return {
+        installed: {
+            burpsuite: d.installed.burpsuite === true,
+            rfswift: d.installed.rfswift === true,
+            seclists: d.installed.seclists === true
+        },
+        active: typeof d.active === "string" ? d.active : "",
+        connected: d.connected,
+        updateResult: d.updateResult && typeof d.updateResult.code === "number" ? d.updateResult : null,
+        lastResult: d.lastResult && typeof d.lastResult.code === "number" && typeof d.lastResult.tool === "string" ? d.lastResult : null
+    };
+}
+
+// `monarch-update-available --all --json` with its exit code: 0 available,
+// 1 current, 2 error. Anything that does not fit is an error, never "current".
+function parseUpdateCheck(text, exitCode) {
+    var d;
+    try { d = JSON.parse(text); } catch (e) { return { status: "error" }; }
+    if (!d || typeof d !== "object" || typeof d.count !== "number") {
+        if (d && exitCode === 2 && d.status === "error") return d;
+        return { status: "error" };
+    }
+    if (exitCode === 1 && d.status === "current" && d.count === 0 && d.complete !== false) return d;
+    if (exitCode === 0 && d.status === "available" && d.count > 0) return d;
+    if (exitCode === 2 && d.status === "error") return d;
+    return { status: "error" };
+}
+
+// What the update step shows and offers.
+function updateView(check, tools, connected, toolsLoaded, checking) {
+    var out = { title: "Checking for updates...", detail: "Reading the system repositories and the AUR.", canUpdate: false, button: "" };
+    var result = tools ? tools.updateResult : null;
+    var active = tools ? tools.active : "";
+    var current = check && check.status === "current";
+    var available = check && check.status === "available";
+    var failedBefore = current && result !== null && result.code !== 0;
+    var repair = check && check.status === "error" && check.reason === "repositories-unavailable";
+    var partial = check && check.complete === false;
+    if (active === "update") {
+        out.title = "Update in progress..."; out.detail = "Follow it in the terminal.";
+    } else if (active !== "") {
+        out.title = "Installation in progress..."; out.detail = "The check starts when the installation ends.";
+    } else if (toolsLoaded && !connected) {
+        out.title = "Connection needed"; out.detail = "Connect to check for updates.";
+    } else if (current) {
+        out.title = failedBefore ? "Packages are current, finishing needs a retry" : "System is up to date";
+        out.detail = failedBefore ? "The last attempt did not finish. Resume the configuration and post-update tasks." : "No update is available in the system repositories or the AUR.";
+    } else if (available) {
+        out.title = (partial ? "At least " : "") + check.count + (check.count === 1 ? " update available" : " updates available");
+        out.detail = "System repositories: " + (check.repositories || 0) + " | AUR: " + (partial ? "not checked" : (check.aur || 0));
+    } else if (check && check.status === "error") {
+        out.title = "Could not check";
+        out.detail = repair ? "The repository check failed. The terminal can offer to refresh the signing keys." : "The repositories could not be checked. Retry or continue later.";
+    }
+    out.canUpdate = (available || failedBefore || repair) && connected && active === "" && !checking;
+    out.button = repair ? "Check in the terminal" : (failedBefore ? "Finish the update" : "Update now");
+    out.failedBefore = failedBefore;
+    out.current = current;
+    return out;
+}
+
+// Label for a key binding chord, e.g. "SUPER ALT + Space" to "Win + Alt + Space".
+function shortcutText(chord) {
+    return String(chord === undefined || chord === null ? "" : chord)
+        .replace(/SUPER/g, "Win").replace(/ALT/g, "Alt").replace(/Win Alt/g, "Win + Alt")
+        .replace(/\s*\+\s*/g, " + ");
+}
+
+// The bindings the guide shows from `monarch-menu-keybindings --json`.
+function firstStepsShortcuts(text) {
+    var d;
+    try { d = JSON.parse(text); } catch (e) { return []; }
+    if (!Array.isArray(d)) return [];
+    var out = [];
+    for (var i = 0; i < d.length; i++) {
+        var b = d[i];
+        if (!b || typeof b.label !== "string" || typeof b.shortcut !== "string") continue;
+        if (b.label !== "Terminal" && b.label !== "Monarch menu" && b.label.indexOf("Launcher") !== 0) continue;
+        out.push({ label: b.label === "Monarch menu" ? "monarch-menu" : (b.label.indexOf("Launcher") === 0 ? "App launcher" : b.label), shortcut: shortcutText(b.shortcut) });
+    }
+    return out;
 }

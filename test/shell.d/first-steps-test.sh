@@ -3,6 +3,7 @@
 set -euo pipefail
 
 source "${BASH_SOURCE[0]%/*}/base-test.sh"
+unset HYPRLAND_INSTANCE_SIGNATURE MONARCH_FIRST_STEPS_SHELL
 test_tmp=$(mktemp -d)
 trap 'rm -rf "$test_tmp"' EXIT
 runtime="$test_tmp/runtime"
