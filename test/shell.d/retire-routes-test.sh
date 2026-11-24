@@ -44,7 +44,7 @@ for S in setup remove; do
 done
 # First run does not enable Noctalia plugins on Hyprland.
 awk '/HYPRLAND_INSTANCE_SIGNATURE/{g=1} g&&/enable-noctalia-plugins/{exit 0} END{exit !g}' "$ROOT/bin/monarch-provision-first-run" || fail "first run gates the Noctalia plugin step"
-# Reconcile: on Hyprland no Noctalia wait/enable and no post-boot plugin hook (static check only).
+# Reconcile no longer waits for, restarts or enables anything from Noctalia (static check).
 U="$ROOT/install/reconcile/user.sh"
-awk '/HYPRLAND_INSTANCE_SIGNATURE/{g=1} g&&/rm -f "\$plugin_hook"/{r=1} r&&/^else$/{e=1} e&&/monarch_noctalia_wait 1/{exit 0} END{exit !e}' "$U" || fail "reconcile skips Noctalia plugin activation on Hyprland and keeps it elsewhere"
+! grep -qi noctalia "$U" || fail "reconcile user step has no Noctalia handling"
 pass "launch and crash-history routes use the shell on Hyprland and keep Noctalia elsewhere"
