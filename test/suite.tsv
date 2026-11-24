@@ -195,3 +195,5 @@ test/monarch-hypr-instance-test.sh	display-recovery	high	isolated
 test/monarch-theme-render-test.sh	theme-render	medium	isolated
 test/shell.d/quickshell-core-test.sh	desktop-shell	medium	isolated
 test/shell.d/quickshell-bar-test.sh	desktop-shell	medium	isolated
+test/shell.d/shell-start-test.sh	desktop-shell	high	isolated
+test/shell.d/shell-binds-test.sh	desktop-shell	high	isolated
