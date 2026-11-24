@@ -1,29 +1,27 @@
 #!/bin/bash
 
-# monarch:summary=Toggle the battery percentage in the Noctalia bar
+# monarch:summary=Toggle the battery percentage in the Quickshell bar
 # monarch:args=[toggle|on|off|status]
 # monarch:examples=monarch toggle battery-percentage | monarch toggle battery-percentage status
 
 set -uo pipefail
 
-OVERRIDE="$HOME/.config/noctalia/monarch-battery-percentage.toml"
+STATE="$HOME/.local/state/monarch/toggles/battery-percentage"
 
 percentage_enabled() {
-  [[ -f $OVERRIDE ]]
+  [[ -f $STATE ]]
 }
 
 set_percentage() {
-  local state=$1
-
+  local state=$1 value=false
+  [[ $state == "on" ]] && value=true
+  monarch-shell-setting set batteryPercent "$value" || return 1
   if [[ $state == "on" ]]; then
-    mkdir -p "$(dirname "$OVERRIDE")"
-    printf '[widget.battery]\nshow_label = true\n' >"$OVERRIDE.tmp"
-    mv "$OVERRIDE.tmp" "$OVERRIDE"
+    mkdir -p "${STATE%/*}"
+    : >"$STATE"
   else
-    rm -f "$OVERRIDE" "$OVERRIDE.tmp"
+    rm -f "$STATE"
   fi
-
-  noctalia msg config-reload >/dev/null 2>&1
 }
 
 print_status() {
@@ -36,21 +34,11 @@ print_status() {
 
 case "${1:-toggle}" in
   toggle)
-    if percentage_enabled; then
-      set_percentage off
-    else
-      set_percentage on
-    fi
+    if percentage_enabled; then set_percentage off; else set_percentage on; fi
     ;;
-  on)
-    set_percentage on
-    ;;
-  off)
-    set_percentage off
-    ;;
-  status | --status)
-    print_status
-    ;;
+  on) set_percentage on ;;
+  off) set_percentage off ;;
+  status | --status) print_status ;;
   *)
     echo "Usage: $0 [toggle|on|off|status]" >&2
     exit 1

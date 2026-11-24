@@ -437,8 +437,6 @@
     "style.bar.position.label": "Position",
     "style.bar.position.top.label": "Top",
     "style.bar.position.bottom.label": "Bottom",
-    "style.bar.position.left.label": "Left",
-    "style.bar.position.right.label": "Right",
     "setup.audio.label": "Audio",
     "setup.network.label": "Network",
     "setup.network.title": "Network",

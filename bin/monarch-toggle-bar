@@ -1,11 +1,13 @@
 #!/bin/bash
 
-# monarch:summary=Toggle Noctalia bar visibility
+# monarch:summary=Toggle the Quickshell bar visibility
 # monarch:args=[toggle|on|off|status|apply]
 # monarch:examples=monarch toggle bar | monarch toggle bar status
 
 set -uo pipefail
 
+# barVisible lives in shell.json, which the shell watches. The state flag stays
+# the user's record of the choice, so "apply" can restore it after a reset.
 STATE_FILE="$HOME/.local/state/monarch/toggles/bar-off"
 
 bar_enabled() {
@@ -13,29 +15,14 @@ bar_enabled() {
 }
 
 set_bar() {
-  local state=$1 current=on
+  local state=$1 current=on value=true
   [[ -f $STATE_FILE ]] && current=off
+  [[ $state == "off" ]] && value=false
 
-  if [[ $state == "on" ]]; then
-    noctalia msg bar-show >/dev/null 2>&1 || return 1
-  else
-    noctalia msg bar-hide >/dev/null 2>&1 || return 1
-  fi
-
+  monarch-shell-setting set barVisible "$value" || return 1
   if [[ $state != "$current" ]]; then
     monarch-toggle bar-off || return 1
   fi
-}
-
-wait_for_noctalia() {
-  local attempt
-
-  for ((attempt = 0; attempt < 50; attempt++)); do
-    noctalia msg status >/dev/null 2>&1 && return 0
-    sleep 0.1
-  done
-
-  return 1
 }
 
 print_status() {
@@ -48,29 +35,14 @@ print_status() {
 
 case "${1:-toggle}" in
   toggle)
-    if bar_enabled; then
-      set_bar off
-    else
-      set_bar on
-    fi
+    if bar_enabled; then set_bar off; else set_bar on; fi
     ;;
-  on)
-    set_bar on
-    ;;
-  off)
-    set_bar off
-    ;;
+  on) set_bar on ;;
+  off) set_bar off ;;
   apply)
-    wait_for_noctalia || exit 1
-    if bar_enabled; then
-      set_bar on
-    else
-      set_bar off
-    fi
+    if bar_enabled; then set_bar on; else set_bar off; fi
     ;;
-  status | --status)
-    print_status
-    ;;
+  status | --status) print_status ;;
   *)
     echo "Usage: $0 [toggle|on|off|status|apply]" >&2
     exit 1

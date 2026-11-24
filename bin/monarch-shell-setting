@@ -1,0 +1,47 @@
+#!/bin/bash
+
+# monarch:summary=Read or write one key of the shell settings file (shell.json)
+# monarch:args=<get|set> <key> [json-value]
+# monarch:examples=monarch-shell-setting get barPosition | monarch-shell-setting set barVisible false
+
+# ~/.config/monarch/shell.json is the only channel from Monarch commands to the
+# Quickshell shell: commands write it, the shell watches it and reloads. Values
+# are JSON, so booleans and numbers keep their type. The write is atomic (temp
+# file then rename), so the watcher never reads a half-written file.
+
+set -uo pipefail
+
+FILE="${MONARCH_SHELL_SETTINGS:-${XDG_CONFIG_HOME:-$HOME/.config}/monarch/shell.json}"
+
+usage() {
+  echo "Usage: monarch-shell-setting get <key> | set <key> <json-value>" >&2
+  exit 2
+}
+
+[[ $# -ge 2 ]] || usage
+action=$1
+key=$2
+[[ $key =~ ^[A-Za-z][A-Za-z0-9]*$ ]] || { echo "Invalid key: $key" >&2; exit 2; }
+
+case "$action" in
+  get)
+    [[ -f $FILE ]] || exit 0
+    jq -r --arg k "$key" '.[$k] // empty' "$FILE" 2>/dev/null || true
+    ;;
+  set)
+    [[ $# -eq 3 ]] || usage
+    jq . >/dev/null 2>&1 <<<"$3" || { echo "Value is not valid JSON: $3" >&2; exit 2; }
+    mkdir -p "$(dirname "$FILE")"
+    current='{}'
+    # A broken file is replaced rather than kept: the shell already ignores it.
+    [[ -f $FILE ]] && jq -e 'type == "object"' "$FILE" >/dev/null 2>&1 && current=$(<"$FILE")
+    tmp=$(mktemp "$FILE.XXXXXX") || exit 1
+    if jq --arg k "$key" --argjson v "$3" '.[$k] = $v' <<<"$current" >"$tmp"; then
+      mv "$tmp" "$FILE"
+    else
+      rm -f "$tmp"
+      exit 1
+    fi
+    ;;
+  *) usage ;;
+esac
