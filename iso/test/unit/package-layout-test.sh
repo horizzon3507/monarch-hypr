@@ -1,0 +1,96 @@
+#!/bin/bash
+
+set -euo pipefail
+
+root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)
+monarch_root=${MONARCH_SOURCE_PATH:-$root/../monarch}
+monarch_pkgs_root=${MONARCH_PKGS_SOURCE_PATH:-$root/../monarch-pkgs}
+runtime_pkgbuild="$monarch_pkgs_root/pkgbuilds/monarch/PKGBUILD"
+
+[[ -f $runtime_pkgbuild ]]
+[[ ! -f $monarch_pkgs_root/pkgbuilds/monarch-settings/PKGBUILD ]]
+(
+  source "$runtime_pkgbuild"
+  [[ " ${depends[*]} " != *" monarch-settings "* ]]
+  [[ ${pkgname[0]} == "monarch" ]]
+)
+
+noctalia_package=$(sed -n '/^noctalia/p' "$monarch_root/install/monarch-base.packages")
+[[ -n $noctalia_package ]]
+grep -qF "'$noctalia_package'" "$runtime_pkgbuild" || {
+  echo "runtime dependency does not match offline Noctalia package: $noctalia_package" >&2
+  exit 1
+}
+
+grep -qF 'cp -a "$MONARCH_SRC/." "$srcdir/monarch/"' "$runtime_pkgbuild"
+grep -qF 'config/. "$pkgdir/etc/skel/.config/"' "$runtime_pkgbuild"
+grep -qF 'config/. "$pkgdir/usr/share/monarch/config/"' "$runtime_pkgbuild"
+grep -qF 'default/systemd/user/monarch-crash-watch.service' "$runtime_pkgbuild"
+if grep -qF -- '--no-preserve=ownership' "$runtime_pkgbuild"; then
+  echo "package recipes must preserve the reference local-source workflow" >&2
+  exit 1
+fi
+
+[[ -x $monarch_root/bin/monarch-dns ]]
+[[ -f $monarch_root/etc/sudoers.d/monarch-dns ]]
+[[ ! -d $monarch_pkgs_root/pkgbuilds/monarch-dns ]]
+! grep -qxF monarch-dns "$monarch_root/install/monarch-base.packages"
+if grep -qE "^(provides|conflicts|replaces)=\('monarch-dns'\)" "$runtime_pkgbuild"; then
+  echo "runtime still carries compatibility metadata for retired monarch-dns" >&2
+  exit 1
+fi
+
+grep -qF 'cp -a /monarch-pkgs/pkgbuilds/monarch "$work_dir/"' "$root/builder/build-monarch-package.sh"
+! grep -q 'settings_package' "$root/builder/build-iso.sh"
+! grep -qxF monarch-settings "$root/builder/target-bootstrap.packages"
+grep -qF 'resolve_expected_packages' "$root/builder/build-iso.sh"
+grep -qF 'pacman-offline.conf' "$root/builder/build-iso.sh"
+grep -qF 'cp /builder/target-bootstrap.packages "$build_cache_dir/airootfs/usr/share/monarch-iso/' \
+  "$root/builder/build-iso.sh"
+
+orchestrator="$root/configs/airootfs/usr/share/monarch-iso/orchestrator/phases_impl.py"
+grep -qF 'TARGET_BOOTSTRAP_PACKAGES' "$orchestrator"
+if grep -qF 'EARLY_BOOTSTRAP_BASE_PACKAGES = [' "$orchestrator"; then
+  echo "early bootstrap packages are duplicated outside target-bootstrap.packages" >&2
+  exit 1
+fi
+
+mirror_block=$(sed -n '/mapfile -t all_packages/,/^)/p' "$root/builder/build-iso.sh")
+if ! grep -qF '/builder/target-bootstrap.packages' <<<"$mirror_block"; then
+  echo "target bootstrap packages are missing from the offline mirror" >&2
+  exit 1
+fi
+
+target_block=$(sed -n '/mapfile -t target_packages/,/^)/p' "$root/builder/build-iso.sh")
+grep -qF '/builder/target-bootstrap.packages' <<<"$target_block"
+if grep -qF '/builder/archinstall.packages' <<<"$target_block"; then
+  echo "live-only archinstall packages leak into the target package count" >&2
+  exit 1
+fi
+
+resolver_block=$(sed -n '/resolve_expected_packages()/,/^}/p' "$root/builder/build-iso.sh")
+grep -qF 'if ! resolved=$(pacman' <<<"$resolver_block"
+if grep -qE 'pacman .*\|' <<<"$resolver_block"; then
+  echo "pacman resolution failure can be masked by a pipeline" >&2
+  exit 1
+fi
+if grep -qF 'monarch-other.packages' <<<"$target_block"; then
+  echo "hardware-conditional packages leak into the target package count" >&2
+  exit 1
+fi
+
+runtime_package_list=$(sed -n '/def _runtime_package_list/,/^$/p' \
+  "$orchestrator")
+grep -qF 'monarch-base.packages' <<<"$runtime_package_list"
+if grep -qF 'monarch-other.packages' <<<"$runtime_package_list"; then
+  echo "hardware-conditional packages leak into the target install transaction" >&2
+  exit 1
+fi
+
+if grep -qE 'install/(preflight|packaging)|helpers/all\.sh' "$monarch_root/install.sh"; then
+  echo "install.sh still invokes the retired installer pipeline" >&2
+  exit 1
+fi
+grep -qF 'exec monarch-apply-system "$@"' "$monarch_root/install.sh"
+
+echo "ok - Monarch runtime and defaults are built and counted as one package"

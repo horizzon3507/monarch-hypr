@@ -1,0 +1,195 @@
+#!/bin/bash
+
+# Abort if anything fails
+set -e
+
+# Parse command line arguments
+NO_CACHE=""
+KEEP_PKG_CACHE=""
+LOCAL_MONARCH_PATH=""
+LOCAL_PKGS_PATH=""
+while [[ $# -gt 0 ]]; do
+  case $1 in
+  --no-cache)
+    NO_CACHE=1
+    shift
+    ;;
+  --keep-pkg-cache)
+    KEEP_PKG_CACHE=1
+    shift
+    ;;
+  --no-boot-offer)
+    NO_BOOT_OFFER=1
+    shift
+    ;;
+  --local-source)
+    LOCAL_MONARCH_PATH="${2:-}"
+    LOCAL_PKGS_PATH="${3:-}"
+    if [[ -z $LOCAL_MONARCH_PATH || -z $LOCAL_PKGS_PATH ]]; then
+      echo "Error: --local-source requires <monarch-checkout> <monarch-pkgs-checkout>" >&2
+      exit 1
+    fi
+    shift 3
+    ;;
+  --dev)
+    MONARCH_INSTALLER_REF=dev
+    shift
+    ;;
+  *)
+    echo "Unknown option: $1"
+    echo "Usage: $0 [--no-cache] [--keep-pkg-cache] [--no-boot-offer] [--local-source <monarch-checkout> <monarch-pkgs-checkout>] [--dev]"
+    exit 1
+    ;;
+  esac
+done
+
+MONARCH_INSTALLER_REPO="${MONARCH_INSTALLER_REPO:-https://github.com/monarch-os/monarch.git}"
+MONARCH_INSTALLER_REF="${MONARCH_INSTALLER_REF:-dev}"
+MONARCH_PKGS_REPO="${MONARCH_PKGS_REPO:-https://github.com/monarch-os/monarch-pkgs.git}"
+MONARCH_PKGS_REF="${MONARCH_PKGS_REF:-main}"
+INSTALLER_REF_SLUG="${MONARCH_INSTALLER_REF//\//-}"
+
+# Reject a bad ref here rather than inside the container. The clone happens
+# several minutes in — after the host pacman cache has been wiped and the build
+# packages installed — and its failure is buried in the build log.
+if [[ -z $LOCAL_MONARCH_PATH ]]; then
+  validate_remote_ref() {
+    local repository=$1 ref=$2
+
+    if git ls-remote --exit-code --heads --tags "$repository" "$ref" >/dev/null 2>&1; then
+      return 0
+    fi
+
+    echo "Branch or tag '$ref' not found on $repository" >&2
+    echo "Available branches:" >&2
+    git ls-remote --heads "$repository" 2>/dev/null |
+      sed 's|.*refs/heads/|  |' >&2
+    return 1
+  }
+
+  validate_remote_ref "$MONARCH_INSTALLER_REPO" "$MONARCH_INSTALLER_REF"
+  validate_remote_ref "$MONARCH_PKGS_REPO" "$MONARCH_PKGS_REF"
+fi
+
+if [[ -n $LOCAL_MONARCH_PATH ]]; then
+  [[ -d $LOCAL_MONARCH_PATH ]] || { echo "Monarch checkout not found: $LOCAL_MONARCH_PATH" >&2; exit 1; }
+  [[ -d $LOCAL_PKGS_PATH ]] || { echo "monarch-pkgs checkout not found: $LOCAL_PKGS_PATH" >&2; exit 1; }
+  LOCAL_MONARCH_PATH=$(realpath "$LOCAL_MONARCH_PATH")
+  LOCAL_PKGS_PATH=$(realpath "$LOCAL_PKGS_PATH")
+  MONARCH_LOCAL_PKGVER=$("${BASH_SOURCE[0]%/*}/../builder/source-package-version.sh" "$LOCAL_MONARCH_PATH")
+  MONARCH_LOCAL_REVISION=$(git -C "$LOCAL_MONARCH_PATH" rev-parse --verify HEAD)
+  [[ $MONARCH_LOCAL_REVISION =~ ^([0-9a-fA-F]{40}|[0-9a-fA-F]{64})$ ]] || {
+    echo "ERROR: invalid source revision from $LOCAL_MONARCH_PATH" >&2
+    exit 1
+  }
+fi
+
+# Clear out old packages. This is the host's own pacman cache, not just the
+# build's, and purging it needs interactive sudo — --keep-pkg-cache skips it so
+# unattended builds can run without a prompt and repeat builds keep their
+# already-downloaded packages. Mirrors omarchy-iso 0c13338.
+if [[ -z "$KEEP_PKG_CACHE" ]]; then
+  sudo rm -rf /var/cache/pacman/pkg/*
+fi
+
+# Ensure we have the submodule checked out
+git submodule update --init --recursive --jobs=8
+
+# Prepare build repo
+BUILD_SCRIPT="builder/build-iso.sh"
+BUILD_ROOT=$(realpath "${BASH_SOURCE[0]%/*}/..")
+BUILD_RELEASE_PATH="$BUILD_ROOT/release"
+mkdir -p "$BUILD_RELEASE_PATH"
+
+read -r -a BUILDER <<<"${BUILDER_CMD:-docker}"
+
+# The docker group is root-equivalent, so builders may deliberately leave
+# their user out of it. Preserve explicit BUILDER_CMD overrides (podman,
+# wrappers, or sudo docker), but make the default work through sudo when the
+# Docker socket refuses the current user.
+if [[ ${#BUILDER[@]} == 1 && ${BUILDER[0]} == docker ]] && ! docker version &>/dev/null; then
+  BUILDER=(sudo docker)
+fi
+
+DOCKER_ARGS=(
+  --rm
+  --privileged
+  -e "MONARCH_INSTALLER_REPO=$MONARCH_INSTALLER_REPO"
+  -e "MONARCH_INSTALLER_REF=$MONARCH_INSTALLER_REF"
+  -e "MONARCH_PKGS_REPO=$MONARCH_PKGS_REPO"
+  -e "MONARCH_PKGS_REF=$MONARCH_PKGS_REF"
+  -e "HOST_UID=$(id -u)"
+  -e "HOST_GID=$(id -g)"
+  -v "$BUILD_RELEASE_PATH/:/out/"
+  -v "$BUILD_ROOT/$BUILD_SCRIPT:/$BUILD_SCRIPT:ro"
+  -v "$BUILD_ROOT/archiso:/archiso:ro"
+  -v "$BUILD_ROOT/builder:/builder:ro"
+  -v "$BUILD_ROOT/configs:/configs:ro"
+)
+
+# The container is otherwise free to take every core and all of RAM, and an ISO
+# build is long enough that this makes the machine unusable to sit through.
+# configs/profiledef.sh already bounds mksquashfs itself, which is the bulk of
+# the cost; these cap the whole build — pacstrap and pip included — for anyone
+# who wants to keep working during it. Unset by default so CI is unconstrained.
+if [[ -n "${MONARCH_ISO_BUILD_CPUS-}" ]]; then
+  DOCKER_ARGS+=(--cpus "$MONARCH_ISO_BUILD_CPUS")
+fi
+if [[ -n "${MONARCH_ISO_BUILD_MEMORY-}" ]]; then
+  DOCKER_ARGS+=(--memory "$MONARCH_ISO_BUILD_MEMORY")
+fi
+
+# Forward the mksquashfs bounds read by configs/profiledef.sh, which runs inside
+# the container and cannot see the host environment otherwise.
+for var in MONARCH_ISO_SQUASHFS_PROCESSORS MONARCH_ISO_SQUASHFS_MEM MONARCH_ISO_SQUASHFS_LEVEL; do
+  if [[ -n "${!var-}" ]]; then
+    DOCKER_ARGS+=(-e "$var=${!var}")
+  fi
+done
+
+# Use local source of Monarch from $MONARCH_PATH instead of git checkout
+if [[ -n $LOCAL_MONARCH_PATH ]]; then
+  DOCKER_ARGS+=(
+    -e "MONARCH_LOCAL_PKGVER=$MONARCH_LOCAL_PKGVER"
+    -e "MONARCH_LOCAL_REVISION=$MONARCH_LOCAL_REVISION"
+    -v "$LOCAL_MONARCH_PATH:/monarch-source:ro"
+    -v "$LOCAL_PKGS_PATH:/monarch-pkgs:ro"
+  )
+fi
+
+# Use local pacman cache if you already have one on host to speed up repeat runs
+if [ -d "/var/cache/pacman/pkg" ]; then
+  DOCKER_ARGS+=(-v "/var/cache/pacman/pkg:/var/cache/pacman/pkg")
+fi
+
+# Mount the build cache directory where packages are downloaded. Keyed by the
+# installer ref, not by date: different refs can carry different package lists,
+# different days within a ref cannot. The old per-day key forced a fresh ~5GB
+# download on the first build of every day and left every previous day's cache
+# on disk forever, since nothing ever pruned them. --no-cache still bypasses
+# the mount entirely. Mirrors omarchy-iso 874e6cd.
+if [[ -z "$NO_CACHE" ]]; then
+  # Refs may contain slashes (fix/some-branch), which must not nest directories.
+  OFFLINE_REPO_BUILD_CACHE_DIR="$HOME/.cache/monarch/iso_${INSTALLER_REF_SLUG}/airootfs/var/cache/monarch"
+  mkdir -p "$OFFLINE_REPO_BUILD_CACHE_DIR"
+  # Mount to /var/cache/airootfs/var/cache/monarch since that's where repo packages go in the ISO
+  DOCKER_ARGS+=(-v "$OFFLINE_REPO_BUILD_CACHE_DIR:/var/cache/airootfs/var/cache/monarch")
+else
+  # The locally cached :latest image is a cache too — docker run never
+  # re-checks the registry for it, so refresh it when building cold.
+  DOCKER_ARGS+=(--pull=always)
+fi
+
+# Run the builder with assembled args
+"${BUILDER[@]}" run "${DOCKER_ARGS[@]}" cachyos/cachyos:latest /$BUILD_SCRIPT
+
+# Move as install ref
+latest_iso=$(\ls -t "$BUILD_RELEASE_PATH"/*.iso | head -n1)
+iso_ref="${latest_iso%.*}-$INSTALLER_REF_SLUG.iso"
+mv -f "$latest_iso" "$iso_ref"
+
+# Offer to boot the new build
+if [[ -z "$NO_BOOT_OFFER" ]]; then
+  echo
+  gum confirm "Boot $iso_ref?" && ./bin/monarch-iso-boot "$iso_ref"
+fi
