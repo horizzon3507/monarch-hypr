@@ -1,0 +1,71 @@
+#!/bin/bash
+
+set -euo pipefail
+
+root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+(
+  export MONARCH_INTEGRATION_ISO="$tmp/candidate.iso"
+  source "$root/test/integration.d/base-test.sh"
+  trap - EXIT
+  rmdir "$RUN_DIR" "$BASE_DIR/runs" "$BASE_DIR" 2>/dev/null || true
+  BASE_DIR="$tmp/base"
+  RUN_DIR="$tmp/run"
+  mkdir -p "$BASE_DIR" "$RUN_DIR"
+  SSH_KEY="$BASE_DIR/id_ed25519"
+  CIDATA_IMG="$BASE_DIR/cidata.img"
+  printf 'ssh-ed25519 test-key integration\n' >"$SSH_KEY.pub"
+
+  qemu-system-x86_64() { printf '%s\n' "$@" >"$tmp/qemu-args"; }
+  unset MONARCH_INTEGRATION_RENDER_NODE
+  export MONARCH_INTEGRATION_OFFLINE=true
+  ACCEL=tcg
+  CPUS=2
+  start_vm "$tmp/disk.qcow2" "$tmp/serial.log"
+  grep -qxF 'q35,accel=tcg' "$tmp/qemu-args"
+  grep -qxF max "$tmp/qemu-args"
+  grep -qxF "user,id=net0,hostfwd=tcp:127.0.0.1:$SSH_PORT-:22,restrict=on,guestfwd=tcp:10.0.2.100:$HTTP_PORT-cmd:socat - TCP:127.0.0.1:$HTTP_PORT" "$tmp/qemu-args"
+  echo "ok - offline TCG boot retains only forwarded SSH and its host bootstrap endpoint"
+
+  export MONARCH_INTEGRATION_OFFLINE=false
+  ACCEL=kvm
+  start_vm "$tmp/disk.qcow2" "$tmp/serial.log"
+  grep -qxF 'q35,accel=kvm' "$tmp/qemu-args"
+  grep -qxF host "$tmp/qemu-args"
+  ! grep -q restrict=on "$tmp/qemu-args"
+  ! grep -q guestfwd= "$tmp/qemu-args"
+  echo "ok - normal integration runs retain KVM and network access"
+
+  grep -qxF virtio-vga "$tmp/qemu-args"
+  grep -qxF none "$tmp/qemu-args"
+  export MONARCH_INTEGRATION_RENDER_NODE=/dev/dri/render-test
+  start_vm "$tmp/disk.qcow2" "$tmp/serial.log"
+  grep -qxF virtio-vga-gl "$tmp/qemu-args"
+  grep -qxF egl-headless,rendernode=/dev/dri/render-test "$tmp/qemu-args"
+  unset MONARCH_INTEGRATION_RENDER_NODE
+  echo "ok - EGL graphics are opt-in and keep the selected render node"
+
+  DISK_CACHE=none
+  start_vm "$tmp/disk.qcow2" "$tmp/serial.log"
+  grep -qxF "file=$tmp/disk.qcow2,format=qcow2,if=none,id=drive0,cache=none" "$tmp/qemu-args"
+  echo "ok - disk cache can match upstream CI timing measurements"
+
+  mkdir -p "$tmp/bin"
+  cat >"$tmp/bin/xorrisofs" <<'EOF'
+#!/bin/bash
+set -euo pipefail
+for argument; do staging=$argument; done
+cp "$staging/user_configuration.json" "$CIDATA_CAPTURE"
+cp "$staging/authorized_keys" "$KEY_CAPTURE"
+EOF
+  chmod +x "$tmp/bin/xorrisofs"
+  PATH="$tmp/bin:$PATH" CIDATA_CAPTURE="$tmp/config.json" KEY_CAPTURE="$tmp/key.pub" build_cidata
+  jq -e '.hostname == "monarch-test" and .disk_config.device_modifications[0].device == "/dev/vda" and .monarch_install.mode == "full_disk"' "$tmp/config.json" >/dev/null
+  cmp "$SSH_KEY.pub" "$tmp/key.pub"
+  echo "ok - autoinstall uses the production configuration generator and the test SSH key"
+  MONARCH_INTEGRATION_MINIMAL=true PATH="$tmp/bin:$PATH" CIDATA_CAPTURE="$tmp/minimal.json" KEY_CAPTURE="$tmp/key.pub" build_cidata
+  jq -e '.monarch_install.include_preinstalls == false' "$tmp/minimal.json" >/dev/null
+  echo "ok - minimal integration disables optional preinstalls through the production generator"
+)
