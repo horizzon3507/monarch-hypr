@@ -444,6 +444,10 @@ cmp "$ROOT/config/noctalia/monarch-widgets.toml" \
   "$HOME/.config/noctalia/monarch-widgets.toml"
 cmp "$ROOT/config/alacritty/monarch-text-size.toml" \
   "$HOME/.config/alacritty/monarch-text-size.toml"
+for shell_config in hypr/hypridle.conf hypr/hyprlock.conf hypr/hyprpaper.conf \
+  mako/config walker/config.toml swayosd/style.css; do
+  cmp "$ROOT/config/$shell_config" "$HOME/.config/$shell_config"
+done
 grep -qF '/usr/share/monarch}/default/zsh/rc' "$HOME/.zshrc"
 grep -qF '/usr/share/monarch}/default/bash/rc' "$HOME/.bashrc"
 grep -qx 'export MONARCH_PATH=${MONARCH_PATH:-/usr/share/monarch}' "$HOME/.config/uwsm/env"
@@ -476,6 +480,8 @@ printf '%s\n' current >"$HOME/.config/noctalia/user-templates.toml"
 printf '%s\n' newer >"$HOME/.config/noctalia/templates/newer.tpl"
 printf '%s\n' '[font]' 'size = 12' \
   >"$HOME/.config/alacritty/monarch-text-size.toml"
+printf '%s\n' user-idle >"$HOME/.config/hypr/hypridle.conf"
+rm "$HOME/.config/mako/config"
 printf '%s\n' stale >"$HOME/.local/share/noctalia/plugins/monarch-network/panel.luau"
 bash "$ROOT/install/reconcile/schema/1-to-2/user.sh"
 bash "$ROOT/install/reconcile/schema/1-to-2/system-after-user.sh"
@@ -490,6 +496,8 @@ grep -qx 'echo user-gemini' "$HOME/.local/bin/gemini"
 [[ $(<"$HOME/.config/noctalia/user-templates.toml") == "current" ]]
 [[ $(<"$HOME/.config/noctalia/templates/newer.tpl") == "newer" ]]
 [[ $(<"$HOME/.config/alacritty/monarch-text-size.toml") == $'[font]\nsize = 12' ]]
+[[ $(<"$HOME/.config/hypr/hypridle.conf") == "user-idle" ]]
+cmp "$ROOT/config/mako/config" "$HOME/.config/mako/config"
 (( $(grep -xc monarch-refresh-noctalia "$TEST_LOG") == 1 ))
 (( $(grep -c '^monarch-restart-noctalia ' "$TEST_LOG") == 1 ))
 

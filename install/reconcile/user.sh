@@ -28,6 +28,15 @@ monarch_reconcile_seeded_file \
   "$MONARCH_PATH/config/alacritty/monarch-text-size.toml" \
   "$HOME/.config/alacritty/monarch-text-size.toml"
 
+# Daemon and lock-screen configs for the Hyprland shell. Seeded once so a first
+# login has them; later edits are the user's and are never replaced
+# (`monarch refresh shell` is the explicit reset).
+for shell_config in hypr/hypridle.conf hypr/hyprlock.conf hypr/hyprpaper.conf \
+  mako/config walker/config.toml swayosd/style.css; do
+  monarch_reconcile_seeded_file \
+    "$MONARCH_PATH/config/$shell_config" "$HOME/.config/$shell_config"
+done
+
 monarch_reconcile_seeded_file \
   "$MONARCH_PATH/config/noctalia/templates/herdr.toml" \
   "$HOME/.config/noctalia/templates/herdr.toml"
