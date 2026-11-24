@@ -2,7 +2,6 @@
 
 set -euo pipefail
 source "${BASH_SOURCE[0]%/*}/base-test.sh"
-unset HYPRLAND_INSTANCE_SIGNATURE
 
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
@@ -21,30 +20,24 @@ mkdir -p "$MONARCH_PATH/bin"
 cp "$tmp/bin/recorder" "$MONARCH_PATH/bin/monarch-panel"
 run() { : >"$TEST_CALLS"; PATH="$tmp/bin:/usr/bin:/bin" bash "$ROOT/bin/$1" "${@:2}" >/dev/null 2>"$tmp/err" || true; cat "$TEST_CALLS"; }
 
-# Outside Hyprland the Noctalia routes stay as they were.
-[[ $(run monarch-launch-wifi) == "noctalia msg panel-toggle control-center network" ]] || fail "wifi keeps the Noctalia route outside Hyprland"
-[[ $(run monarch-launch-bluetooth) == "noctalia msg panel-toggle control-center bluetooth" ]] || fail "bluetooth keeps the Noctalia route outside Hyprland"
-[[ $(run monarch-launch-powerprofile) == "noctalia msg panel-toggle control-center power" ]] || fail "power keeps the Noctalia route outside Hyprland"
-
-# On Hyprland nothing reaches Noctalia.
-export HYPRLAND_INSTANCE_SIGNATURE=test
-[[ $(run monarch-launch-wifi) == "monarch-panel toggle network" ]] || fail "wifi opens the network panel on Hyprland"
+# The shell is the only route; nothing reaches Noctalia, with or without session variables.
+[[ $(run monarch-launch-wifi) == "monarch-panel toggle network" ]] || fail "wifi opens the network panel"
 [[ $(PANEL_FAIL=1 run monarch-launch-wifi) == $'monarch-panel toggle network\nmonarch-launch-tui impala' ]] || fail "wifi falls back to the terminal UI when the shell does not answer"
-[[ $(run monarch-launch-bluetooth) == "monarch-launch-tui bluetui" ]] || fail "bluetooth opens the terminal UI on Hyprland"
-[[ $(run monarch-launch-powerprofile) == "monarch-menu setup.power" ]] || fail "power opens the menu rows on Hyprland"
-[[ $(run monarch-crash-history open) == "monarch-panel open crashes" ]] || fail "crash history opens the crash panel on Hyprland"
+[[ $(run monarch-launch-bluetooth) == "monarch-launch-tui bluetui" ]] || fail "bluetooth opens the terminal UI"
+[[ $(run monarch-launch-powerprofile) == "monarch-menu setup.power" ]] || fail "power opens the menu rows"
+[[ $(run monarch-crash-history open) == "monarch-panel open crashes" ]] || fail "crash history opens the crash panel"
 [[ $(PANEL_FAIL=1 run monarch-crash-history open) == "monarch-panel open crashes" ]] || fail "a missing panel is reported, not routed through Noctalia"
 ! grep -q noctalia "$TEST_CALLS" || fail "no Hyprland route calls Noctalia"
 # Fingerprint on Hyprland: refuse before any sudo, PAM write or enrollment change.
 for S in setup remove; do
   F="$ROOT/bin/monarch-$S-security-fingerprint"
-  out=$(HYPRLAND_INSTANCE_SIGNATURE=x PATH=/nonexistent /bin/bash "$F" 2>&1) && fail "fingerprint $S must exit non-zero on Hyprland"
+  out=$(HYPRLAND_INSTANCE_SIGNATURE=x PATH=/nonexistent /bin/bash "$F" 2>&1) && fail "fingerprint $S must exit non-zero"
   [[ $out == *"not available with this lock screen yet"* ]] || fail "fingerprint $S states the gap: $out"
   [[ $out != *"command not found"* ]] || fail "fingerprint $S ran something before refusing"
 done
-# First run does not enable Noctalia plugins on Hyprland.
-awk '/HYPRLAND_INSTANCE_SIGNATURE/{g=1} g&&/enable-noctalia-plugins/{exit 0} END{exit !g}' "$ROOT/bin/monarch-provision-first-run" || fail "first run gates the Noctalia plugin step"
+# First run no longer enables Noctalia plugins.
+! grep -q 'enable-noctalia-plugins' "$ROOT/bin/monarch-provision-first-run" || fail "first run still enables Noctalia plugins"
 # Reconcile no longer waits for, restarts or enables anything from Noctalia (static check).
 U="$ROOT/install/reconcile/user.sh"
 ! grep -qi noctalia "$U" || fail "reconcile user step has no Noctalia handling"
-pass "launch and crash-history routes use the shell on Hyprland and keep Noctalia elsewhere"
+pass "launch and crash-history routes use the shell and never call Noctalia"

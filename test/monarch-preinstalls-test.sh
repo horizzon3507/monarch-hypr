@@ -73,9 +73,9 @@ cat >"$TMP/bin/monarch-pkg-drop" <<'EOF'
 exit "${PKG_DROP_STATUS:-0}"
 EOF
 
-cat >"$TMP/bin/monarch-restart-noctalia" <<'EOF'
+cat >"$TMP/bin/monarch-restart-shell" <<'EOF'
 #!/bin/bash
-touch "$HOME/noctalia-restarted"
+touch "$HOME/shell-restarted"
 EOF
 
 cat >"$TMP/bin/monarch-webapp-remove-all" <<'EOF'
@@ -153,8 +153,8 @@ if [[ -f $marker ]]; then
   exit 1
 fi
 
-if [[ ! -f $TMP/home/noctalia-restarted ]]; then
-  echo "A successful restore did not refresh Noctalia's application index" >&2
+if [[ ! -f $TMP/home/shell-restarted ]]; then
+  echo "A successful restore did not restart the shell" >&2
   exit 1
 fi
 

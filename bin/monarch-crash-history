@@ -155,27 +155,10 @@ export_report() {
 }
 
 open_history() {
-  local id=${1:-} context attempt agent=false agent_name strings language
+  local id=${1:-}
   [[ -z $id ]] || validate_id "$id"
-  if [[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]]; then
-    # The shell's crash panel lists the crashes; it has no deep link to one id.
-    "$runtime/bin/monarch-panel" open crashes 2>/dev/null && return 0
-    echo "The crash history panel is unavailable." >&2
-    return 1
-  fi
-  agent_name=$(monarch-default-agent)
-  if [[ -n $agent_name ]] && monarch-cmd-present "$agent_name"; then agent=true; fi
-  strings=$(python3 "$runtime/default/i18n/i18n.py" --ui crashHistory)
-  language=$("$runtime/bin/monarch-language")
-  context=$(jq -cn --arg root "$runtime" --arg id "$id" --argjson agent "$agent" --argjson strings "$strings" --arg language "$language" \
-    '{root:$root,id:$id,agent:$agent,strings:$strings,language:$language}')
-  source "$runtime/install/reconcile/noctalia-wait.sh"
-  monarch_noctalia_wait || { echo "Noctalia is not ready." >&2; return 1; }
-  noctalia msg plugins enable monarch/crashes >/dev/null
-  for ((attempt = 0; attempt < 30; attempt++)); do
-    noctalia msg panel-open monarch/crashes:panel "$context" >/dev/null 2>&1 && return 0
-    sleep 0.1
-  done
+  # The shell's crash panel lists the crashes; it has no deep link to one id.
+  "$runtime/bin/monarch-panel" open crashes 2>/dev/null && return 0
   echo "The crash history panel is unavailable." >&2
   return 1
 }

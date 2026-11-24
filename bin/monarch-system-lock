@@ -6,29 +6,22 @@
 # monarch:examples=monarch system lock
 
 lock_status=0
-if [[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]]; then
-  # Hyprland session: hyprlock is the lock screen. Start it detached and wait
-  # briefly for it, so a before-sleep lock is up before the machine suspends.
-  if ! command -v hyprlock >/dev/null 2>&1; then
-    lock_status=127
-    echo "hyprlock is not installed" >&2
-  elif ! pgrep -x hyprlock >/dev/null 2>&1; then
-    setsid -f hyprlock >/dev/null 2>&1 || lock_status=$?
-    for _ in 1 2 3 4 5 6 7 8 9 10; do
-      pgrep -x hyprlock >/dev/null 2>&1 && break
-      sleep 0.2
-    done
-    # A lock that starts and dies at once (bad config, no session-lock support)
-    # must not read as locked: it has to still be there after a short settle.
-    # A running process is still not proof that the screen is locked.
-    sleep 0.5
-    pgrep -x hyprlock >/dev/null 2>&1 || { lock_status=1; echo "hyprlock did not start or exited at once" >&2; }
-  fi
-else
-  noctalia msg session lock >/dev/null 2>&1 || lock_status=$?
-  if (( lock_status != 0 )); then
-    echo "Noctalia could not accept the screen lock request" >&2
-  fi
+# hyprlock is the lock screen. Start it detached and wait briefly for it, so a
+# before-sleep lock is up before the machine suspends.
+if ! command -v hyprlock >/dev/null 2>&1; then
+  lock_status=127
+  echo "hyprlock is not installed" >&2
+elif ! pgrep -x hyprlock >/dev/null 2>&1; then
+  setsid -f hyprlock >/dev/null 2>&1 || lock_status=$?
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    pgrep -x hyprlock >/dev/null 2>&1 && break
+    sleep 0.2
+  done
+  # A lock that starts and dies at once (bad config, no session-lock support)
+  # must not read as locked: it has to still be there after a short settle.
+  # A running process is still not proof that the screen is locked.
+  sleep 0.5
+  pgrep -x hyprlock >/dev/null 2>&1 || { lock_status=1; echo "hyprlock did not start or exited at once" >&2; }
 fi
 
 if pgrep -x "1password" >/dev/null; then

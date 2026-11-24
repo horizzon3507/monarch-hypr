@@ -1,7 +1,6 @@
 #!/bin/bash
 
 set -euo pipefail
-unset HYPRLAND_INSTANCE_SIGNATURE
 
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 test_tmp=$(mktemp -d)
@@ -9,7 +8,7 @@ trap 'rm -rf "$test_tmp"' EXIT
 mkdir -p "$test_tmp/bin" "$test_tmp/home"
 export JOURNAL_FIXTURE="$test_tmp/journal.jsonl" JOURNAL_CALLS="$test_tmp/journal.calls"
 export PACMAN_CALLS="$test_tmp/pacman.calls"
-export NOCTALIA_CALLS="$test_tmp/noctalia.calls"
+export QS_CALLS="$test_tmp/quickshell.calls"
 export XDG_CONFIG_HOME="$test_tmp/home" XDG_STATE_HOME="$test_tmp/state" MONARCH_PATH="$ROOT"
 export PATH="$test_tmp/bin:$ROOT/bin:/usr/bin"
 boot=0123456789abcdef0123456789abcdef
@@ -45,9 +44,10 @@ cat > "$test_tmp/bin/monarch-cmd-present" <<'EOF'
 #!/bin/bash
 [[ ${AGENT_MISSING:-false} != "true" ]]
 EOF
-cat > "$test_tmp/bin/noctalia" <<'EOF'
+cat > "$test_tmp/bin/quickshell" <<'EOF'
 #!/bin/bash
-printf '%s\n' "$*" >> "$NOCTALIA_CALLS"
+printf '%s\n' "$*" >> "$QS_CALLS"
+[[ ${QS_FAIL:-false} != "true" ]]
 EOF
 chmod +x "$test_tmp/bin/"*
 touch "$test_tmp/core"
@@ -171,26 +171,12 @@ monarch-crash-history list --json | jq -e '.crashes == [] and .hasMore == false'
 entry "$UID" "$boot" 1790859948000000 '' > "$JOURNAL_FIXTURE"
 monarch-crash-history list --json | jq -e '.crashes[0].core == "unavailable"' >/dev/null
 
+# open hands off to the shell's crashes panel (no deep link to one id), and a
+# shell that does not answer is a failure with a message.
 monarch-crash-history open "$id"
-sed -n 's/^msg panel-open monarch\/crashes:panel //p' "$NOCTALIA_CALLS" |
-  jq -e --arg id "$id" 'select(.id == $id and .agent == true)' >/dev/null
-: > "$NOCTALIA_CALLS"
-NO_AGENT=true monarch-crash-history open "$id"
-sed -n 's/^msg panel-open monarch\/crashes:panel //p' "$NOCTALIA_CALLS" |
-  jq -e --arg id "$id" 'select(.id == $id and .agent == false)' >/dev/null
-: > "$NOCTALIA_CALLS"
-AGENT_MISSING=true monarch-crash-history open "$id"
-sed -n 's/^msg panel-open monarch\/crashes:panel //p' "$NOCTALIA_CALLS" |
-  jq -e --arg id "$id" 'select(.id == $id and .agent == false)' >/dev/null
-
-for language in en fr; do
-  : > "$NOCTALIA_CALLS"
-  MONARCH_LANGUAGE=$language monarch-crash-history open "$id"
-  context=$(sed -n 's/^msg panel-open monarch\/crashes:panel //p' "$NOCTALIA_CALLS")
-  expected="Send a report"
-  [[ $language != "fr" ]] || expected="Envoyer un rapport"
-  jq -e --arg language "$language" --arg expected "$expected" \
-    '.language == $language and .strings["crashHistory.report"] == $expected' <<< "$context" >/dev/null
-done
+grep -q 'call panel open crashes$' "$QS_CALLS"
+: > "$QS_CALLS"
+if QS_FAIL=true monarch-crash-history open "$id" 2>"$test_tmp/open.err"; then exit 1; fi
+grep -q 'crash history panel is unavailable' "$test_tmp/open.err"
 
 echo "Crash history identity, user scope, journal failure, report projection and private export pass"
