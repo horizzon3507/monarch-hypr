@@ -33,7 +33,18 @@ export WAYLAND_DISPLAY=$(cd "$XDG_RUNTIME_DIR" && ls wayland-* | grep -v lock | 
 say "Hyprland up, display $WAYLAND_DISPLAY, sig ${HYPRLAND_INSTANCE_SIGNATURE:0:12}"
 hyprctl monitors > "$OUT/monitors.txt" 2>&1
 
-QT_QPA_PLATFORM=wayland quickshell --path "$ROOT/default/quickshell" > "$OUT/quickshell.log" 2>&1 &
+# Test copy of the bar: ONLY change is a console.log line in the workspace onClicked (labeled PROBE)
+INSTR=/tmp/qs-instr; rm -rf "$INSTR"; cp -r "$ROOT/default/quickshell" "$INSTR"
+python3 - "$INSTR/Workspaces.qml" <<'PY'
+import sys
+p=sys.argv[1]; s=open(p).read()
+a='var request = Logic.workspaceDispatch(slot.modelData);'
+assert a in s
+open(p,'w').write(s.replace(a,a+'\n                    console.log("PROBE onClicked slot", slot.modelData, "request:", request);'))
+PY
+say "bar under test: default/quickshell copied to $INSTR with one console.log added in onClicked"
+fc-list | grep -ci dejavu | xargs -I{} echo "dejavu font files: {}" | tee -a "$res"
+QT_QPA_PLATFORM=wayland quickshell --path "$INSTR" > "$OUT/quickshell.log" 2>&1 &
 QPID=$!
 sleep 8
 kill -0 $QPID 2>/dev/null && say "quickshell running" || say "quickshell EXITED"
@@ -79,5 +90,26 @@ for name,exp in (("ws1-initial",1),("ws3-dispatch",3),("ws5-click",5),("ws2-fina
     print(f"pixels {name}: accent-filled slot(s) {h} expected [{exp}]")
 PY
 grep -ciE "error|typeerror|referenceerror" "$OUT/quickshell.log" | xargs -I{} echo "quickshell log lines matching error: {}" | tee -a "$res"
-kill $QPID $HPID 2>/dev/null; sleep 1
+say "onClicked log: $(grep -c 'PROBE onClicked' "$OUT/quickshell.log") line(s): $(grep 'PROBE onClicked' "$OUT/quickshell.log" | head -3 | tr '\n' '|')"
+
+# Phase 2: does Quickshell's own Hyprland.dispatch() accept the Lua string? Fire it from QML, no pointer.
+kill $QPID 2>/dev/null; sleep 1
+hyprctl dispatch 'hl.dsp.focus({ workspace = 2 })' >/dev/null 2>&1; sleep 1
+D=/tmp/qs-direct; rm -rf "$D"; cp -r "$ROOT/default/quickshell" "$D"
+python3 - "$D/Workspaces.qml" <<'PY'
+import sys
+p=sys.argv[1]; s=open(p).read()
+a='    Repeater {\n        model: Logic.workspaceSlots'
+assert a in s
+t='    Timer {\n        interval: 5000; running: true; repeat: false\n        onTriggered: { var r = Logic.workspaceDispatch(4); console.log("PROBE direct dispatch", r); Hyprland.dispatch(r); }\n    }\n\n'
+open(p,'w').write(s.replace(a,t+a,1))
+PY
+QT_QPA_PLATFORM=wayland quickshell --path "$D" > "$OUT/quickshell-direct.log" 2>&1 &
+QPID2=$!
+say "direct: active before timer: $(active)"
+sleep 10
+say "direct Hyprland.dispatch from QML (no pointer) -> active workspace: $(active) (expected 4)"; shot ws4-direct
+grep -i 'PROBE' "$OUT/quickshell-direct.log" | head -5 | tee -a "$res"
+kill $QPID2 $HPID 2>/dev/null; sleep 1
+
 echo done
