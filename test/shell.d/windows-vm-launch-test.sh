@@ -24,7 +24,7 @@ read_credential() {
 ensure_krb5_config() { :; }
 priv() { :; }
 gum() { :; }
-niri() { printf '{"logical":{"scale":1}}\n'; }
+hyprctl() { printf '[{"name":"eDP-1","focused":true,"scale":1}]\n'; }
 xfreerdp3() { cat >/dev/null; }
 nc() { $rdp_ready; }
 monarch-notification-send() { printf '%s\n' "$*" >>"$trace"; }
