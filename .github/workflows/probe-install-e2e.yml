@@ -1,0 +1,38 @@
+name: Probe install and reboot on an existing ISO
+on:
+  push:
+    branches: [probe/install-e2e]
+jobs:
+  install:
+    strategy:
+      fail-fast: false
+      matrix:
+        offline: ["false", "true"]
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Work dir on the big volume
+        run: sudo mkdir -p /mnt/iso && sudo chown "$USER" /mnt/iso; df -h / /mnt
+      - uses: actions/download-artifact@v4
+        with:
+          name: monarch-iso
+          path: /mnt/iso
+          run-id: 45628700765
+          github-token: ${{ github.token }}
+      - name: Install, reboot, cold boot (intermediate b0dfa44 ISO)
+        env:
+          MONARCH_INTEGRATION_OFFLINE: ${{ matrix.offline }}
+        run: |
+          iso=$(ls /mnt/iso/*.iso | head -n1)
+          bash iso/test/ci/install-reboot-check.sh "$iso" out || true
+          cat out/report.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: install-e2e-offline-${{ matrix.offline }}
+          path: out
+          retention-days: 14

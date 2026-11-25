@@ -121,6 +121,8 @@ g "after restart" ssh_guest 'pgrep -a "hyprpaper|quickshell|mako|swayosd|hypridl
 capture_console "success-after-shell-restart"
 g "wallpaper link after restart (selection must be preserved)" ssh_guest 'readlink -f ~/.config/monarch/current/background 2>&1'
 g "wallpaper state json equals resolved link, after restart" ssh_guest 'c=$HOME/.config/monarch/current; r=$(readlink -f "$c/background"); j=$(jq -r .path "$c/wallpaper.json" 2>&1); rev=$(jq -r .rev "$c/wallpaper.json" 2>&1); echo "link -> $r"; echo "wallpaper.json path=$j rev=$rev"; if [ -f "$r" ] && [ "$j" = "$r" ]; then echo "WALLPAPER-STATE PASS"; else echo "WALLPAPER-STATE FAIL"; fi; ls -l "$c/background" "$c/wallpaper.json" 2>&1'
+# Obsidian user service outside the desktop environment, with a disposable test vault (not the real app).
+g "obsidian theme user service (disposable vault, systemd user manager)" ssh_guest 'export XDG_RUNTIME_DIR=/run/user/$(id -u); echo "path unit: enabled=$(systemctl --user is-enabled monarch-obsidian-theme.path 2>&1) active=$(systemctl --user is-active monarch-obsidian-theme.path 2>&1)"; v=$HOME/test-vault; mkdir -p "$v/.obsidian" $HOME/.config/obsidian; printf "{\"vaults\":{\"t\":{\"path\":\"%s\"}}}\n" "$v" > $HOME/.config/obsidian/obsidian.json; sleep 6; echo "service after path trigger: result=$(systemctl --user show monarch-obsidian-theme.service -p Result -p ExecMainStatus -p ActiveState --value | tr "\n" " ")"; ls -l "$v/.obsidian/snippets/monarch.css" 2>&1; cat "$v/.obsidian/appearance.json" 2>&1; systemctl --user start monarch-obsidian-theme.service; echo "manual start exit=$?"; jq -c .enabledCssSnippets "$v/.obsidian/appearance.json" 2>&1; echo "rendered css bytes: $(stat -c %s $(readlink -f "$v/.obsidian/snippets/monarch.css") 2>&1)"; journalctl --user -u monarch-obsidian-theme.service --no-pager 2>&1 | tail -6; if [ -L "$v/.obsidian/snippets/monarch.css" ] && jq -e ".enabledCssSnippets|index(\"monarch\")!=null" "$v/.obsidian/appearance.json" >/dev/null 2>&1; then echo "OBSIDIAN-SERVICE PASS"; else echo "OBSIDIAN-SERVICE FAIL"; fi'
 # Night light (hyprsunset), only when the installed system has the package.
 if ssh_guest 'pacman -Q hyprsunset' >/dev/null 2>&1; then
   g "hyprsunset package" ssh_guest 'pacman -Q hyprsunset; hyprsunset --version 2>&1 | head -2'
@@ -154,6 +156,29 @@ type_text "$GUEST_PASSWORD"; sleep 1; press ret; sleep 6
 capture_console "success-extra-lock-after-unlock"
 ssh_guest "pgrep -a hyprlock || echo 'hyprlock gone after unlock attempt'" >>"$R" 2>&1
 echo "lock/unlock: RESULT from the three success-extra-lock-* screenshots plus the hyprlock process lines above; if the password prompt was not shown or keys did not reach it, treat as INCONCLUSIVE." >>"$R"
+
+# ---- Real apps with the rendered Monarch theme (online job only: needs the package repos).
+# Bounded. Anything that does not reach a usable app window is INCONCLUSIVE, not a pass.
+if [[ ${MONARCH_INTEGRATION_OFFLINE:-} == false ]]; then
+  echo "--- APPS rendered theme files as resolved in the guest" >>"$R"
+  ssh_guest 'for f in obsidian.css helix.toml; do echo "== $f ($(stat -c %s ~/.config/monarch/current/theme/$f) bytes)"; cat ~/.config/monarch/current/theme/$f; done; grep -c "{{" ~/.config/monarch/current/theme/obsidian.css ~/.config/monarch/current/theme/helix.toml' >>"$R" 2>&1
+  echo "--- APPS install helix and obsidian from the repos (online test VM)" >>"$R"
+  ssh_sudo 'echo "ISO-installed before: $(pacman -Q qt6-base qt6-declarative quickshell hyprland 2>&1 | tr "\n" " ")"; timeout 300 pacman -Sy --noconfirm 2>&1 | tail -2; echo "after db refresh, upgradable packages (partial-upgrade state if we install only helix+obsidian): $(pacman -Qu 2>/dev/null | wc -l)"; pacman -Qu 2>/dev/null | grep -E "qt6|quickshell|hyprland|electron|mesa" | head -8; timeout 900 pacman -S --noconfirm --needed helix obsidian 2>&1 | tail -6; echo "pacman exit=${PIPESTATUS[0]}"; echo "installed after: $(pacman -Q helix obsidian electron qt6-base quickshell 2>&1 | tr "\n" " ")"' >>"$R" 2>&1
+  ssh_guest "$ENVSET; timeout 120 monarch-install-helix 2>&1 | tail -4; echo install-helix exit=\$?; ls -l ~/.config/helix/themes/ ~/.config/helix/config.toml; cat ~/.config/helix/config.toml" >>"$R" 2>&1
+  echo "--- APPS helix in alacritty with the monarch theme" >>"$R"
+  ssh_guest "$ENVSET; printf 'fn main() {\n    let s = \"hello\"; // note\n    let n: u32 = 42;\n}\n' > ~/t.rs; setsid -f alacritty -e helix ~/t.rs >/tmp/hx.out 2>&1; sleep 10; pgrep -a helix || echo 'helix not running'; hx --health 2>&1 | head -0; cat /tmp/hx.out | head -5" >>"$R" 2>&1
+  capture_console "success-app-helix"
+  ssh_guest "pkill -x helix; pkill -x alacritty; true" >/dev/null 2>&1
+  echo "--- APPS obsidian opening the disposable test vault (Electron, software renderer)" >>"$R"
+  ssh_guest "$ENVSET; v=\$HOME/test-vault; printf '{\"vaults\":{\"tv\":{\"path\":\"%s\",\"ts\":1,\"open\":true}}}\n' \"\$v\" > ~/.config/obsidian/obsidian.json; sleep 3; jq -c .enabledCssSnippets \$v/.obsidian/appearance.json; setsid -f obsidian >/tmp/ob.out 2>&1; sleep 30; pgrep -a obsidian | head -2 | cut -c1-120 || true; tail -5 /tmp/ob.out; hyprctl clients 2>/dev/null | grep -iE 'class|title' | head -4" >>"$R" 2>&1
+  capture_console "success-app-obsidian"
+  ssh_guest "$ENVSET; if ! pgrep -x obsidian >/dev/null; then echo 'obsidian not running, retry with --no-sandbox --disable-gpu'; setsid -f obsidian --no-sandbox --disable-gpu >/tmp/ob2.out 2>&1; sleep 30; tail -5 /tmp/ob2.out; fi; pgrep -c obsidian" >>"$R" 2>&1
+  capture_console "success-app-obsidian-2"
+  for f in success-app-helix success-app-obsidian success-app-obsidian-2; do
+    [[ -f $OUT/$f.png ]] && echo "$f center pixel $(magick "$OUT/$f.png" -format '%[pixel:p{640,400}] corner %[pixel:p{20,780}]' info: 2>&1)" >>"$R"
+  done
+  echo "apps: screenshots success-app-*.png must be read; a window that shows the vault or helix buffer with the Monarch term_bg (printed above in obsidian.css) is evidence, a blank/crashed window is INCONCLUSIVE. Not a claim for the user's real hardware." >>"$R"
+fi
 ssh_sudo 'journalctl -b --no-pager' >"$OUT/journal-cold-boot.log" 2>/dev/null
 g "journal: sddm/uwsm/hyprland/quickshell (last 60)" bash -c "grep -iE 'sddm|uwsm|hyprland|quickshell' '$OUT/journal-cold-boot.log' | tail -60"
 note "RESULT: install, reboot and cold boot reached SSH. Read report.txt and the screenshots for the session outcome; no desktop claim is made by this script."
