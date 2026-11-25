@@ -65,8 +65,8 @@ done
 
 [[ ! -v all_packages[dua-cli] ]] || fail "dua remains a default package"
 [[ ! -e "$ROOT/applications/Disk Usage.desktop" ]] || fail "legacy dua launcher remains shipped"
-grep -qF 'match app-id="disktree"' "$ROOT/default/niri/windows.kdl" ||
-  fail "Disktree has a dedicated Niri window rule"
+grep -qF 'rule({ class = "disktree" }' "$ROOT/default/hypr/rules.lua" ||
+  fail "Disktree has a dedicated Hyprland window rule"
 [[ -v required_packages[cups] ]] || fail "CUPS is a required package"
 [[ -v required_packages[cups-filters] ]] || fail "CUPS filters are required"
 [[ -v required_packages[system-config-printer] ]] || fail "Print Settings is required"

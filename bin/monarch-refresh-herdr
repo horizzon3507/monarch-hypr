@@ -1,8 +1,0 @@
-#!/bin/bash
-
-# monarch:summary=Restore the Monarch Herdr template and render it with Noctalia
-
-set -euo pipefail
-
-monarch-refresh-config noctalia/templates/herdr.toml
-noctalia msg templates-apply

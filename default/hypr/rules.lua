@@ -62,8 +62,8 @@ rule({ tag = "pip" }, {
 })
 
 -- Application rules
-rule({ class = "^(1[p|P]assword)$" }, { no_screen_share = true, tag = "+floating-window" })
-rule({ class = "^(Bitwarden)$" }, { no_screen_share = true, tag = "+floating-window" })
+rule({ class = "^(1[pP]assword|com\\.onepassword\\.OnePassword)$" }, { no_screen_share = true, tag = "+floating-window" })
+rule({ class = "^[bB]itwarden$" }, { no_screen_share = true, tag = "+floating-window" })
 rule({ class = "chrome-nngceckbapebfimnlniiiahkandclblb-Default" }, { no_screen_share = true, tag = "+floating-window" })
 -- Focus floating DaVinci Resolve dialog windows
 rule({ class = ".*[Rr]esolve.*", float = true }, { stay_focused = true })

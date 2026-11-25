@@ -30,6 +30,3 @@ bash "$MONARCH_PATH/install/reconcile/sshd-hardening.sh"
 bash "$MONARCH_PATH/install/reconcile/windows-vm.sh"
 bash "$MONARCH_PATH/install/reconcile/chatgpt.sh"
 
-if [[ -f /etc/pam.d/noctalia ]]; then
-  sudo rm -f /etc/pam.d/noctalia
-fi

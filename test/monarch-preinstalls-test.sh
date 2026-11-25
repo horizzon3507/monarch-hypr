@@ -43,11 +43,11 @@ printf 'Removable preinstalls are a subset of default packages (%s packages)\n' 
 
 grep -qF -- '--skip-preinstalls' "$PROVISION_USER"
 grep -qF 'monarch-remove-preinstall-artifacts' "$PROVISION_USER"
-if rg -q 'user\.kdl|monarch-refresh-niri' "$REMOVE" "$ROOT/bin/monarch-remove-preinstall-artifacts"; then
-  echo "Removing preinstalls still overwrites the user's Niri configuration" >&2
+if rg -q 'bindings\.lua|monarch-refresh-hypr' "$REMOVE" "$ROOT/bin/monarch-remove-preinstall-artifacts"; then
+  echo "Removing preinstalls still overwrites the user's Hyprland configuration" >&2
   exit 1
 fi
-echo "Minimal provisioning preserves user.kdl"
+echo "Minimal provisioning preserves bindings.lua"
 
 mkdir -p "$TMP/bin" "$TMP/home/.local/state/monarch"
 
@@ -90,8 +90,8 @@ EOF
 
 chmod +x "$TMP/bin"/*
 
-mkdir -p "$TMP/home/.config/niri" "$TMP/home/.local/bin" "$TMP/custom-bin"
-printf 'custom user config\n' >"$TMP/home/.config/niri/user.kdl"
+mkdir -p "$TMP/home/.config/hypr" "$TMP/home/.local/bin" "$TMP/custom-bin"
+printf 'custom user config\n' >"$TMP/home/.config/hypr/bindings.lua"
 cat >"$TMP/home/.local/bin/codex" <<'EOF'
 #!/bin/bash
 echo custom codex
@@ -109,7 +109,7 @@ EOF
 touch "$TMP/custom-bin/opencode"
 ln -s "$TMP/custom-bin/opencode" "$TMP/home/.local/bin/opencode"
 HOME="$TMP/home" PATH="$TMP/bin:$ROOT/bin:/usr/bin" "$ROOT/bin/monarch-remove-preinstall-artifacts"
-grep -qxF 'custom user config' "$TMP/home/.config/niri/user.kdl"
+grep -qxF 'custom user config' "$TMP/home/.config/hypr/bindings.lua"
 [[ -f $TMP/home/.local/bin/codex ]]
 [[ ! -e $TMP/home/.local/bin/claude ]]
 [[ -f $TMP/home/.local/bin/gemini ]]

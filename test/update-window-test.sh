@@ -13,18 +13,7 @@ action=$(monarch-menu --tree | jq -r '.[] | select(.id == "update.monarch") | .a
   exit 1
 }
 
-grep -Fq '" --app-id=org.monarch.update "' "$ROOT/default/noctalia/plugins/monarch-indicators/monarch-update.luau"
+grep -Fq 'rule({ class = "org.monarch.(update|agent-usage|pentest|about)" }, { float = true, center = true })' "$ROOT/default/hypr/rules.lua"
+grep -Fq 'rule({ class = "org.monarch.(update|agent-usage|pentest)" }, { size = "875 600" })' "$ROOT/default/hypr/rules.lua"
 
-python3 - "$ROOT/default/niri/windows.kdl" <<'PY'
-import pathlib
-import re
-import sys
-
-text = pathlib.Path(sys.argv[1]).read_text()
-rule = re.search(r'window-rule\s*\{\s*match app-id="org\.monarch\.update"(.*?)\n\}', text, re.S)
-assert rule, "update window needs a dedicated Niri rule"
-for setting in ('open-floating true', 'default-column-width { fixed 875; }', 'default-window-height { fixed 600; }'):
-  assert setting in rule[1], f"missing update window setting: {setting}"
-PY
-
-echo "ok - menu and bar open updates in an 875 x 600 floating window"
+echo "ok - menu opens updates in an 875 x 600 floating window"
