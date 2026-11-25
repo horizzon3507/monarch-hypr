@@ -114,11 +114,13 @@ g "user units" ssh_guest 'systemctl --user list-units --no-legend --state=failed
 g "wallpaper state before restart" ssh_guest 'pgrep -a hyprpaper || echo "hyprpaper not running"; find ~/.config/monarch ~/.local/state/monarch -maxdepth 3 \( -name "background*" -o -name "*wallpaper*" \) -exec ls -l {} + 2>&1 | head'
 g "wallpaper link (current/background) and hyprpaper log" ssh_guest 'ls -l ~/.config/monarch/current/background; ls -lL ~/.config/monarch/current/background 2>&1; readlink -f ~/.config/monarch/current/background 2>&1; journalctl --user -b --no-pager 2>/dev/null | grep -i hyprpaper | grep -iE "ERR|target|path" | tail -5'
 capture_console "success-wallpaper-before-restart"
+g "wallpaper state json equals resolved link, before restart" ssh_guest 'c=$HOME/.config/monarch/current; r=$(readlink -f "$c/background"); j=$(jq -r .path "$c/wallpaper.json" 2>&1); rev=$(jq -r .rev "$c/wallpaper.json" 2>&1); echo "link -> $r"; echo "wallpaper.json path=$j rev=$rev"; if [ -f "$r" ] && [ "$j" = "$r" ]; then echo "WALLPAPER-STATE PASS"; else echo "WALLPAPER-STATE FAIL"; fi; ls -l "$c/background" "$c/wallpaper.json" 2>&1'
 g "monarch restart shell" ssh_guest 'u=$(id -u); export XDG_RUNTIME_DIR=/run/user/$u; export HYPRLAND_INSTANCE_SIGNATURE=$(ls "$XDG_RUNTIME_DIR/hypr" 2>/dev/null | head -1); timeout 60 monarch restart shell 2>&1 | tail -20'
 sleep 10
 g "after restart" ssh_guest 'pgrep -a "hyprpaper|quickshell|mako|swayosd|hypridle" || echo none'
 capture_console "success-after-shell-restart"
 g "wallpaper link after restart (selection must be preserved)" ssh_guest 'readlink -f ~/.config/monarch/current/background 2>&1'
+g "wallpaper state json equals resolved link, after restart" ssh_guest 'c=$HOME/.config/monarch/current; r=$(readlink -f "$c/background"); j=$(jq -r .path "$c/wallpaper.json" 2>&1); rev=$(jq -r .rev "$c/wallpaper.json" 2>&1); echo "link -> $r"; echo "wallpaper.json path=$j rev=$rev"; if [ -f "$r" ] && [ "$j" = "$r" ]; then echo "WALLPAPER-STATE PASS"; else echo "WALLPAPER-STATE FAIL"; fi; ls -l "$c/background" "$c/wallpaper.json" 2>&1'
 # Night light (hyprsunset), only when the installed system has the package.
 if ssh_guest 'pacman -Q hyprsunset' >/dev/null 2>&1; then
   g "hyprsunset package" ssh_guest 'pacman -Q hyprsunset; hyprsunset --version 2>&1 | head -2'
