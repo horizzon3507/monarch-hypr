@@ -77,6 +77,7 @@ done
 # A daemon that does not answer is unavailable, never a false "off" or success.
 if HYPRCTL_FAIL=1 "$night" status >"$tmp/out" 2>/dev/null; then fail "unanswering daemon fails status"; fi
 jq -e '.tooltip | test("unavailable")' "$tmp/out" >/dev/null || fail "status says unavailable"
+jq -e ".enabled == null" "$tmp/out" >/dev/null || fail "unavailable status is not a boolean"
 if HYPRCTL_FAIL=1 "$night" toggle 2>/dev/null; then fail "toggle fails when state is unreadable"; fi
 if HYPRCTL_FAIL=1 "$night" off 2>/dev/null; then fail "off fails when the daemon does not accept it"; fi
 if HYPRCTL_FAIL=1 "$night" on 2>/dev/null; then fail "on fails when the daemon does not accept it"; fi

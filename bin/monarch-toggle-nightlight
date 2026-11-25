@@ -79,7 +79,7 @@ case "${1:-toggle}" in
         printf '{"enabled":false,"tooltip":"Night light off"}\n'
       fi
     else
-      printf '{"enabled":false,"tooltip":"Night light state is unavailable"}\n'
+      printf '{"enabled":null,"tooltip":"Night light state is unavailable"}\n'
       exit 1
     fi
     ;;
