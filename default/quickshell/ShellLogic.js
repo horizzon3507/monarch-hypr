@@ -688,3 +688,32 @@ function stateChips(s) {
                      action: ["monarch-launch-floating-terminal-with-presentation", "--app-id=org.monarch.update", "monarch-update"] });
     return chips;
 }
+
+// Wallpaper state from monarch-wallpaper-sync: {"path": "<absolute image path or empty>",
+// "rev": <integer>}. Anything else is "no wallpaper". rev is read from the raw
+// text as digits: epoch nanoseconds are past 2^53 and a JSON number would round.
+function parseWallpaperState(text) {
+    var empty = { path: "", rev: "0" };
+    var d;
+    try { d = JSON.parse(text); } catch (e) { return empty; }
+    if (!d || typeof d !== "object" || typeof d.path !== "string") return empty;
+    if (d.path.charAt(0) !== "/" || d.path.indexOf("\u0000") >= 0) return empty;
+    var m = /"rev"\s*:\s*([0-9]{1,30})(?![0-9.eE])/.exec(text);
+    return { path: d.path, rev: m ? m[1] : "0" };
+}
+
+// file URL for the image, with each path segment percent-encoded (spaces, "#",
+// "?" and non-ASCII are legal in file names) and rev as the cache key. Empty
+// when there is no wallpaper.
+function wallpaperUrl(state) {
+    if (!state || typeof state.path !== "string" || state.path.charAt(0) !== "/") return "";
+    var encoded = state.path.split("/").map(encodeURIComponent).join("/");
+    return "file://" + encoded + "?rev=" + encodeURIComponent(String(state.rev));
+}
+
+// What the log line and tests call the outcome.
+function wallpaperStatus(url, ready, loading) {
+    if (url === "") return "missing";
+    if (ready) return "ok";
+    return loading ? "loading" : "error";
+}
