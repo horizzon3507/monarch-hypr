@@ -169,6 +169,14 @@ if [[ ${MONARCH_INTEGRATION_OFFLINE:-} == false ]]; then
   ssh_guest "$ENVSET; printf 'fn main() {\n    let s = \"hello\"; // note\n    let n: u32 = 42;\n}\n' > ~/t.rs; setsid -f alacritty -e helix ~/t.rs >/tmp/hx.out 2>&1; sleep 10; pgrep -a helix || echo 'helix not running'; hx --health 2>&1 | head -0; cat /tmp/hx.out | head -5" >>"$R" 2>&1
   capture_console "success-app-helix"
   ssh_guest "pkill -x helix; pkill -x alacritty; true" >/dev/null 2>&1
+  echo "--- DIAG obsidian package, wrapper and electron runtime" >>"$R"
+  ssh_guest 'pacman -Qi obsidian | grep -E "^(Version|Depends On)"; pacman -Q | grep -i electron; echo "wrapper:"; head -20 /usr/bin/obsidian; ls -d ~/.config/obsidian ~/.config/obsidian/user-flags.conf 2>&1' >>"$R" 2>&1
+  echo "--- DIAG obsidian foreground run, exit code and stderr (40 s bound)" >>"$R"
+  ssh_guest "$ENVSET; v=\$HOME/test-vault; printf '{\"vaults\":{\"tv\":{\"path\":\"%s\",\"ts\":1,\"open\":true}}}\n' \"\$v\" > ~/.config/obsidian/obsidian.json; timeout 40 obsidian --enable-logging=stderr --v=0 >/tmp/ob-diag.out 2>&1; echo obsidian-exit=\$?; wc -l /tmp/ob-diag.out; tail -40 /tmp/ob-diag.out | cut -c1-300" >>"$R" 2>&1
+  echo "--- DIAG same run with --no-sandbox --disable-gpu --ozone-platform=wayland" >>"$R"
+  ssh_guest "$ENVSET; timeout 40 obsidian --no-sandbox --disable-gpu --ozone-platform=wayland --enable-logging=stderr >/tmp/ob-diag2.out 2>&1; echo obsidian-exit=\$?; tail -25 /tmp/ob-diag2.out | cut -c1-300" >>"$R" 2>&1
+  echo "--- DIAG crash evidence" >>"$R"
+  ssh_sudo 'coredumpctl list --no-pager 2>&1 | tail -5; journalctl -b --no-pager | grep -i -E "obsidian|electron|coredump|segfault" | grep -v "Obsidian vaults" | tail -15 | cut -c1-300; dmesg 2>/dev/null | grep -i -E "obsidian|electron|segfault|oom" | tail -5' >>"$R" 2>&1
   echo "--- APPS obsidian opening the disposable test vault (Electron, software renderer)" >>"$R"
   ssh_guest "$ENVSET; v=\$HOME/test-vault; printf '{\"vaults\":{\"tv\":{\"path\":\"%s\",\"ts\":1,\"open\":true}}}\n' \"\$v\" > ~/.config/obsidian/obsidian.json; sleep 3; jq -c .enabledCssSnippets \$v/.obsidian/appearance.json; setsid -f obsidian >/tmp/ob.out 2>&1; sleep 30; pgrep -a obsidian | head -2 | cut -c1-120 || true; tail -5 /tmp/ob.out; hyprctl clients 2>/dev/null | grep -iE 'class|title' | head -4" >>"$R" 2>&1
   capture_console "success-app-obsidian"

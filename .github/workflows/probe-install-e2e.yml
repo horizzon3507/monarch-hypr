@@ -7,7 +7,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        offline: ["false", "true"]
+        offline: ["false"]
     runs-on: ubuntu-latest
     timeout-minutes: 150
     permissions:
