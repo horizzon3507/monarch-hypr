@@ -139,7 +139,7 @@ else
 fi
 # ---- Bounded extras, run after the core proof so they cannot mask it. Test VM
 # credentials only. Anything ambiguous is labelled INCONCLUSIVE, not pass/fail.
-ENVSET='export ELECTRON_OZONE_PLATFORM_HINT=wayland; u=$(id -u); export XDG_RUNTIME_DIR=/run/user/$u; export WAYLAND_DISPLAY=$(cd "$XDG_RUNTIME_DIR" && ls wayland-* 2>/dev/null | grep -v lock | head -1); export HYPRLAND_INSTANCE_SIGNATURE=$(ls "$XDG_RUNTIME_DIR/hypr" 2>/dev/null | head -1)'
+ENVSET='u=$(id -u); export XDG_RUNTIME_DIR=/run/user/$u; export WAYLAND_DISPLAY=$(cd "$XDG_RUNTIME_DIR" && ls wayland-* 2>/dev/null | grep -v lock | head -1); export HYPRLAND_INSTANCE_SIGNATURE=$(ls "$XDG_RUNTIME_DIR/hypr" 2>/dev/null | head -1)'
 echo "--- EXTRA escape: open a panel, press Escape" >>"$R"
 ssh_guest "$ENVSET; timeout 20 monarch-panel open theme" >>"$R" 2>&1
 sleep 3; capture_console "success-extra-panel-open"
@@ -169,6 +169,8 @@ if [[ ${MONARCH_INTEGRATION_OFFLINE:-} == false ]]; then
   ssh_guest "$ENVSET; printf 'fn main() {\n    let s = \"hello\"; // note\n    let n: u32 = 42;\n}\n' > ~/t.rs; setsid -f alacritty -e helix ~/t.rs >/tmp/hx.out 2>&1; sleep 10; pgrep -a helix || echo 'helix not running'; hx --health 2>&1 | head -0; cat /tmp/hx.out | head -5" >>"$R" 2>&1
   capture_console "success-app-helix"
   ssh_guest "pkill -x helix; pkill -x alacritty; true" >/dev/null 2>&1
+  echo "--- DIAG apply the source fix: pin the Wayland platform in user-flags.conf (as config/obsidian/user-flags.conf now does)" >>"$R"
+  ssh_guest "printf -- '--ozone-platform=wayland\n' >> ~/.config/obsidian/user-flags.conf; cat ~/.config/obsidian/user-flags.conf" >>"$R" 2>&1
   echo "--- DIAG obsidian package, wrapper and electron runtime" >>"$R"
   ssh_guest 'pacman -Qi obsidian | grep -E "^(Version|Depends On)"; pacman -Q | grep -i electron; echo "wrapper:"; head -20 /usr/bin/obsidian; ls -d ~/.config/obsidian ~/.config/obsidian/user-flags.conf 2>&1' >>"$R" 2>&1
   echo "--- DIAG obsidian foreground run, exit code and stderr (40 s bound)" >>"$R"
