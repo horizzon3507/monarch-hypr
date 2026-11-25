@@ -173,17 +173,19 @@ if [[ ${MONARCH_INTEGRATION_OFFLINE:-} == false ]]; then
   ssh_guest "printf -- '--ozone-platform=wayland\n' >> ~/.config/obsidian/user-flags.conf; cat ~/.config/obsidian/user-flags.conf" >>"$R" 2>&1
   echo "--- DIAG obsidian package, wrapper and electron runtime" >>"$R"
   ssh_guest 'pacman -Qi obsidian | grep -E "^(Version|Depends On)"; pacman -Q | grep -i electron; echo "wrapper:"; head -20 /usr/bin/obsidian; ls -d ~/.config/obsidian ~/.config/obsidian/user-flags.conf 2>&1' >>"$R" 2>&1
-  echo "--- DIAG obsidian foreground run, exit code and stderr (40 s bound)" >>"$R"
-  ssh_guest "$ENVSET; v=\$HOME/test-vault; printf '{\"vaults\":{\"tv\":{\"path\":\"%s\",\"ts\":1,\"open\":true}}}\n' \"\$v\" > ~/.config/obsidian/obsidian.json; timeout 40 obsidian --enable-logging=stderr --v=0 >/tmp/ob-diag.out 2>&1; echo obsidian-exit=\$?; wc -l /tmp/ob-diag.out; tail -40 /tmp/ob-diag.out | cut -c1-300" >>"$R" 2>&1
-  echo "--- DIAG same run with --no-sandbox --disable-gpu --ozone-platform=wayland" >>"$R"
-  ssh_guest "$ENVSET; timeout 40 obsidian --no-sandbox --disable-gpu --ozone-platform=wayland --enable-logging=stderr >/tmp/ob-diag2.out 2>&1; echo obsidian-exit=\$?; tail -25 /tmp/ob-diag2.out | cut -c1-300" >>"$R" 2>&1
-  echo "--- DIAG crash evidence" >>"$R"
-  ssh_sudo 'coredumpctl list --no-pager 2>&1 | tail -5; journalctl -b --no-pager | grep -i -E "obsidian|electron|coredump|segfault" | grep -v "Obsidian vaults" | tail -15 | cut -c1-300; dmesg 2>/dev/null | grep -i -E "obsidian|electron|segfault|oom" | tail -5' >>"$R" 2>&1
   echo "--- APPS obsidian opening the disposable test vault (Electron, software renderer)" >>"$R"
   ssh_guest "$ENVSET; v=\$HOME/test-vault; printf '{\"vaults\":{\"tv\":{\"path\":\"%s\",\"ts\":1,\"open\":true}}}\n' \"\$v\" > ~/.config/obsidian/obsidian.json; sleep 3; jq -c .enabledCssSnippets \$v/.obsidian/appearance.json; setsid -f obsidian >/tmp/ob.out 2>&1; sleep 30; pgrep -a obsidian | head -2 | cut -c1-120 || true; tail -5 /tmp/ob.out; hyprctl clients 2>/dev/null | grep -iE 'class|title' | head -4" >>"$R" 2>&1
   capture_console "success-app-obsidian"
   ssh_guest "$ENVSET; if ! pgrep -x obsidian >/dev/null; then echo 'obsidian not running, retry with --no-sandbox --disable-gpu'; setsid -f obsidian --no-sandbox --disable-gpu >/tmp/ob2.out 2>&1; sleep 30; tail -5 /tmp/ob2.out; fi; pgrep -c obsidian" >>"$R" 2>&1
   capture_console "success-app-obsidian-2"
+  echo "--- STAB obsidian left running, no deliberate kill" >>"$R"
+  ssh_guest "$ENVSET; sleep 60; pgrep -c obsidian; hyprctl clients 2>/dev/null | grep -iE 'class|title' | head -4" >>"$R" 2>&1
+  capture_console "success-app-obsidian-stable"
+  ssh_sudo 'coredumpctl list --no-pager 2>&1 | tail -5; journalctl -b --no-pager | grep -i -E "coredump|electron" | tail -8 | cut -c1-250' >>"$R" 2>&1
+  echo "--- STAB snippet disabled in the running vault" >>"$R"
+  ssh_guest "$ENVSET; v=\$HOME/test-vault; cat \$v/.obsidian/appearance.json; jq '.enabledCssSnippets=[]' \$v/.obsidian/appearance.json > /tmp/ap.json && cat /tmp/ap.json > \$v/.obsidian/appearance.json; sleep 12; cat \$v/.obsidian/appearance.json; pgrep -c obsidian" >>"$R" 2>&1
+  capture_console "success-app-obsidian-snippet-off"
+  ssh_sudo 'coredumpctl list --no-pager 2>&1 | tail -5' >>"$R" 2>&1
   for f in success-app-helix success-app-obsidian success-app-obsidian-2; do
     [[ -f $OUT/$f.png ]] && echo "$f center pixel $(magick "$OUT/$f.png" -format '%[pixel:p{640,400}] corner %[pixel:p{20,780}]' info: 2>&1)" >>"$R"
   done
