@@ -112,7 +112,7 @@ g "processes after login" ssh_guest 'pgrep -a "Hyprland|quickshell|hyprpaper|mak
 g "hyprctl after login" ssh_guest 'u=$(id -u); export XDG_RUNTIME_DIR=/run/user/$u; sig=$(ls "$XDG_RUNTIME_DIR/hypr" 2>/dev/null | head -1); echo "sig=$sig"; HYPRLAND_INSTANCE_SIGNATURE=$sig hyprctl version 2>&1 | head -4; HYPRLAND_INSTANCE_SIGNATURE=$sig hyprctl layers 2>&1 | head -30'
 g "user units" ssh_guest 'systemctl --user list-units --no-legend --state=failed; systemctl --user list-units --no-legend "app-uwsm*" "wayland-wm*" | head'
 g "wallpaper state before restart" ssh_guest 'pgrep -a hyprpaper || echo "hyprpaper not running"; find ~/.config/monarch ~/.local/state/monarch -maxdepth 3 \( -name "background*" -o -name "*wallpaper*" \) -exec ls -l {} + 2>&1 | head'
-g "wallpaper link (current/background) and hyprpaper log" ssh_guest 'ls -lL ~/.config/monarch/current/background 2>&1; readlink -f ~/.config/monarch/current/background 2>&1; journalctl --user -b --no-pager 2>/dev/null | grep -i hyprpaper | grep -iE "ERR|target|path" | tail -5'
+g "wallpaper link (current/background) and hyprpaper log" ssh_guest 'ls -l ~/.config/monarch/current/background; ls -lL ~/.config/monarch/current/background 2>&1; readlink -f ~/.config/monarch/current/background 2>&1; journalctl --user -b --no-pager 2>/dev/null | grep -i hyprpaper | grep -iE "ERR|target|path" | tail -5'
 capture_console "success-wallpaper-before-restart"
 g "monarch restart shell" ssh_guest 'u=$(id -u); export XDG_RUNTIME_DIR=/run/user/$u; export HYPRLAND_INSTANCE_SIGNATURE=$(ls "$XDG_RUNTIME_DIR/hypr" 2>/dev/null | head -1); timeout 60 monarch restart shell 2>&1 | tail -20'
 sleep 10
@@ -124,10 +124,10 @@ if ssh_guest 'pacman -Q hyprsunset' >/dev/null 2>&1; then
   g "hyprsunset package" ssh_guest 'pacman -Q hyprsunset; hyprsunset --version 2>&1 | head -2'
   NL='u=$(id -u); export XDG_RUNTIME_DIR=/run/user/$u; export WAYLAND_DISPLAY=$(cd "$XDG_RUNTIME_DIR" && ls wayland-* 2>/dev/null | grep -v lock | head -1); export HYPRLAND_INSTANCE_SIGNATURE=$(ls "$XDG_RUNTIME_DIR/hypr" 2>/dev/null | head -1)'
   g "hyprsunset foreground probe (5s, env check)" ssh_guest "$NL; echo WAYLAND_DISPLAY=\$WAYLAND_DISPLAY; timeout 5 hyprsunset -t 4000 2>&1 | head -8; echo rc=\$?"
-  g "nightlight toggle (monarch) on" ssh_guest "$NL; timeout 40 monarch toggle nightlight 2>&1 | tail -5; sleep 3; pgrep -a hyprsunset || echo 'hyprsunset not running'"
-  g "nightlight status after on" ssh_guest "$NL; timeout 20 hyprctl hyprsunset identity get 2>&1 | head -3; systemctl --user status --no-pager 2>&1 | grep -i hyprsunset | head -3"
+  g "nightlight toggle (monarch) on" ssh_guest "$NL; timeout 40 monarch toggle nightlight 2>&1 | tail -5; echo \"toggle exit=\${PIPESTATUS[0]}\"; sleep 3; pgrep -a hyprsunset || echo 'hyprsunset not running'; r=\$(monarch toggle nightlight status 2>&1); echo \"monarch status after on: \$r exit=\$?\""
+  g "nightlight raw hyprctl identity after on (raw false means filter ON, true means OFF)" ssh_guest "$NL; timeout 20 hyprctl hyprsunset identity get 2>&1 | head -3; systemctl --user status --no-pager 2>&1 | grep -i hyprsunset | head -3"
   capture_console "success-nightlight-on"
-  g "nightlight toggle off" ssh_guest "$NL; timeout 40 monarch toggle nightlight 2>&1 | tail -5; sleep 2; timeout 20 hyprctl hyprsunset identity get 2>&1 | head -3"
+  g "nightlight toggle off" ssh_guest "$NL; timeout 40 monarch toggle nightlight 2>&1 | tail -5; echo \"toggle exit=\${PIPESTATUS[0]}\"; sleep 2; echo raw identity after off:; timeout 20 hyprctl hyprsunset identity get 2>&1 | head -3; r=\$(monarch toggle nightlight status 2>&1); echo \"monarch status after off: \$r\""
   capture_console "success-nightlight-off"
   g "nightlight raw IPC (4000, identity true, get)" ssh_guest "$NL; hyprctl hyprsunset temperature 4000 2>&1; hyprctl hyprsunset identity get 2>&1; hyprctl hyprsunset identity true 2>&1; hyprctl hyprsunset identity get 2>&1"
 else
