@@ -4,15 +4,11 @@
 # monarch:args=[name]
 # monarch:examples=monarch theme colors|monarch theme colors | jq -r .mPrimary
 
-# v4 left the resolved colors in ~/.config/noctalia/colors.json; v5 never writes
-# that file, so this assembles them instead: the active palette's dark or light
-# half, picked by the resolved theme mode. Output is the v4 object — mPrimary,
-# mSurface, mOnSurface and the rest — so callers that read colors.json only have
-# to change where the JSON comes from.
+# Assembles the resolved colors of the active palette: its dark or light half,
+# picked by the resolved theme mode. Output is the object with mPrimary,
+# mSurface, mOnSurface and the rest, read from ~/.config/monarch/palettes.
 #
-# Only `custom` and `community` schemes can be served. Noctalia carries builtin
-# palettes inside its binary and generates wallpaper ones in memory, so neither
-# has a file to resolve.
+# Only schemes with a palette file can be served.
 
 set -uo pipefail
 

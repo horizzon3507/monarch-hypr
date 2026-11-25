@@ -6,7 +6,7 @@
 
 # The active connection as a WIFI: URI — the scheme both Android and iOS cameras
 # join a network from. --png writes the code under $XDG_RUNTIME_DIR for the
-# Noctalia monarch/wifi-qr panel; --data prints it as a data URI and writes
+# old panel; --data prints it as a data URI and writes
 # nothing, for the Quickshell panel; --password prints the secret alone, which is what the
 # panel's deliberate reveal calls.
 #

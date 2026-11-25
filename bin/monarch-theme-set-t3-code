@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# monarch:summary=Sync the active Noctalia palette to T3 Code
+# monarch:summary=Sync the active Monarch palette to T3 Code
 # monarch:args=<palette-json> <dark|light>
 # monarch:hidden=true
 

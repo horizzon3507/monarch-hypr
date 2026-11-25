@@ -7,7 +7,7 @@
 # monarch:aliases=monarch screenrecord | monarch capture screenrecord
 #
 # MONARCH_SCREENRECORD_USE_PORTAL=false opts into direct capture for GPUs that
-# reject portal DMA-BUF imports. This bypasses Niri's capture privacy rules.
+# reject portal DMA-BUF imports. This bypasses Hyprland's capture privacy rules.
 #
 # Env: MONARCH_SCREENRECORD_DEBUG=true appends gpu-screen-recorder's stderr (and
 # the picker target it was launched with) to $RUNTIME_DIR/monarch-screenrecord.log.

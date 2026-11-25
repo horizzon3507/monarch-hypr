@@ -3,7 +3,7 @@
 # monarch:summary=Print the detected touchpad or trackpad device name
 
 # Detect via the kernel (sysfs), not `libinput list-devices`: the libinput CLI
-# is not guaranteed present on a niri install, and monarch-toggle-touchpad
+# is not guaranteed present on a Hyprland install, and monarch-toggle-touchpad
 # already drives the kernel by matching the same sysfs name, so sharing the
 # heuristic keeps detection and toggling in lock-step.
 for name_file in /sys/class/input/event*/device/name; do

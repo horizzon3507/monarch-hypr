@@ -1,28 +1,21 @@
 #!/bin/bash
 
-# monarch:summary=Re-apply the residual system theming layer for the current Noctalia color scheme
+# monarch:summary=Re-apply the residual system theming layer for the current Monarch theme
 # monarch:examples=monarch theme apply
 
-# Thin residual layer that lives alongside Noctalia. It is wired to Noctalia's
-# `hooks.colors_changed` (v4's `hooks.colorGeneration`), which fires on every
-# color (re)generation — i.e. whenever the active color scheme or dark/light
-# changes, and once when the shell starts. It runs a few seconds after the
-# change, not synchronously with it.
+# Thin residual layer that runs after a theme or appearance change
+# (`monarch theme set`, `monarch theme mode`) and once when the shell starts.
+# monarch-theme-render has already filled the config templates by then; this
+# covers what the templates cannot reach.
 #
-# v5 passes the hook NO arguments — v4's resolved appearance ("dark" | "light")
-# as $1 is gone, verified by logging every invocation. So both the appearance and
-# the scheme name are asked for over IPC: `theme-mode-get`, and
-# `color-scheme-get` which prints "<source> <name>". The $1 handling below is
-# kept only so a hand invocation can still pin the appearance.
-#
-# Noctalia owns the colors AND dark/light: Monarch ships a single scheme
-# (Monarch) with both "dark" and "light" blocks, so dark/light is just Noctalia's
-# global toggle, which GTK/Qt follow natively. This
-# script never writes darkMode — it only covers what Noctalia can't reach:
-#   - wallpaper picker         : rebuild the symlink farm that
-#                               wallpaper.directory points at, so Noctalia's
-#                               picker/cycler follow the current scheme, and
-#                               apply one.
+# The scheme name comes from `monarch-theme-current` and the appearance from
+# `monarch-theme-mode get`. $1 can pin the appearance for a hand invocation.
+# Monarch palettes carry both "dark" and "light" blocks, so dark/light is only
+# the appearance toggle. This script never writes it. It covers:
+#   - wallpaper                : rebuild the symlink farm of the current
+#                               scheme's backgrounds (shipped, bundle and user
+#                               ones) and apply one with `monarch wallpaper set`
+#                               when needed.
 #   - keyboard RGB             : ASUS ROG (asusctl) + Framework 16 (qmk_hid).
 #   - Chromium policy color    : managed BrowserThemeColor.
 #
@@ -38,9 +31,8 @@
 # ~/.config/monarch/palettes/<Scheme>.json (mPrimary = accent, mSurface =
 # background), preferring the active appearance block. v5 kept v4's palette
 # schema and only moved the file: colorschemes/<S>/<S>.json became the flat
-# palettes/<S>.json. Built-in Noctalia schemes ship no such JSON, so the
-# color-derived concerns no-op for them; the wallpaper concern still works (it
-# keys off the folder name).
+# palettes/<S>.json. A scheme without such a JSON skips the color-derived
+# concerns; the wallpaper concern still works (it keys off the folder name).
 
 set -uo pipefail
 
@@ -53,14 +45,14 @@ SRC_THEMES="$MONARCH_ROOT/themes"
 BUNDLES_DIR="${MONARCH_THEME_BUNDLES_DIR:-$HOME/.config/monarch/themes}"
 # Records that a Monarch wallpaper has actually reached the shell at least once.
 # See sync_wallpaper: without it there is no way to tell a fresh install from a
-# user who deliberately picked Noctalia's own default.
+# user who deliberately picked another wallpaper.
 APPLIED_STAMP="$HOME/.local/state/monarch/wallpaper-applied"
 
 command -v jq >/dev/null 2>&1 || exit 0
 
 # Active appearance. v5's hook passes nothing, so this is normally the IPC answer;
-# $1 stays honoured so a hand invocation can pin it. The mode is owned by Noctalia
-# (global toggle) — this script never writes it.
+# $1 stays honoured so a hand invocation can pin it. The mode is owned by
+# monarch-theme-mode — this script never writes it.
 appearance="${1:-}"
 if [[ -z $appearance ]]; then
   appearance=$(monarch-theme-mode get 2>/dev/null)
@@ -68,9 +60,8 @@ if [[ -z $appearance ]]; then
 fi
 
 # --- Resolve the current scheme ----------------------------------------------
-# The colors_changed hook gives us nothing at all, the scheme name included.
-# `color-scheme-get` prints "<source> <name>"; only the name indexes the palette
-# file and the background folder.
+# `monarch-theme-current` prints "custom <name>"; only the name indexes the
+# palette file and the background folder.
 scheme=$(monarch-theme-current 2>/dev/null | cut -d' ' -f2-)
 [[ -n $scheme ]] || scheme="Monarch"
 
@@ -78,7 +69,7 @@ scheme=$(monarch-theme-current 2>/dev/null | cut -d' ' -f2-)
 # a few built-ins need an alias.
 folder=$(printf '%s' "$scheme" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
 case $folder in
-# Noctalia's builtin is "Rosé Pine", which derives to "rosé-pine" — accent and
+# The old Noctalia builtin was "Rosé Pine", which derives to "rosé-pine" — accent and
 # space-turned-dash both. Send every spelling to themes/rose-pine, the folder the
 # packaged palette of that name already brings. The two are different palettes
 # (the builtin is dark, the packaged palette is Dawn) sharing backgrounds.
@@ -115,10 +106,6 @@ expand_tilde() {
   esac
 }
 
-# NOTE(noctalia-v5): settings_set() lived here to jq-edit settings.json, which
-# v5 replaced with config.toml. It is gone along with its only caller, the
-# wallpaper.directory repointing in sync_wallpaper — see the comment there.
-
 # --- Wallpaper ---------------------------------------------------------------
 # Apply the first wallpaper from the folder.
 # Records the choice with `monarch wallpaper set`, which writes the persistent
@@ -130,26 +117,18 @@ apply_wallpaper() {
   monarch-wallpaper set "$1" >/dev/null 2>&1
 }
 
-# Point Noctalia's picker/cycler at the current scheme's backgrounds and apply
-# one, so both picker and screen follow the theme.
+# Rebuild the symlink farm for the current scheme and apply one wallpaper.
 #
-# v5 keeps wallpaper.directory in config.toml and exposes no IPC to move it
-# (`noctalia msg --help`: wallpaper-set/get/next/previous/random and nothing for
-# the directory). So instead of repointing the directory per scheme, config.toml
-# pins it once at a Monarch-owned symlink farm ($FARM_DIR) that this rebuilds on
-# every color hook. The farm unions the scheme's shipped and user backgrounds —
-# the two-folder model `omarchy-theme-bg-next` uses (a theme's own
-# `backgrounds/` plus the user's `~/.config/omarchy/backgrounds/<theme>/`) —
-# mapped onto v5's single-directory picker. Since the directory path never
-# changes, no config-reload is needed: the picker re-reads the folder's contents
-# on open, and wallpaper-next/-previous cycle whatever the farm currently holds.
+# The farm ($FARM_DIR) unions the scheme's shipped, bundle and user backgrounds
+# (the two-folder model `omarchy-theme-bg-next` uses: a theme's own
+# `backgrounds/` plus the user's additions) into one flat directory, which the
+# background list and picker read. It is rebuilt on every run, so the directory
+# path never changes.
 #
-# The picker scans one directory flat (like omarchy-theme-bg-next's find), so the
-# farm holds only file links, never a subdirectory. A user who wants a whole
-# collection (e.g. ~/Pictures/Wallpapers) available in every scheme drops a
-# directory symlink into $EXTRA_SOURCES_DIR; its images are flattened into the
-# farm here — the "pass N directories" model omarchy-menu-images uses, adapted to
-# Noctalia's single-directory picker.
+# It is flat, so the farm holds only file links, never a subdirectory. A user who
+# wants a whole collection (e.g. ~/Pictures/Wallpapers) available in every scheme
+# drops a directory symlink into $EXTRA_SOURCES_DIR; its images are flattened
+# into the farm here.
 sync_wallpaper() {
   local shipped_dir="$SRC_THEMES/$folder" # backgrounds shipped with the scheme
   local user_dir="$target_dir"            # user's own additions for the scheme
@@ -205,12 +184,12 @@ sync_wallpaper() {
   ((${#links[@]})) || return 0
 
   # Apply only when Monarch has never had one on screen ($APPLIED_STAMP — testing
-  # "is anything set?" instead reads Noctalia's own bundled default as a
+  # "is anything set?" instead reads a bundled default as a
   # deliberate choice and declines forever), when what is set is gone, or when it
   # is one of ours and this scheme no longer offers it.
   #
   # That last case is the scheme change, and it cannot be asked as "did the file
-  # disappear": we hand Noctalia the resolved path, never the farm link, so it
+  # disappear": we hand `monarch wallpaper set` the resolved path, never the farm link, so it
   # holds themes/<scheme>/<file> — which survives every rebuild.
   #
   # Ours is $SRC_THEMES and $USER_BG_ROOT, so a pick from a mounted source stays
