@@ -139,7 +139,7 @@ else
 fi
 # ---- Bounded extras, run after the core proof so they cannot mask it. Test VM
 # credentials only. Anything ambiguous is labelled INCONCLUSIVE, not pass/fail.
-ENVSET='u=$(id -u); export XDG_RUNTIME_DIR=/run/user/$u; export WAYLAND_DISPLAY=$(cd "$XDG_RUNTIME_DIR" && ls wayland-* 2>/dev/null | grep -v lock | head -1); export HYPRLAND_INSTANCE_SIGNATURE=$(ls "$XDG_RUNTIME_DIR/hypr" 2>/dev/null | head -1)'
+ENVSET='export ELECTRON_OZONE_PLATFORM_HINT=wayland; u=$(id -u); export XDG_RUNTIME_DIR=/run/user/$u; export WAYLAND_DISPLAY=$(cd "$XDG_RUNTIME_DIR" && ls wayland-* 2>/dev/null | grep -v lock | head -1); export HYPRLAND_INSTANCE_SIGNATURE=$(ls "$XDG_RUNTIME_DIR/hypr" 2>/dev/null | head -1)'
 echo "--- EXTRA escape: open a panel, press Escape" >>"$R"
 ssh_guest "$ENVSET; timeout 20 monarch-panel open theme" >>"$R" 2>&1
 sleep 3; capture_console "success-extra-panel-open"
