@@ -1,33 +1,21 @@
 #!/bin/bash
 
-# monarch:summary=Install Helix and configure it to follow Noctalia's theme
+# monarch:summary=Install Helix and configure it to follow the Monarch theme
 
 echo "Installing Helix..."
 monarch-pkg-add helix
 
 mkdir -p ~/.config/helix/themes
 
-if [[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]]; then
-  # Hyprland session: Helix reads the Monarch theme rendered by
-  # monarch-theme-render. Link it so every re-render is picked up. Only seed
-  # config.toml if the user has none. Schema-shaped, not checked in a running Helix.
-  ln -sfn "$HOME/.config/monarch/current/theme/helix.toml" ~/.config/helix/themes/monarch.toml
-  monarch-theme-render >/dev/null 2>&1 || true
-  if [[ ! -f ~/.config/helix/config.toml ]]; then
-    printf 'theme = "monarch"\n' >~/.config/helix/config.toml
-  elif ! grep -q '^theme *= *"monarch"' ~/.config/helix/config.toml; then
-    echo 'Note: set theme = "monarch" in ~/.config/helix/config.toml to use the Monarch theme.'
-  fi
-else
-  # Helix theming is delegated to Noctalia's built-in template, which renders
-  # ~/.config/helix/themes/noctalia.toml on every color generation. Point Helix at
-  # it; only seed config.toml if the user does not already have one.
-  if [[ ! -f ~/.config/helix/config.toml ]]; then
-    cat >~/.config/helix/config.toml <<'EOF'
-theme = "noctalia"
-EOF
-  fi
-
+# Helix reads the Monarch theme rendered by monarch-theme-render. Link it so every
+# re-render is picked up. Only seed config.toml if the user has none. The theme is
+# schema-shaped and has not been checked in a running Helix.
+ln -sfn "$HOME/.config/monarch/current/theme/helix.toml" ~/.config/helix/themes/monarch.toml
+monarch-theme-render >/dev/null 2>&1 || true
+if [[ ! -f ~/.config/helix/config.toml ]]; then
+  printf 'theme = "monarch"\n' >~/.config/helix/config.toml
+elif ! grep -q '^theme *= *"monarch"' ~/.config/helix/config.toml; then
+  echo 'Note: set theme = "monarch" in ~/.config/helix/config.toml to use the Monarch theme.'
 fi
 
 # Arch-based distros ship Helix as 'helix' rather than the upstream 'hx'.
