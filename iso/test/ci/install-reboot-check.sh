@@ -156,6 +156,29 @@ type_text "$GUEST_PASSWORD"; sleep 1; press ret; sleep 6
 capture_console "success-extra-lock-after-unlock"
 ssh_guest "pgrep -a hyprlock || echo 'hyprlock gone after unlock attempt'" >>"$R" 2>&1
 echo "lock/unlock: RESULT from the three success-extra-lock-* screenshots plus the hyprlock process lines above; if the password prompt was not shown or keys did not reach it, treat as INCONCLUSIVE." >>"$R"
+
+# ---- Real apps with the rendered Monarch theme (online job only: needs the package repos).
+# Bounded. Anything that does not reach a usable app window is INCONCLUSIVE, not a pass.
+if [[ ${MONARCH_INTEGRATION_OFFLINE:-} == false ]]; then
+  echo "--- APPS rendered theme files as resolved in the guest" >>"$R"
+  ssh_guest 'for f in obsidian.css helix.toml; do echo "== $f ($(stat -c %s ~/.config/monarch/current/theme/$f) bytes)"; cat ~/.config/monarch/current/theme/$f; done; grep -c "{{" ~/.config/monarch/current/theme/obsidian.css ~/.config/monarch/current/theme/helix.toml' >>"$R" 2>&1
+  echo "--- APPS install helix and obsidian from the repos (online test VM)" >>"$R"
+  ssh_sudo 'timeout 600 pacman -Sy --noconfirm --needed helix obsidian 2>&1 | tail -6; echo "pacman exit=${PIPESTATUS[0]}"; pacman -Q helix obsidian electron 2>&1 | head -4' >>"$R" 2>&1
+  ssh_guest "$ENVSET; timeout 120 monarch-install-helix 2>&1 | tail -4; echo install-helix exit=\$?; ls -l ~/.config/helix/themes/ ~/.config/helix/config.toml; cat ~/.config/helix/config.toml" >>"$R" 2>&1
+  echo "--- APPS helix in alacritty with the monarch theme" >>"$R"
+  ssh_guest "$ENVSET; printf 'fn main() {\n    let s = \"hello\"; // note\n    let n: u32 = 42;\n}\n' > ~/t.rs; setsid -f alacritty -e helix ~/t.rs >/tmp/hx.out 2>&1; sleep 10; pgrep -a helix || echo 'helix not running'; hx --health 2>&1 | head -0; cat /tmp/hx.out | head -5" >>"$R" 2>&1
+  capture_console "success-app-helix"
+  ssh_guest "pkill -x helix; pkill -x alacritty; true" >/dev/null 2>&1
+  echo "--- APPS obsidian opening the disposable test vault (Electron, software renderer)" >>"$R"
+  ssh_guest "$ENVSET; v=\$HOME/test-vault; printf '{\"vaults\":{\"tv\":{\"path\":\"%s\",\"ts\":1,\"open\":true}}}\n' \"\$v\" > ~/.config/obsidian/obsidian.json; sleep 3; jq -c .enabledCssSnippets \$v/.obsidian/appearance.json; setsid -f obsidian >/tmp/ob.out 2>&1; sleep 30; pgrep -a obsidian | head -2 | cut -c1-120 || true; tail -5 /tmp/ob.out; hyprctl clients 2>/dev/null | grep -iE 'class|title' | head -4" >>"$R" 2>&1
+  capture_console "success-app-obsidian"
+  ssh_guest "$ENVSET; if ! pgrep -x obsidian >/dev/null; then echo 'obsidian not running, retry with --no-sandbox --disable-gpu'; setsid -f obsidian --no-sandbox --disable-gpu >/tmp/ob2.out 2>&1; sleep 30; tail -5 /tmp/ob2.out; fi; pgrep -c obsidian" >>"$R" 2>&1
+  capture_console "success-app-obsidian-2"
+  for f in success-app-helix success-app-obsidian success-app-obsidian-2; do
+    [[ -f $OUT/$f.png ]] && echo "$f center pixel $(magick "$OUT/$f.png" -format '%[pixel:p{640,400}] corner %[pixel:p{20,780}]' info: 2>&1)" >>"$R"
+  done
+  echo "apps: screenshots success-app-*.png must be read; a window that shows the vault or helix buffer with the Monarch term_bg (printed above in obsidian.css) is evidence, a blank/crashed window is INCONCLUSIVE. Not a claim for the user's real hardware." >>"$R"
+fi
 ssh_sudo 'journalctl -b --no-pager' >"$OUT/journal-cold-boot.log" 2>/dev/null
 g "journal: sddm/uwsm/hyprland/quickshell (last 60)" bash -c "grep -iE 'sddm|uwsm|hyprland|quickshell' '$OUT/journal-cold-boot.log' | tail -60"
 note "RESULT: install, reboot and cold boot reached SSH. Read report.txt and the screenshots for the session outcome; no desktop claim is made by this script."
