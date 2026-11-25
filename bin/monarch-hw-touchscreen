@@ -3,7 +3,7 @@
 # monarch:summary=Print the detected touchscreen or tablet device name
 
 # Detect via the kernel (sysfs), not `libinput list-devices`: the libinput CLI
-# is not guaranteed present on a niri install. A touchscreen/tablet is a *direct*
+# is not guaranteed present on a Hyprland install. A touchscreen/tablet is a *direct*
 # input device (INPUT_PROP_DIRECT, bit 1 of the kernel `properties` bitmask),
 # unlike a touchpad which is INPUT_PROP_POINTER. Match the property rather than
 # the device name: real touchscreens are often named only by their controller

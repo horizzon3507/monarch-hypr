@@ -6,7 +6,7 @@
 # An optional leading --app-id=<id> overrides the default org.monarch.<command>
 # app-id, the same way monarch-launch-floating-terminal-with-presentation takes
 # one. Coding agents use it to share a single app-id across every agent binary,
-# so one niri window rule covers them all.
+# so one Hyprland window rule covers them all.
 appid=""
 if [[ $1 == --app-id=* ]]; then
   appid="${1#--app-id=}"

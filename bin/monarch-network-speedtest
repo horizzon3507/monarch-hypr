@@ -6,9 +6,9 @@
 # monarch:examples=monarch network speedtest down | monarch network speedtest up 20
 
 # Prints one Mbps sample per second on stdout and stops on its own. Port of
-# omarchy-network-speedtest, which streams until its caller kills it: Noctalia's
-# runStream hands back no handle to stop with, so the duration is the command's
-# to own. A test that ends by itself is the better shape anyway.
+# omarchy-network-speedtest, which streams until its caller kills it: a shell
+# stream runner may hand back no handle to stop with, so the duration is the
+# command's to own. A test that ends by itself is the better shape anyway.
 #
 # The rate is read off the interface counters rather than from curl, so it
 # measures the link and not one connection's share of it.

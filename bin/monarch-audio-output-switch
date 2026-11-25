@@ -50,7 +50,7 @@ else
   icon_state="high"
 fi
 
-# Noctalia's notification server uses an icon *path* as-is, but its name lookup
+# The notification server uses an icon *path* as-is, but its name lookup
 # (Quickshell/Qt) isn't pointed at Monarch's Yaru theme, so a bare
 # "audio-volume-*" name renders as the missing-icon placeholder. Resolve the
 # name to a file in the active Yaru theme ourselves and hand notify-send a path.
