@@ -17,13 +17,13 @@ This repository is a work in progress. The goal is a lightly opinionated desktop
 
 - **Compositor**: [Hyprland](https://hyprland.org), configured in Lua. It is the default on the `hyprland-desktop` branch, not yet on `dev`.
 - **Desktop shell**: a small custom [Quickshell](https://quickshell.org) shell (bar and panels for network, theme, display, background, crash history, first steps and agent usage). The lock screen, idle handling, notifications, launcher and on-screen displays stay on hyprlock, hypridle, mako, Walker and swayosd.
-- **Noctalia and Niri** are still shipped while the retirement is staged. They are going away in later changes, so do not build on them.
+- **Noctalia and Niri** are not part of the `hyprland-desktop` branch any more. The `dev` branch still has them. This fork is for fresh installs: an old Niri/Noctalia home is refused and there is no upgrade path. Some features did not carry over, see the loss table in [docs/fork-status.md](docs/fork-status.md).
 
-Not done yet, and not claimed: a published or validated ISO release (intermediate CI builds of this fork have booted to the installer in a VM, see the status page), a completed install, a reboot into the desktop, fingerprint login on the lock screen, and any run on real hardware. [docs/fork-status.md](docs/fork-status.md) lists what has been run and where, and is the source of truth when this page and it disagree.
+A development ISO built from this branch installed, rebooted and logged in to the Hyprland desktop in a QEMU VM with a virtual GPU (test accounts, see [docs/fork-status.md](docs/fork-status.md) for the runs). Not done yet, and not claimed: a published release, any run on real hardware, fingerprint login on the lock screen, and a measured night light colour change. [docs/fork-status.md](docs/fork-status.md) lists what has been run and where, and is the source of truth when this page and it disagree.
 
 ### Trying it
 
-There is no supported install path for this fork yet. The ISO and installer links of the upstream project (documentation site, nightly ISO) install the upstream Niri and Noctalia desktop, not this one. To follow progress or contribute, read [docs/fork-status.md](docs/fork-status.md) and [docs/development.md](docs/development.md).
+There is no supported install path for this fork yet and no public ISO download is linked here. The ISO and installer links of the upstream project (documentation site, nightly ISO) install the upstream Niri and Noctalia desktop, not this one. To follow progress or contribute, read [docs/fork-status.md](docs/fork-status.md) and [docs/development.md](docs/development.md).
 
 Monarch is an independently maintained **hard fork** of [Omarchy](https://omarchy.org). The `monarch` CLI and the install scripts descend from it, and a good number of commands are still Omarchy's unchanged but for the name. The stack has diverged (CachyOS rather than Arch, and a Hyprland-based desktop with its own shell), but the lineage is Omarchy's, and so is the licence. It also carries some security tooling and shell helpers inherited from [SkillArch](https://github.com/laluka/SkillArch).
 
