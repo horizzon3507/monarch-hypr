@@ -132,6 +132,25 @@ if ssh_guest 'pacman -Q hyprsunset' >/dev/null 2>&1; then
 else
   note "nightlight: hyprsunset not installed on this ISO, check skipped"
 fi
+# ---- Bounded extras, run after the core proof so they cannot mask it. Test VM
+# credentials only. Anything ambiguous is labelled INCONCLUSIVE, not pass/fail.
+ENVSET='u=$(id -u); export XDG_RUNTIME_DIR=/run/user/$u; export HYPRLAND_INSTANCE_SIGNATURE=$(ls "$XDG_RUNTIME_DIR/hypr" 2>/dev/null | head -1)'
+echo "--- EXTRA escape: open a panel, press Escape" >>"$R"
+ssh_guest "$ENVSET; timeout 20 monarch-panel open theme" >>"$R" 2>&1
+sleep 3; capture_console "success-extra-panel-open"
+press esc; sleep 3; capture_console "success-extra-panel-after-escape"
+n=$(ssh_guest "$ENVSET; hyprctl layers 2>/dev/null | grep -c 'namespace: quickshell'")
+echo "quickshell layers after Escape: $n (bar only = 1; more means the panel layer is still present). RESULT: judge from the screenshots success-extra-panel-open / -after-escape; script does not auto-decide." >>"$R"
+ssh_guest "$ENVSET; timeout 20 monarch-panel close theme" >>"$R" 2>&1
+
+echo "--- EXTRA lock/unlock with the test account password" >>"$R"
+capture_console "success-extra-lock-before"
+ssh_guest "$ENVSET; setsid -f monarch-system-lock >/tmp/lock.out 2>&1; sleep 4; pgrep -a hyprlock || echo 'hyprlock not running'; cat /tmp/lock.out" >>"$R" 2>&1
+sleep 3; capture_console "success-extra-lock-screen"
+type_text "$GUEST_PASSWORD"; sleep 1; press ret; sleep 6
+capture_console "success-extra-lock-after-unlock"
+ssh_guest "pgrep -a hyprlock || echo 'hyprlock gone after unlock attempt'" >>"$R" 2>&1
+echo "lock/unlock: RESULT from the three success-extra-lock-* screenshots plus the hyprlock process lines above; if the password prompt was not shown or keys did not reach it, treat as INCONCLUSIVE." >>"$R"
 ssh_sudo 'journalctl -b --no-pager' >"$OUT/journal-cold-boot.log" 2>/dev/null
 g "journal: sddm/uwsm/hyprland/quickshell (last 60)" bash -c "grep -iE 'sddm|uwsm|hyprland|quickshell' '$OUT/journal-cold-boot.log' | tail -60"
 note "RESULT: install, reboot and cold boot reached SSH. Read report.txt and the screenshots for the session outcome; no desktop claim is made by this script."
