@@ -28,7 +28,8 @@ Install scope: fresh installs only. An old Niri/Noctalia home is refused by `mon
 | Bluetooth chip, privacy dot, control center | None | Known gap (verify against the bar before release) |
 | Todo, LazyVPN and PentestEnv shortcuts and bar items | None. Packages and menu entries stay, helpers only run package setup | Known gap, no new panel planned |
 | Wallpaper | Quickshell background layer reading `~/.config/monarch/current/wallpaper.json`; `monarch wallpaper set` publishes it | Replaced. hyprpaper segfaulted in the QEMU VM (buffer allocation failed, upstream hyprwm/hyprpaper#343) and was removed. Wallpaper pixels seen on the installed VM before and after a shell restart. Real GPU unproven |
-| Herdr, Neovim, Obsidian and Helix generated themes | Default theme of each tool | Documented fallback |
+| Helix and Obsidian generated themes | Rendered Monarch theme files linked by `monarch-install-helix` and `monarch-obsidian-theme` (not shipped in the ISO; installed at probe time). Probe run 45636942353 (same ISO as 8da334c, both jobs passed): the rendered CSS and TOML have resolved colours and no placeholders. Helix, inspected by screenshot: the custom theme was applied (dark with purple, syntax colours visible). Obsidian: installed, but it exited with no visible window and the cause is unknown, so the Obsidian theme is INCONCLUSIVE; the service and symlink checks passing does not show that Obsidian uses the theme | Helix: seen once in a VM. Obsidian: not verified |
+| Herdr and Neovim generated themes | Default theme of each tool | Documented fallback |
 | Fingerprint on the lock screen | None. Setup rows stay gated, no PAM change | Known gap |
 | Upgrade from an old Niri/Noctalia install | None | Dropped by decision, reinstall to switch |
 | Vendored community templates (UNKNOWN license) | Removed | Must not ship |
