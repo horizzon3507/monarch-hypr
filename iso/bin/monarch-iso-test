@@ -20,7 +20,7 @@
 #   --reuse-base       Skip the install phase if a base image already exists
 #   --install-only     Stop after producing the installed base image
 #   --acceptance-autologin
-#                      Enable test-only Niri autologin in the disposable overlay
+#                      Enable test-only Hyprland autologin in the disposable overlay
 #   --sync-monarch DIR Push DIR's test suite into the guest before running
 #                      (defaults to MONARCH_PATH when the suite is present)
 #   --sync-all DIR     Push all of DIR (bin/config/shell/test) into the guest
@@ -385,10 +385,9 @@ wait_for_ssh() {
 }
 
 session_started() {
-  ssh_guest 'for pid in $(pgrep -u "$(id -u)" -x niri); do
-    ls /run/user/$(id -u)/niri.wayland-*.$pid.sock >/dev/null 2>&1 && exit 0
-  done
-  exit 1' 2>/dev/null
+  # A Hyprland owned by this user whose instance directory exists in the runtime dir.
+  ssh_guest 'pgrep -u "$(id -u)" -x Hyprland >/dev/null || exit 1
+  ls -d /run/user/$(id -u)/hypr/*/ >/dev/null 2>&1' 2>/dev/null
 }
 
 # ----------------------------------------------------- driving the installer
@@ -725,7 +724,7 @@ EOF
   return 1
 }
 
-# Get a freshly booted system to a running Niri session, typing at the
+# Get a freshly booted system to a running Hyprland session, typing at the
 # LUKS prompt and/or SDDM greeter exactly like a user would.
 establish_session() {
   if $ENCRYPT; then
@@ -771,7 +770,7 @@ establish_session() {
 
     if ((waited >= 300)); then
       capture_console "failure-session-start-timeout"
-      echo "Timed out waiting for the Niri session" >&2
+      echo "Timed out waiting for the Hyprland session" >&2
       return 1
     fi
   done
@@ -917,9 +916,9 @@ sync_monarch() {
 }
 
 enable_acceptance_autologin() {
-  log "Enabling test-only Niri autologin in the acceptance overlay"
+  log "Enabling test-only Hyprland autologin in the acceptance overlay"
   wait_for_ssh "$BOOT_TIMEOUT" "failure-acceptance-autologin-ssh-timeout"
-  ssh_guest "printf '%s\n' '[Autologin]' 'User=$GUEST_USER' 'Session=niri.desktop' 'Relogin=false' > /tmp/monarch-test-autologin.conf"
+  ssh_guest "printf '%s\n' '[Autologin]' 'User=$GUEST_USER' 'Session=hyprland-uwsm.desktop' 'Relogin=false' > /tmp/monarch-test-autologin.conf"
   ssh_guest "echo $GUEST_PASSWORD | sudo -S install -o root -g root -m 0644 \
     /tmp/monarch-test-autologin.conf /etc/sddm.conf.d/98-monarch-test-autologin.conf && \
     echo $GUEST_PASSWORD | sudo -S systemctl restart sddm"
