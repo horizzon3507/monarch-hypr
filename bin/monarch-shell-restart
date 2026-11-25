@@ -3,7 +3,7 @@
 # monarch:summary=Restart the Hyprland desktop shell components
 # monarch:examples=monarch shell restart
 
-for proc in quickshell mako swayosd-server hypridle hyprpaper; do
+for proc in quickshell mako swayosd-server hypridle; do
   pkill -x "$proc" 2>/dev/null || true
 done
 for (( attempt = 0; attempt < 30; attempt++ )); do

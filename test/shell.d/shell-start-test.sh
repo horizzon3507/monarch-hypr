@@ -8,7 +8,7 @@ trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/bin" "$TMP/shell" "$TMP/home"
 export HOME="$TMP/home"
 # The stubs come first: the real monarch-theme-apply would otherwise shadow the
-# stub and, once monarch-wallpaper exists, restart hyprpaper from a background job.
+# stub .
 export PATH="$TMP/bin:$ROOT/bin:$PATH"
 export MONARCH_PATH="$ROOT"
 export MONARCH_SHELL_DIR="$TMP/shell"
@@ -36,7 +36,7 @@ chmod +x "$TMP"/bin/*
 # Without a Quickshell config the daemons still start and the gap is reported.
 err=$("$ROOT/bin/monarch-shell-start" 2>&1 >/dev/null)
 sleep 0.2
-grep -qx hyprpaper "$STARTED" || fail "hyprpaper starts"
+! grep -qx hyprpaper "$STARTED" || fail "hyprpaper is not started"
 grep -qx mako "$STARTED" || fail "mako starts"
 grep -qx swayosd-server "$STARTED" || fail "swayosd starts"
 grep -qx hypridle "$STARTED" || fail "hypridle starts"
@@ -54,7 +54,7 @@ grep -qx "quickshell --path $TMP/shell" "$STARTED" || fail "quickshell starts wi
 pass "quickshell starts from the shell directory"
 
 # Running components are left alone.
-printf '%s\n' hyprpaper mako swayosd-server hypridle quickshell >"$RUNNING"
+printf '%s\n' mako swayosd-server hypridle quickshell >"$RUNNING"
 : >"$STARTED"
 "$ROOT/bin/monarch-shell-start"
 sleep 0.2
@@ -74,7 +74,7 @@ STUB
 chmod +x "$TMP/bin/pkill" "$TMP/bin/setsid"
 : >"$RUNNING"
 TMP_CALLS="$TMP/calls" XDG_RUNTIME_DIR="$TMP/run" "$ROOT/bin/monarch-shell-restart"
-for proc in quickshell mako swayosd-server hypridle hyprpaper; do
+for proc in quickshell mako swayosd-server hypridle; do
   grep -qx "pkill -x $proc" "$TMP/calls" || fail "restart stops $proc"
 done
 ! grep -q waybar "$TMP/calls" || fail "restart does not touch waybar"

@@ -8,10 +8,10 @@ outputs=$(hyprctl monitors -j) || fail "Hyprland reports its monitors"
 pass "Hyprland reports at least one monitor"
 
 wait_until "Quickshell is running" 60 pgrep -u "$(id -u)" -x quickshell
-for process in mako hypridle hyprpaper swayosd-server; do
+for process in mako hypridle swayosd-server; do
   pgrep -u "$(id -u)" -x "$process" >/dev/null || fail "$process is running"
 done
-pass "Quickshell, mako, hypridle, hyprpaper and swayosd are running"
+pass "Quickshell, mako, hypridle and swayosd are running"
 
 monarch-menu --check >/dev/null || fail "installed Monarch menu validates"
 monarch commands --check >/dev/null || fail "installed Monarch commands validate"

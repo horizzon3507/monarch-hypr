@@ -78,7 +78,7 @@ Monarch is built on:
 | **Walker** | Launcher, clipboard, emoji picker, Monarch menus | `~/.config/walker/` |
 | **Mako** | Notifications and do-not-disturb | `~/.config/mako/config` |
 | **Hyprlock / Hypridle** | Lock screen and idle handling | `~/.config/hypr/hyprlock.conf`, `hypridle.conf` |
-| **Hyprpaper** | Wallpaper | `~/.config/hypr/hyprpaper.conf` (use `monarch wallpaper`) |
+| **Quickshell shell** | Wallpaper (use `monarch wallpaper`) | `~/.config/monarch/current/wallpaper.json` |
 | **SwayOSD** | Volume and brightness on-screen display | `~/.config/swayosd/` |
 | **Alacritty/Foot/Kitty/Ghostty** | Terminals | `~/.config/<terminal>/` |
 
@@ -161,7 +161,7 @@ monarch-shell-setting set batteryPercent true
 monarch-shell-setting set textScale 1.2
 ```
 
-Values are JSON. Other keys are ignored. `monarch toggle bar` flips bar visibility. `monarch restart shell` restarts bar, notifications, OSD, idle and wallpaper. `monarch refresh shell` resets mako, walker, swayosd, hyprlock, hypridle, hyprpaper and the Monarch palette to defaults, re-renders the theme and restarts the shell, so ask before running it.
+Values are JSON. Other keys are ignored. `monarch toggle bar` flips bar visibility. `monarch restart shell` restarts bar, notifications, OSD, idle and wallpaper. `monarch refresh shell` resets mako, walker, swayosd, hyprlock, hypridle and the Monarch palette to defaults, re-renders the theme and restarts the shell, so ask before running it.
 
 Custom bar widgets and plugin systems do not exist. The bar shows workspaces, the tray, connectivity, brightness, volume, battery, a clock and status chips (recording, caffeine, do not disturb, night light, update available). If the user wants a layout the settings file cannot express, say so rather than editing files under `/usr/share/monarch/default/quickshell/`.
 

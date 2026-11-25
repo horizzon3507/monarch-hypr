@@ -109,10 +109,9 @@ expand_tilde() {
 # --- Wallpaper ---------------------------------------------------------------
 # Apply the first wallpaper from the folder.
 # Records the choice with `monarch wallpaper set`, which writes the persistent
-# link that hyprpaper reads at start and updates a running hyprpaper live. The
-# link is written even while hyprpaper is not running: the config-stage run and
-# the shell start run this before hyprpaper exists, and hyprpaper reads the link
-# when it starts. Success means the link was recorded, which the caller stamps.
+# link and publishes the state file the shell reloads on. It works before the
+# shell starts: the config-stage run and the shell start run this first.
+# Success means the link was recorded, which the caller stamps.
 apply_wallpaper() {
   monarch-wallpaper set "$1" >/dev/null 2>&1
 }

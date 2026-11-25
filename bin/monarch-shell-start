@@ -4,7 +4,7 @@
 # monarch:examples=monarch shell start
 
 # The bar and panels are the Quickshell shell shipped in default/quickshell.
-# Wallpaper, notifications, the volume/brightness OSD and idle handling stay
+# The wallpaper is drawn by the shell itself. Notifications, the volume/brightness OSD and idle handling stay
 # separate daemons. Each one is started only when it is not already running.
 
 set -uo pipefail
@@ -22,8 +22,8 @@ start_once() {
 # Colors must exist before the first component reads them.
 monarch-theme-render >/dev/null 2>&1 || true
 monarch-theme-apply >/dev/null 2>&1 || true
+monarch-wallpaper-sync >/dev/null 2>&1 || true
 
-start_once hyprpaper hyprpaper
 start_once mako mako
 start_once swayosd-server swayosd-server
 start_once hypridle hypridle
