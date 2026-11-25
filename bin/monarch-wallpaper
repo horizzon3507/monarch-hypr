@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# monarch:summary=Get or set the desktop wallpaper (Hyprpaper)
+# monarch:summary=Get or set the desktop wallpaper (Quickshell shell)
 # monarch:args=<get|set <path>>
 # monarch:examples=monarch wallpaper get | monarch wallpaper set ~/Pictures/wall.png
 
@@ -16,13 +16,8 @@ case "${1:-}" in
     [[ -f $path ]] || { echo "Wallpaper not found: ${path:-<none>}" >&2; exit 1; }
     mkdir -p "${LINK%/*}"
     ln -sfn "$(readlink -f "$path")" "$LINK" || exit 1
-    # Hyprpaper reads the link at start; the live call updates a running daemon.
-    if pgrep -x hyprpaper >/dev/null 2>&1; then
-      hyprctl hyprpaper wallpaper ",$LINK,cover" >/dev/null 2>&1 || {
-        pkill -x hyprpaper
-        setsid --fork uwsm-app -t service -- hyprpaper >/dev/null 2>&1
-      }
-    fi
+    # The Quickshell shell draws the wallpaper and reloads on this state file.
+    monarch-wallpaper-sync || exit 1
     ;;
   *)
     echo "Usage: monarch wallpaper <get|set <path>>" >&2

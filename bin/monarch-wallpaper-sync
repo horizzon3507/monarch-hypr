@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# monarch:summary=Publish the current wallpaper choice for the Quickshell shell
+# monarch:examples=monarch wallpaper-sync
+
+# The shell draws the wallpaper itself. It watches this state file because a
+# symlink watcher misses a changed target. "rev" grows on every call, so the
+# shell reloads even when the path is the same but the image content changed.
+
+set -uo pipefail
+
+LINK="${XDG_CONFIG_HOME:-$HOME/.config}/monarch/current/background"
+STATE="${MONARCH_WALLPAPER_STATE:-${XDG_CONFIG_HOME:-$HOME/.config}/monarch/current/wallpaper.json}"
+
+path=""
+if [[ -L $LINK || -f $LINK ]]; then
+  resolved=$(readlink -f "$LINK" 2>/dev/null || true)
+  [[ -n $resolved && -f $resolved ]] && path=$resolved
+fi
+
+rev=$(date +%s%N)
+mkdir -p "${STATE%/*}" || exit 1
+tmp=$(mktemp "${STATE}.XXXXXX") || exit 1
+jq -n --arg path "$path" --argjson rev "$rev" '{path: $path, rev: $rev}' >"$tmp" || { rm -f "$tmp"; exit 1; }
+mv -f "$tmp" "$STATE"
