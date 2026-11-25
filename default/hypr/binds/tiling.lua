@@ -65,5 +65,7 @@ cmd("SUPER + CTRL + D", "monarch-hypr-monitor-scaling-cycle", "Cycle display sca
 cmd("SUPER + CTRL + SHIFT + D", "monarch-hypr-monitor-scaling-cycle --reverse", "Cycle display scaling backwards")
 cmd("SUPER + CTRL + Delete", "monarch-hypr-monitor-internal toggle", "Toggle laptop display")
 cmd("SUPER + CTRL + ALT + Delete", "monarch-hypr-monitor-internal-mirror toggle", "Toggle laptop display mirroring")
-hl.bind("switch:on:Lid Switch", hl.dsp.exec_cmd("monarch-hw-external-monitors && monarch-hypr-monitor-internal off"), { locked = true })
+-- Closing the lid always locks (as the Niri session did), then drops the laptop panel when an
+-- external monitor is connected. MONARCH_LOCK_ONLY skips the display power-off in the lock command.
+hl.bind("switch:on:Lid Switch", hl.dsp.exec_cmd("MONARCH_LOCK_ONLY=true monarch-system-lock; monarch-hw-external-monitors && monarch-hypr-monitor-internal off"), { locked = true })
 hl.bind("switch:off:Lid Switch", hl.dsp.exec_cmd("monarch-hypr-monitor-internal on"), { locked = true })
