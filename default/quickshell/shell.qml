@@ -6,6 +6,7 @@ import Quickshell
 ShellRoot {
     Component.onCompleted: console.log("monarch-shell started")
 
+    Wallpaper {}
     Bar {}
     PanelHost {}
 
