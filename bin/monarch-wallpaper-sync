@@ -4,7 +4,7 @@
 # monarch:examples=monarch wallpaper-sync
 
 # The shell draws the wallpaper itself. It watches this state file because a
-# symlink watcher misses a changed target. "rev" grows on every call, so the
+# symlink watcher misses a changed target. "rev" strictly grows on every call, so the
 # shell reloads even when the path is the same but the image content changed.
 
 set -uo pipefail
@@ -18,7 +18,12 @@ if [[ -L $LINK || -f $LINK ]]; then
   [[ -n $resolved && -f $resolved ]] && path=$resolved
 fi
 
-rev=$(date +%s%N)
+# Microseconds keep rev under 2^53, so jq (a double on jq 1.6) stays exact. A
+# prior rev at or above the clock (same microsecond, clock step back) is bumped.
+rev=$(( $(date +%s%N) / 1000 ))
+prev=$(jq -r '.rev // 0 | floor' "$STATE" 2>/dev/null || echo 0)
+[[ $prev =~ ^[0-9]+$ ]] || prev=0
+(( rev > prev )) || rev=$(( prev + 1 ))
 mkdir -p "${STATE%/*}" || exit 1
 tmp=$(mktemp "${STATE}.XXXXXX") || exit 1
 jq -n --arg path "$path" --argjson rev "$rev" '{path: $path, rev: $rev}' >"$tmp" || { rm -f "$tmp"; exit 1; }
