@@ -3,13 +3,15 @@
 set -euo pipefail
 source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/base.sh"
 
-outputs=$(niri msg --json outputs) || fail "Niri reports its outputs"
-(( $(jq 'length' <<<"$outputs") > 0 )) || fail "Niri reports at least one output"
-pass "Niri reports at least one output"
+outputs=$(hyprctl monitors -j) || fail "Hyprland reports its monitors"
+(( $(jq 'length' <<<"$outputs") > 0 )) || fail "Hyprland reports at least one monitor"
+pass "Hyprland reports at least one monitor"
 
-wait_until "Noctalia responds" 60 noctalia msg status
-noctalia config validate >/dev/null || fail "Noctalia configuration validates"
-pass "Noctalia configuration validates"
+wait_until "Quickshell is running" 60 pgrep -u "$(id -u)" -x quickshell
+for process in mako hypridle hyprpaper swayosd-server; do
+  pgrep -u "$(id -u)" -x "$process" >/dev/null || fail "$process is running"
+done
+pass "Quickshell, mako, hypridle, hyprpaper and swayosd are running"
 
 monarch-menu --check >/dev/null || fail "installed Monarch menu validates"
 monarch commands --check >/dev/null || fail "installed Monarch commands validate"

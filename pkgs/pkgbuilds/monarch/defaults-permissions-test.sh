@@ -23,7 +23,7 @@ chmod 0666 "$work/external/config"
 ln -s "$work/external" "$work/src/monarch/config/external"
 chmod 0777 "$work/src/monarch/etc/NetworkManager" "$work/src/monarch/config"
 chmod 0666 "$work/src/monarch/etc/docker/daemon.json"
-chmod 0777 "$work/src/monarch/default/noctalia/indicators/voxtype.sh"
+chmod 0777 "$work/src/monarch/default/monarch/update-authorization.sh"
 for directory in "$work/src/monarch/default/sddm" "$work/src/monarch/default/plymouth"; do
   chmod -R 0700 "$directory"
 done
@@ -41,7 +41,7 @@ if [[ -n $invalid ]]; then
 fi
 [[ $(stat -c %a "$pkgdir/etc/NetworkManager") == "755" ]]
 [[ $(stat -c %a "$pkgdir/etc/docker/daemon.json") == "644" ]]
-[[ $(stat -c %a "$pkgdir/usr/share/monarch/default/noctalia/indicators/voxtype.sh") == "755" ]]
+[[ $(stat -c %a "$pkgdir/usr/share/monarch/default/monarch/update-authorization.sh") == "755" ]]
 [[ $(stat -c %a "$pkgdir/usr/share/monarch/config") == "755" ]]
 
 for directory in \

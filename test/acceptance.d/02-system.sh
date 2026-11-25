@@ -52,9 +52,10 @@ for unit in NetworkManager.service sddm.service systemd-resolved.service ufw.ser
 done
 pass "critical services are running"
 
-[[ -s $HOME/.config/niri/config.kdl ]] || fail "Niri user configuration exists"
-[[ -s $HOME/.config/noctalia/config.toml ]] || fail "Noctalia user configuration exists"
-[[ -e $HOME/.local/state/noctalia/.setup-complete ]] || fail "Noctalia setup is complete"
+[[ -s $HOME/.config/hypr/bindings.lua ]] || fail "Hyprland user bindings exist"
+for leftover in "$HOME/.config/niri" "$HOME/.config/noctalia"; do
+  [[ ! -e $leftover ]] || fail "no Niri or Noctalia user configuration" "$leftover"
+done
 [[ $(monarch-default-terminal) == "alacritty" ]] || fail "Alacritty is the default terminal"
 [[ $(xdg-mime query default inode/directory) == "org.gnome.Nautilus.desktop" ]] ||
   fail "Nautilus handles directories"

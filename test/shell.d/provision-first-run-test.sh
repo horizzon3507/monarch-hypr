@@ -17,7 +17,7 @@ for command in monarch-provision-first-run monarch-provision-user monarch-done m
   ln -s "$ROOT/bin/$command" "$runtime/bin/$command"
 done
 
-for command in monarch-refresh-hypr monarch-refresh-noctalia monarch-refresh-applications \
+for command in monarch-refresh-hypr monarch-refresh-applications \
   monarch-theme-apply monarch-mise-install monarch-notification-wait monarch-notification-send \
   xdg-user-dirs-update xdg-settings xdg-mime update-desktop-database git mise \
   systemctl noctalia monarch-panel gsettings nm-online pactl sleep; do

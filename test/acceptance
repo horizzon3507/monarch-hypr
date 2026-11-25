@@ -20,13 +20,13 @@ mkdir -p "$MONARCH_ACCEPTANCE_DIR"
 
 session_deadline=$((SECONDS + ${MONARCH_ACCEPTANCE_BOOT_TIMEOUT:-300}))
 while true; do
-  NIRI_SOCKET=$(monarch-hw-niri-socket 2>/dev/null || true)
-  export NIRI_SOCKET
-  if [[ -n $NIRI_SOCKET ]] && niri msg --json outputs >/dev/null 2>&1; then
+  HYPRLAND_INSTANCE_SIGNATURE=$(monarch-hw-hypr-instance 2>/dev/null || true)
+  export HYPRLAND_INSTANCE_SIGNATURE
+  if [[ -n $HYPRLAND_INSTANCE_SIGNATURE ]] && hyprctl monitors -j >/dev/null 2>&1; then
     break
   fi
   if ((SECONDS >= session_deadline)); then
-    echo "Niri session never became ready" >&2
+    echo "Hyprland session never became ready" >&2
     exit 1
   fi
   sleep 2
