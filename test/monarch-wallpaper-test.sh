@@ -45,6 +45,8 @@ rev2=$(jq -r .rev "$STATE")
 echo new-content >"$img2"
 monarch-wallpaper set "$img2"
 rev3=$(jq -r .rev "$STATE")
+for _ in 1 2 3 4 5 6 7 8; do monarch-wallpaper-sync; r=$(jq -r .rev "$STATE"); (( r > rev3 )) || fail "rev is strictly unique in a tight loop"; rev3=$r; done
+[[ $rev3 =~ ^[0-9]+$ ]] && (( rev3 < 9007199254740992 )) || fail "rev is an exact integer below 2^53"
 (( rev3 > rev2 )) || fail "same path with new content raises rev"
 [[ ! -e $HYPRCTL_CALLS ]] || fail "no hyprpaper call is ever made"
 ls "$XDG_CONFIG_HOME/monarch/current" | grep -q '\.XXXX\|wallpaper.json\.' && fail "no temp file is left behind"
