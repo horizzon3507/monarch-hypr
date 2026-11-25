@@ -1,5 +1,5 @@
 [Unit]
-Description=Apply the Noctalia theme to Obsidian vaults
+Description=Apply the Monarch theme to Obsidian vaults
 
 [Service]
 Type=oneshot

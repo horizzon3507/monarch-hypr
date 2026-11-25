@@ -12,7 +12,7 @@ export MONARCH_PATH="$ROOT"
 export MONARCH_THEME_PALETTES_DIR="$ROOT/config/monarch/palettes"
 export MONARCH_THEME_OUT_DIR="$HOME/.config/monarch/current/theme"
 export PATH="$ROOT/bin:$TMP/bin:$PATH"
-export HYPRLAND_INSTANCE_SIGNATURE=test
+unset HYPRLAND_INSTANCE_SIGNATURE
 mkdir -p "$HOME" "$TMP/bin" "$XDG_STATE_HOME/monarch"
 for stub in hyprctl makoctl pkill pgrep monarch-pkg-add; do
   printf '#!/bin/bash\nexit 0\n' >"$TMP/bin/$stub"
