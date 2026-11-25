@@ -105,6 +105,8 @@ for i in 1 2 3 4 5 6; do
   sleep 15
   capture_console "success-after-login-$((i * 15))s"
 done
+g "retired families: installed packages matching niri or noctalia (must be empty)" ssh_guest 'q=$(pacman -Qq) && [ -n "$q" ] && { echo "installed packages: $(wc -l <<<"$q")"; grep -E "^(niri|noctalia)(-|$)" <<<"$q" || echo "none matched"; }'
+g "NetworkManager" ssh_guest 'systemctl is-active NetworkManager; nmcli -t general status 2>&1 | head -3; nmcli -t -f DEVICE,TYPE,STATE device 2>&1 | head -5'
 g "sessions after login" ssh_guest 'loginctl list-sessions --no-legend'
 g "processes after login" ssh_guest 'pgrep -a "Hyprland|quickshell|hyprpaper|mako|swayosd|hypridle|sddm-greeter" || echo none'
 g "hyprctl after login" ssh_guest 'u=$(id -u); export XDG_RUNTIME_DIR=/run/user/$u; sig=$(ls "$XDG_RUNTIME_DIR/hypr" 2>/dev/null | head -1); echo "sig=$sig"; HYPRLAND_INSTANCE_SIGNATURE=$sig hyprctl version 2>&1 | head -4; HYPRLAND_INSTANCE_SIGNATURE=$sig hyprctl layers 2>&1 | head -30'
