@@ -14,7 +14,10 @@ ssh_guest 'pacman -Q' >"$RUN_DIR/packages.txt"
 
 check "Root filesystem is installed on btrfs" ssh_guest 'test "$(findmnt -n -o FSTYPE /)" = btrfs'
 check "Installed hostname matches the test machine" ssh_guest "test \"\$(hostname)\" = '$GUEST_HOSTNAME'"
-check "Monarch and desktop packages are installed" ssh_guest 'pacman -Q monarch linux-cachyos niri noctalia sddm'
+check "Monarch and desktop packages are installed" ssh_guest 'pacman -Q monarch linux-cachyos hyprland quickshell uwsm sddm'
+# Real family names: niri, noctalia (5.6.0 on the intermediate ISO), noctalia-qs, noctalia-shell.
+# The pacman query must succeed and list monarch first, so an empty list cannot pass.
+check "No Niri or Noctalia package is installed" ssh_guest 'packages=$(pacman -Qq) && grep -Fxq monarch <<<"$packages" && ! grep -Eq "^(niri|noctalia)(-|\$)" <<<"$packages"'
 check "Legacy settings bridge is absent" ssh_guest 'packages=$(pacman -Qq) && ! grep -Fxq monarch-settings <<<"$packages"'
 check "Monarch command routes are valid" ssh_guest 'monarch commands --check'
 check "SDDM starts successfully" ssh_guest 'timeout 120 bash -c "until systemctl is-active --quiet sddm; do sleep 2; done"'
