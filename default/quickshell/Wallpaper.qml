@@ -13,12 +13,25 @@ import "ShellLogic.js" as Logic
 Scope {
     id: root
 
+    // Same path rules as monarch-wallpaper-sync: the override, else XDG_CONFIG_HOME
+    // (default ~/.config).
     readonly property string path: Quickshell.env("MONARCH_WALLPAPER_STATE")
-        || (Quickshell.env("HOME") + "/.config/monarch/current/wallpaper.json")
+        || ((Quickshell.env("XDG_CONFIG_HOME") || (Quickshell.env("HOME") + "/.config")) + "/monarch/current/wallpaper.json")
 
     property var state: Logic.parseWallpaperState("")
 
+    // A watch on a file that does not exist yet (first login, before the first
+    // sync) never sees it appear, so while there is no wallpaper the state is
+    // read again every few seconds. A wallpaper that is showing is watched only.
+    Timer {
+        interval: 3000
+        running: root.state.path === ""
+        repeat: true
+        onTriggered: stateFile.reload()
+    }
+
     FileView {
+        id: stateFile
         path: root.path
         watchChanges: true
         printErrors: false
