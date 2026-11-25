@@ -122,7 +122,8 @@ g "wallpaper link after restart (selection must be preserved)" ssh_guest 'readli
 # Night light (hyprsunset), only when the installed system has the package.
 if ssh_guest 'pacman -Q hyprsunset' >/dev/null 2>&1; then
   g "hyprsunset package" ssh_guest 'pacman -Q hyprsunset; hyprsunset --version 2>&1 | head -2'
-  NL='u=$(id -u); export XDG_RUNTIME_DIR=/run/user/$u; export HYPRLAND_INSTANCE_SIGNATURE=$(ls "$XDG_RUNTIME_DIR/hypr" 2>/dev/null | head -1)'
+  NL='u=$(id -u); export XDG_RUNTIME_DIR=/run/user/$u; export WAYLAND_DISPLAY=$(cd "$XDG_RUNTIME_DIR" && ls wayland-* 2>/dev/null | grep -v lock | head -1); export HYPRLAND_INSTANCE_SIGNATURE=$(ls "$XDG_RUNTIME_DIR/hypr" 2>/dev/null | head -1)'
+  g "hyprsunset foreground probe (5s, env check)" ssh_guest "$NL; echo WAYLAND_DISPLAY=\$WAYLAND_DISPLAY; timeout 5 hyprsunset -t 4000 2>&1 | head -8; echo rc=\$?"
   g "nightlight toggle (monarch) on" ssh_guest "$NL; timeout 40 monarch toggle nightlight 2>&1 | tail -5; sleep 3; pgrep -a hyprsunset || echo 'hyprsunset not running'"
   g "nightlight status after on" ssh_guest "$NL; timeout 20 hyprctl hyprsunset identity get 2>&1 | head -3; systemctl --user status --no-pager 2>&1 | grep -i hyprsunset | head -3"
   capture_console "success-nightlight-on"
@@ -134,7 +135,7 @@ else
 fi
 # ---- Bounded extras, run after the core proof so they cannot mask it. Test VM
 # credentials only. Anything ambiguous is labelled INCONCLUSIVE, not pass/fail.
-ENVSET='u=$(id -u); export XDG_RUNTIME_DIR=/run/user/$u; export HYPRLAND_INSTANCE_SIGNATURE=$(ls "$XDG_RUNTIME_DIR/hypr" 2>/dev/null | head -1)'
+ENVSET='u=$(id -u); export XDG_RUNTIME_DIR=/run/user/$u; export WAYLAND_DISPLAY=$(cd "$XDG_RUNTIME_DIR" && ls wayland-* 2>/dev/null | grep -v lock | head -1); export HYPRLAND_INSTANCE_SIGNATURE=$(ls "$XDG_RUNTIME_DIR/hypr" 2>/dev/null | head -1)'
 echo "--- EXTRA escape: open a panel, press Escape" >>"$R"
 ssh_guest "$ENVSET; timeout 20 monarch-panel open theme" >>"$R" 2>&1
 sleep 3; capture_console "success-extra-panel-open"
