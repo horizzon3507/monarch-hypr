@@ -146,14 +146,12 @@ disktree-bin
 evince
 exfatprogs
 fabric-ai-bin
-ffuf-bin
 firefox
 fq
 fx
 gau
 gitleaks
 gnome-calculator
-hashcat
 lazydocker
 lazygit
 ligolo-ng
@@ -161,7 +159,6 @@ llvm
 massdns
 nautilus
 nautilus-python
-nmap
 obsidian
 posting
 python-pip
