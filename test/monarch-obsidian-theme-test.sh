@@ -14,6 +14,9 @@ grep -Fq 'ExecStart=/usr/bin/monarch-obsidian-theme' "$service" || fail "service
 ! grep -qi noctalia "$service" "$ROOT/bin/monarch-obsidian-theme" "$ROOT/bin/monarch-install-helix" || fail "retired Noctalia reference left"
 grep -Fqx 'PathChanged=%h/.config/obsidian/obsidian.json' "$ROOT/default/systemd/user/monarch-obsidian-theme.path" || fail "path unit watches the vault list"
 grep -Fq 'monarch-obsidian-theme.path' "$ROOT/install/user/first-run/enable-user-units.sh" || fail "path unit is enabled"
+# Obsidian is Electron: without a Wayland platform it tries X11 and exits when no X server is
+# present (seen in the install probe). The flags file is read by the Arch package wrapper.
+grep -Fqx -- '--ozone-platform=wayland' "$ROOT/config/obsidian/user-flags.conf" || fail "Obsidian is pinned to the Wayland platform"
 
 # Service-like environment: scrubbed variables, no Hyprland, no noctalia on PATH.
 mkdir -p "$TMP/home/Documents/first/.obsidian" "$TMP/home/Downloads/second/.obsidian" "$TMP/bin" "$TMP/state/monarch"
