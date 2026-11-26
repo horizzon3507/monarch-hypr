@@ -18,6 +18,9 @@ on:
       inspect_absent:
         description: Package families that must appear nowhere in the ISO (space separated, e.g. "niri noctalia"). Empty = report only.
         default: ''
+      inspect_absent_installed:
+        description: Package families that must be absent from the installed image side but may stay in the live session (space separated, e.g. "nmap hashcat"). Empty = report only.
+        default: ''
 
 permissions:
   contents: read
@@ -87,6 +90,7 @@ jobs:
           INSPECT_EXPECT_PRESENT: ${{ inputs.inspect_present }}
           INSPECT_EXPECT_PRESENT_LIVE: ${{ inputs.inspect_present_live }}
           INSPECT_EXPECT_ABSENT: ${{ inputs.inspect_absent }}
+          INSPECT_EXPECT_ABSENT_INSTALLED: ${{ inputs.inspect_absent_installed }}
         run: |
           iso=$(ls release/*.iso | head -n1)
           bash iso/test/ci/inspect-iso.sh "$iso" iso-inspection

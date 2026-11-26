@@ -10,6 +10,9 @@
 #   INSPECT_EXPECT_PRESENT       exact names that must be in installed-root (the target image record)
 #   INSPECT_EXPECT_PRESENT_LIVE  exact names that must be in live-root
 #   INSPECT_EXPECT_ABSENT        package FAMILIES (name or name-*) that must appear in NO set
+#   INSPECT_EXPECT_ABSENT_INSTALLED  package FAMILIES that must be absent from the installed image side
+#                                (installed-root, installer-lists, offline-mirror, monarch-depends) but may
+#                                stay in the live session (live-root)
 # Declaring any gate also requires every set below to be non-empty, so an
 # extraction or parsing failure cannot pass as "nothing found".
 #
@@ -53,7 +56,7 @@ extract() {
 
 analyze() {
   local out=$1 s p m found k line rc=0 gated=0
-  [[ -n ${INSPECT_EXPECT_PRESENT:-}${INSPECT_EXPECT_PRESENT_LIVE:-}${INSPECT_EXPECT_ABSENT:-} ]] && gated=1
+  [[ -n ${INSPECT_EXPECT_PRESENT:-}${INSPECT_EXPECT_PRESENT_LIVE:-}${INSPECT_EXPECT_ABSENT:-}${INSPECT_EXPECT_ABSENT_INSTALLED:-} ]] && gated=1
   [[ $(cat "$out/extract.status" 2>/dev/null) == ok ]] || { echo "GATE FAIL: extraction did not complete (no extract.status=ok)"; return 1; }
   local root=$out/root sets="live-root installed-root installer-lists offline-mirror monarch-depends"
   strip_ver() { sed -E 's/-[^-]+-[^-]+$//'; }
@@ -125,6 +128,12 @@ analyze() {
     for s in $sets; do
       m=$(grep -E "^$p(-|\$)" "$out/$s.txt" | tr '\n' ' ')
       [[ -z $m ]] || { echo "GATE FAIL: $p family expected absent but found in $s: $m"; rc=1; }
+    done
+  done
+  for p in ${INSPECT_EXPECT_ABSENT_INSTALLED:-}; do
+    for s in installed-root installer-lists offline-mirror monarch-depends; do
+      m=$(grep -E "^$p(-|\$)" "$out/$s.txt" | tr '\n' ' ')
+      [[ -z $m ]] || { echo "GATE FAIL: $p family expected absent from the installed image but found in $s: $m"; rc=1; }
     done
   done
   return $rc

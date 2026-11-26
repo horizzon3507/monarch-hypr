@@ -38,6 +38,9 @@ d=$(mkfix nodepends); rm -rf "$d"/root/var/lib/pacman/local/monarch-*; check "mi
 d=$(mkfix nomodules); rm -rf "$d/root/usr/lib/modules/6.12.1-cachyos"; check "no kernel modules fails" 1 "$d" X=1
 d=$(mkfix wishlist);  sed -i '/^hyprland/d' "$d/root/usr/share/monarch-iso/root-image.packages"; check "PRESENT not satisfied by wishlist or depends" 1 "$d" INSPECT_EXPECT_PRESENT=hyprland
 d=$(mkfix livepresent); rm -rf "$d/root/var/lib/pacman/local/hyprland-0.45.0-1"; check "PRESENT_LIVE needs live-root" 1 "$d" INSPECT_EXPECT_PRESENT_LIVE=hyprland
+d=$(mkfix liveonly);  mkdir -p "$d/root/var/lib/pacman/local/nmap-7.99-1"; check "installed-scope absence ignores a live-session package" 0 "$d" INSPECT_EXPECT_ABSENT_INSTALLED=nmap
+d=$(mkfix instabs);   echo "nmap 7.99-1" >> "$d/root/usr/share/monarch-iso/root-image.packages"; check "installed-scope absence fails on the installed image" 1 "$d" INSPECT_EXPECT_ABSENT_INSTALLED=nmap
+d=$(mkfix allabs);    mkdir -p "$d/root/var/lib/pacman/local/nmap-7.99-1"; check "all-sets absence still catches the live session" 1 "$d" INSPECT_EXPECT_ABSENT=nmap
 d=$(mkfix fam1); mkdir "$d/root/var/lib/pacman/local/niri-git-25.1-1"; check "absent family niri-git in live-root" 1 "$d" INSPECT_EXPECT_ABSENT=niri
 d=$(mkfix fam2); echo 'noctalia-qs-0.2-3-x86_64.pkg.tar.zst' >> "$d/offline-files.txt"; check "absent family noctalia-qs in offline mirror" 1 "$d" INSPECT_EXPECT_ABSENT=noctalia
 d=$(mkfix fam3); echo 'noctalia-shell' >> "$d/root/usr/share/monarch-iso/monarch-other.packages"; check "absent family in installer list" 1 "$d" INSPECT_EXPECT_ABSENT=noctalia
