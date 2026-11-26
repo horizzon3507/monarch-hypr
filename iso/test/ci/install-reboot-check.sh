@@ -178,14 +178,28 @@ if [[ ${MONARCH_INTEGRATION_OFFLINE:-} == false ]]; then
   capture_console "success-app-obsidian"
   ssh_guest "$ENVSET; if ! pgrep -x obsidian >/dev/null; then echo 'obsidian not running, retry with --no-sandbox --disable-gpu'; setsid -f obsidian --no-sandbox --disable-gpu >/tmp/ob2.out 2>&1; sleep 30; tail -5 /tmp/ob2.out; fi; pgrep -c obsidian" >>"$R" 2>&1
   capture_console "success-app-obsidian-2"
-  echo "--- STAB obsidian left running, no deliberate kill" >>"$R"
-  ssh_guest "$ENVSET; sleep 60; pgrep -c obsidian; hyprctl clients 2>/dev/null | grep -iE 'class|title' | head -4" >>"$R" 2>&1
-  capture_console "success-app-obsidian-stable"
-  ssh_sudo 'coredumpctl list --no-pager 2>&1 | tail -5; journalctl -b --no-pager | grep -i -E "coredump|electron" | tail -8 | cut -c1-250' >>"$R" 2>&1
-  echo "--- STAB snippet disabled in the running vault" >>"$R"
-  ssh_guest "$ENVSET; v=\$HOME/test-vault; cat \$v/.obsidian/appearance.json; jq '.enabledCssSnippets=[]' \$v/.obsidian/appearance.json > /tmp/ap.json && cat /tmp/ap.json > \$v/.obsidian/appearance.json; sleep 12; cat \$v/.obsidian/appearance.json; pgrep -c obsidian" >>"$R" 2>&1
-  capture_console "success-app-obsidian-snippet-off"
-  ssh_sudo 'coredumpctl list --no-pager 2>&1 | tail -5' >>"$R" 2>&1
+  # ---- Combined probe: snippet A/B with isolated diagnostic CSS, restore baseline, then a soak.
+  echo "--- AB install guest helper" >>"$R"
+  ssh_guest "echo IyEvYmluL2Jhc2gKIyBHdWVzdCBoZWxwZXI6IHJlc3RhcnQgT2JzaWRpYW4gb24gdGhlIHRlc3QgdmF1bHQgd2l0aCBhIGdpdmVuIHNuaXBwZXQgc3RhdGUuIERpYWdub3N0aWMgb25seS4Kc3RhZ2U9JDEKdj0kSE9NRS90ZXN0LXZhdWx0CnU9JChpZCAtdSk7IGV4cG9ydCBYREdfUlVOVElNRV9ESVI9L3J1bi91c2VyLyR1CmV4cG9ydCBXQVlMQU5EX0RJU1BMQVk9JChjZCAiJFhER19SVU5USU1FX0RJUiIgJiYgbHMgd2F5bGFuZC0qIDI+L2Rldi9udWxsIHwgZ3JlcCAtdiBsb2NrIHwgaGVhZCAtMSkKZXhwb3J0IEhZUFJMQU5EX0lOU1RBTkNFX1NJR05BVFVSRT0kKGxzICIkWERHX1JVTlRJTUVfRElSL2h5cHIiIDI+L2Rldi9udWxsIHwgaGVhZCAtMSkKcGtpbGwgLWYgb2JzaWRpYW4uYXNhcjsgc2xlZXAgNQplY2hvICJzdG9wcGVkOiByZW1haW5pbmcgb2JzaWRpYW4gcHJvY3MgJChwZ3JlcCAtZiBvYnNpZGlhbi5hc2FyIHwgd2MgLWwpIgpjYXNlICRzdGFnZSBpbgogIEF8QkFTRSkganEgJy5lbmFibGVkQ3NzU25pcHBldHM9WyJtb25hcmNoIl0nICR2Ly5vYnNpZGlhbi9hcHBlYXJhbmNlLmpzb24gPiAvdG1wL2FwLmpzb24gOzsKICBCKSAgICAgIGpxICcuZW5hYmxlZENzc1NuaXBwZXRzPVtdJyAkdi8ub2JzaWRpYW4vYXBwZWFyYW5jZS5qc29uID4gL3RtcC9hcC5qc29uIDs7CiAgQykgICAgICBwcmludGYgJy53b3Jrc3BhY2UsIC5hcHAtY29udGFpbmVyLCAud29ya3NwYWNlLWxlYWYtY29udGVudCB7IGJhY2tncm91bmQtY29sb3I6ICNmZjAwZmYgIWltcG9ydGFudDsgfVxuJyA+ICR2Ly5vYnNpZGlhbi9zbmlwcGV0cy96ei1kaWFnLWxvdWQuY3NzCiAgICAgICAgICBqcSAnLmVuYWJsZWRDc3NTbmlwcGV0cz1bInp6LWRpYWctbG91ZCJdJyAkdi8ub2JzaWRpYW4vYXBwZWFyYW5jZS5qc29uID4gL3RtcC9hcC5qc29uIDs7CmVzYWMKY2F0IC90bXAvYXAuanNvbiA+ICR2Ly5vYnNpZGlhbi9hcHBlYXJhbmNlLmpzb24KaWYgW1sgJHN0YWdlID09IEJBU0UgXV07IHRoZW4gcm0gLWYgJHYvLm9ic2lkaWFuL3NuaXBwZXRzL3p6LWRpYWctbG91ZC5jc3M7IGZpCmVjaG8gInN0YWdlICRzdGFnZSBhcHBlYXJhbmNlOiAkKGpxIC1jIC5lbmFibGVkQ3NzU25pcHBldHMgJHYvLm9ic2lkaWFuL2FwcGVhcmFuY2UuanNvbik7IHNuaXBwZXQgZmlsZXM6ICQobHMgJHYvLm9ic2lkaWFuL3NuaXBwZXRzIHwgdHIgJ1xuJyAnICcpIgpzZXRzaWQgLWYgb2JzaWRpYW4gPi90bXAvb2ItJHN0YWdlLm91dCAyPiYxCnNsZWVwIDMwCmVjaG8gInByb2NzICQocGdyZXAgLWYgb2JzaWRpYW4uYXNhciB8IHdjIC1sKTsgZXBvY2ggJChkYXRlICslcykiCmh5cHJjdGwgY2xpZW50cyAyPi9kZXYvbnVsbCB8IGdyZXAgLWlFICdjbGFzc3x0aXRsZScgfCBoZWFkIC00Cg== | base64 -d > /tmp/ab.sh; chmod +x /tmp/ab.sh; ls -l /tmp/ab.sh" >>"$R" 2>&1
+  for st in A B C BASE; do
+    echo "--- AB stage $st ($(date -u +%T) UTC)" >>"$R"
+    ssh_guest "bash /tmp/ab.sh $st" >>"$R" 2>&1
+    capture_console "success-ab-$st"
+  done
+  for st in A B C BASE; do
+    echo "AB $st pixels: $(magick "$OUT/success-ab-$st.png" -format '%[pixel:p{700,300}] %[pixel:p{200,500}] %[pixel:p{900,150}]' info: 2>&1) sha1 $(sha1sum "$OUT/success-ab-$st.png" | cut -c1-12)" >>"$R"
+  done
+  echo "AB note: stage C uses a separate loud diagnostic snippet (zz-diag-loud), not the shipped theme; BASE removes it and re-enables only monarch before the soak." >>"$R"
+  echo "--- SOAK start $(date -u +%T) UTC" >>"$R"
+  ssh_guest 'echo soak-start-epoch $(date +%s); pgrep -x quickshell | wc -l | sed "s/^/quickshell procs /"' >>"$R" 2>&1
+  for i in 1 2 3 4 5; do
+    ssh_guest "sleep 240; echo soak-$i epoch \$(date +%s) obsidian-procs \$(pgrep -f obsidian.asar | wc -l) quickshell-procs \$(pgrep -x quickshell | wc -l) hyprland-procs \$(pgrep -x Hyprland | wc -l); hyprctl clients 2>/dev/null | grep -iE 'class' | head -3" >>"$R" 2>&1
+    ssh_sudo 'echo "coredumps: $(coredumpctl list --no-pager 2>&1 | tail -3 | tr "\n" "|")"' >>"$R" 2>&1
+    [[ $i == 1 ]] && capture_console "success-soak-start"
+  done
+  capture_console "success-soak-end"
+  echo "--- SOAK end $(date -u +%T) UTC" >>"$R"
+  ssh_sudo 'journalctl -b --no-pager | grep -i -E "quickshell.*(crash|fatal|abort|segv|terminated)|coredump|Process .* terminated abnormally" | tail -10 | cut -c1-250; echo journal-grep-done' >>"$R" 2>&1
   for f in success-app-helix success-app-obsidian success-app-obsidian-2; do
     [[ -f $OUT/$f.png ]] && echo "$f center pixel $(magick "$OUT/$f.png" -format '%[pixel:p{640,400}] corner %[pixel:p{20,780}]' info: 2>&1)" >>"$R"
   done
