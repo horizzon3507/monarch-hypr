@@ -7,8 +7,9 @@
 # enables it, leaving other snippets and settings alone. Safe to run again: a
 # vault that is already set up is not changed. Runs from the
 # monarch-obsidian-theme user service, so it must not depend on a desktop
-# session's environment. Whether Obsidian follows a symlinked snippet has not
-# been checked in a running Obsidian.
+# session's environment. Obsidian 1.15.1 follows the symlinked snippet when it
+# is enabled before Obsidian starts (VM probe, see docs/fork-status.md); changes
+# made while Obsidian is running were not checked.
 
 mapfile -t vaults < <(find "$HOME" -maxdepth 4 -name .obsidian -type d 2>/dev/null | sort -u)
 ((${#vaults[@]})) || exit 0
