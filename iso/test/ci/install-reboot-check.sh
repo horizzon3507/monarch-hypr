@@ -169,8 +169,8 @@ if [[ ${MONARCH_INTEGRATION_OFFLINE:-} == false ]]; then
   ssh_guest "$ENVSET; printf 'fn main() {\n    let s = \"hello\"; // note\n    let n: u32 = 42;\n}\n' > ~/t.rs; setsid -f alacritty -e helix ~/t.rs >/tmp/hx.out 2>&1; sleep 10; pgrep -a helix || echo 'helix not running'; hx --health 2>&1 | head -0; cat /tmp/hx.out | head -5" >>"$R" 2>&1
   capture_console "success-app-helix"
   ssh_guest "pkill -x helix; pkill -x alacritty; true" >/dev/null 2>&1
-  echo "--- DIAG apply the source fix: pin the Wayland platform in user-flags.conf (as config/obsidian/user-flags.conf now does)" >>"$R"
-  ssh_guest "printf -- '--ozone-platform=wayland\n' >> ~/.config/obsidian/user-flags.conf; cat ~/.config/obsidian/user-flags.conf" >>"$R" 2>&1
+  echo "--- DIAG shipped Obsidian flags file (no probe pin)" >>"$R"
+  ssh_guest "cat ~/.config/obsidian/user-flags.conf" >>"$R" 2>&1
   echo "--- DIAG obsidian package, wrapper and electron runtime" >>"$R"
   ssh_guest 'pacman -Qi obsidian | grep -E "^(Version|Depends On)"; pacman -Q | grep -i electron; echo "wrapper:"; head -20 /usr/bin/obsidian; ls -d ~/.config/obsidian ~/.config/obsidian/user-flags.conf 2>&1' >>"$R" 2>&1
   echo "--- APPS obsidian opening the disposable test vault (Electron, software renderer)" >>"$R"

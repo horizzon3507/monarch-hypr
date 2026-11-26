@@ -7,7 +7,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        offline: ["false"]
+        offline: ["false", "true"]
     runs-on: ubuntu-latest
     timeout-minutes: 150
     permissions:
@@ -21,7 +21,7 @@ jobs:
         with:
           name: monarch-iso
           path: /mnt/iso
-          run-id: 45628700765
+          run-id: 45725416510
           github-token: ${{ github.token }}
       - name: Install, reboot, cold boot (intermediate b0dfa44 ISO)
         env:
