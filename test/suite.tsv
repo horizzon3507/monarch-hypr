@@ -101,6 +101,7 @@ test/monarch-toggle-bar-test.sh	desktop-bar	medium	isolated
 test/monarch-toggle-battery-percentage-test.sh	power	medium	isolated
 test/monarch-webcam-overlay-test.sh	capture	medium	isolated
 test/monarch-wifi-band-test.sh	wifi	medium	isolated
+test/monarch-weather-status-test.sh	weather	medium	isolated
 test/monarch-wifi-qr-test.sh	wifi	medium	isolated
 test/monarch-windows-key-test.sh	windows	low	isolated
 test/shell.d/windows-vm-launch-test.sh	windows	medium	isolated
