@@ -21,6 +21,12 @@ for bind in \
 done
 pass "webcam, menu, lock, toggle and OSD binds are present"
 
+# The power key and SUPER+SHIFT+L open the shell session panel, not the
+# terminal menu.
+grep -Fq 'monarch.cmd("XF86PowerOff", "monarch-panel toggle session"' "$SHELL_LUA" || fail "the power key opens the session panel"
+grep -Fq 'monarch.cmd("SUPER + SHIFT + L", "monarch-panel toggle session"' "$SHELL_LUA" || fail "SUPER+SHIFT+L opens the session panel"
+pass "the power key and SUPER+SHIFT+L open the session panel"
+
 # Every monarch-* command a bind launches must exist in bin/.
 missing=0
 while read -r command; do

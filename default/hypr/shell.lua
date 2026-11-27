@@ -21,8 +21,8 @@ monarch.cmd("SUPER + CTRL + R", "monarch-menu trigger.reminder.set", "Set remind
 monarch.cmd("SUPER + K", "monarch-menu-keybindings", "Show key bindings")
 monarch.cmd("SUPER + SHIFT + V", "walker -m clipboard", "Clipboard manager")
 monarch.cmd("SUPER + COMMA", "monarch-menu trigger.toggle", "Control center")
-monarch.cmd("XF86PowerOff", "monarch-menu system", "Power menu")
-monarch.cmd("SUPER + SHIFT + L", "monarch-menu system", "Power menu")
+monarch.cmd("XF86PowerOff", "monarch-panel toggle session", "Session panel")
+monarch.cmd("SUPER + SHIFT + L", "monarch-panel toggle session", "Session panel")
 
 -- Session
 monarch.cmd("SUPER + L", "monarch-system-lock", "Lock screen")
