@@ -57,7 +57,9 @@ ColumnLayout {
         delegate: Rectangle {
             required property var modelData
             visible: modelData.key !== "suspend" || root.suspendEnabled
-            implicitWidth: label.implicitWidth + 40
+            // Fixed width: the confirm text is longer than the label, and the
+            // panel must not resize when a row arms.
+            implicitWidth: 220
             implicitHeight: 34
             radius: 8
             color: root.armed === modelData.key ? Theme.error : Theme.surfaceVariant
@@ -82,6 +84,8 @@ ColumnLayout {
         color: Theme.fg
         opacity: 0.7
         font.pixelSize: 12
+        horizontalAlignment: Text.AlignHCenter
+        Layout.preferredWidth: 220
         Layout.topMargin: 4
     }
 }
