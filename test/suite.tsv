@@ -63,6 +63,7 @@ test/monarch-install-helpers-test.sh	package-install	high	isolated
 test/shell.d/pkg-drop-test.sh	package-install	high	isolated
 test/shell.d/tui-install-icon-test.sh	software-install	medium	isolated
 test/monarch-font-set-test.sh	fonts	high	isolated
+test/monarch-font-current-test.sh	fonts	low	isolated
 test/monarch-webapp-test.sh	webapps	high	isolated
 test/monarch-webapp-cleanup-test.sh	webapps	high	isolated
 test/monarch-webapp-fetch-budget-test.sh	webapps	high	isolated
