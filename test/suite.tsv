@@ -84,6 +84,7 @@ test/monarch-battery-present-test.sh	power	medium	isolated
 test/monarch-preinstalls-test.sh	package-install	medium	isolated
 test/monarch-screensaver-idle-test.sh	idle	medium	isolated
 test/monarch-sddm-test.sh	login-screen	high	isolated
+test/monarch-unlock-list-test.sh	login-screen	medium	isolated
 test/shell.d/plymouth-preview-path-test.sh	login-screen	medium	isolated
 test/monarch-sshd-menu-test.sh	remote-access	high	isolated
 test/shell.d/sshd-hardening-test.sh	remote-access	high	isolated
