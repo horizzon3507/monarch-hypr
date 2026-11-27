@@ -157,7 +157,7 @@ function bluetoothText(adapterEnabled, connected) {
 
 // Panels the host knows. Names come from the IPC call, so anything else is
 // refused rather than loaded.
-var PANELS = ["wifi-qr", "network", "theme", "display", "background", "crashes", "first-steps", "usage", "session", "capture", "toggles"];
+var PANELS = ["wifi-qr", "network", "theme", "display", "background", "crashes", "first-steps", "usage", "session", "capture", "toggles", "share"];
 
 function panelName(name) {
     var n = String(name === undefined || name === null ? "" : name);
@@ -257,6 +257,39 @@ function captureCommand(key) {
     for (var i = 0; i < all.length; i++)
         if (all[i].key === key) return all[i].command.slice();
     return [];
+}
+
+// Actions the share panel offers. Clipboard/file/folder hand the pick to
+// monarch-menu-share (the file rows open a chooser, so the panel closes),
+// receive focuses LocalSend, and wifi-qr switches to the QR panel instead
+// of closing. Commands are argv arrays for execDetached.
+var SHARE_ACTIONS = [
+    { key: "clipboard", label: "Share clipboard", command: ["monarch-menu-share", "clipboard"], close: true },
+    { key: "file", label: "Share files...", command: ["monarch-menu-share", "file"], close: true },
+    { key: "folder", label: "Share a folder...", command: ["monarch-menu-share", "folder"], close: true },
+    { key: "receive", label: "Receive with LocalSend", command: ["monarch-launch-or-focus", "localsend"], close: true },
+    { key: "wifi-qr", label: "Show Wi-Fi QR", command: ["monarch-panel", "open", "wifi-qr"], close: false }
+];
+
+function shareActions() {
+    return SHARE_ACTIONS.map(function (a) {
+        return { key: a.key, label: a.label, command: a.command.slice(), close: a.close };
+    });
+}
+
+// The argv behind a share key, or [] for anything the panel does not know.
+function shareCommand(key) {
+    for (var i = 0; i < SHARE_ACTIONS.length; i++)
+        if (SHARE_ACTIONS[i].key === key) return SHARE_ACTIONS[i].command.slice();
+    return [];
+}
+
+// Whether activating a key closes the panel afterwards. The Wi-Fi QR row
+// switches panels, so it must not close.
+function shareCloses(key) {
+    for (var i = 0; i < SHARE_ACTIONS.length; i++)
+        if (SHARE_ACTIONS[i].key === key) return SHARE_ACTIONS[i].close;
+    return false;
 }
 
 // Quick toggles with a uniform state read: `monarch-toggle-* status` prints

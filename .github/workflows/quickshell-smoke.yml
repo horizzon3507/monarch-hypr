@@ -9,6 +9,7 @@ on:
       - "test/quickshell-session-smoke.sh"
       - "test/quickshell-capture-smoke.sh"
       - "test/quickshell-toggles-smoke.sh"
+      - "test/quickshell-share-smoke.sh"
       - ".github/workflows/quickshell-smoke.yml"
   push:
     branches: [dev]
@@ -19,6 +20,7 @@ on:
       - "test/quickshell-session-smoke.sh"
       - "test/quickshell-capture-smoke.sh"
       - "test/quickshell-toggles-smoke.sh"
+      - "test/quickshell-share-smoke.sh"
   workflow_dispatch:
 
 permissions:
@@ -52,6 +54,9 @@ jobs:
             fi
             if [[ -f default/quickshell/TogglePanel.qml ]]; then
               bash test/quickshell-toggles-smoke.sh --screenshots "$GITHUB_WORKSPACE/smoke-shots"
+            fi
+            if [[ -f default/quickshell/SharePanel.qml ]]; then
+              bash test/quickshell-share-smoke.sh --screenshots "$GITHUB_WORKSPACE/smoke-shots"
             fi
           '
 
