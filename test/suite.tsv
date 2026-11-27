@@ -196,6 +196,7 @@ test/shell.d/menu-provider-leaf-test.sh	desktop-shell	medium	isolated
 test/shell.d/theme-apply-first-boot-wallpaper-test.sh	desktop-shell	medium	isolated
 test/shell.d/toggle-dnd-nightlight-test.sh	desktop-shell	medium	isolated
 test/shell.d/toggle-nightlight-test.sh	desktop-shell	medium	isolated
+test/monarch-toggle-enabled-test.sh	toggles	medium	isolated
 test/shell.d/terminal-cwd-hyprland-test.sh	desktop-shell	medium	isolated
 test/shell.d/niri-noctalia-absent-test.sh	desktop-shell	high	isolated
 test/shell.d/quickshell-state-chips-test.sh	desktop-shell	medium	isolated
