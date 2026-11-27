@@ -19,3 +19,5 @@ ShellRoot {
 
   Component.onCompleted: console.log("SMOKE-LOADED")
 }
+
+# probe actions trigger
