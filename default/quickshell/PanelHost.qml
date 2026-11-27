@@ -51,6 +51,9 @@ Scope {
             // A panel with a long list scrolls from the keyboard through scrollBy().
             Keys.onUpPressed: if (loader.item && loader.item.scrollBy) loader.item.scrollBy(-1)
             Keys.onDownPressed: if (loader.item && loader.item.scrollBy) loader.item.scrollBy(1)
+            // Menu panels activate the focused row with Enter.
+            Keys.onReturnPressed: if (loader.item && loader.item.activateFocused) loader.item.activateFocused()
+            Keys.onEnterPressed: if (loader.item && loader.item.activateFocused) loader.item.activateFocused()
             Keys.onPressed: function (event) {
                 if (!loader.item || !loader.item.scrollBy) return;
                 if (event.key === Qt.Key_PageUp) { loader.item.scrollBy(-8); event.accepted = true; }

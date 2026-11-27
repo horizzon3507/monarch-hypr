@@ -17,9 +17,16 @@ ColumnLayout {
     property bool hibernateAvailable: false
 
     readonly property var actions: Logic.sessionActions()
+    // Toggles remove an option entirely, not just its row.
+    readonly property var visibleActions: root.actions.filter(function (a) {
+        return (a.key !== "suspend" || root.suspendEnabled) && (a.key !== "hibernate" || root.hibernateAvailable);
+    })
+    property int focusIndex: 0
+
+    function scrollBy(delta) { focusIndex = Logic.moveFocus(focusIndex, delta, visibleActions.length); }
+    function activateFocused() { if (visibleActions.length > 0) activate(visibleActions[focusIndex].key); }
 
     function activate(key) {
-        // Toggles remove an option entirely, not just its row.
         if (key === "suspend" && !suspendEnabled) return;
         if (key === "hibernate" && !hibernateAvailable) return;
         var r = Logic.sessionClick(armed, key);
@@ -64,16 +71,18 @@ ColumnLayout {
     }
 
     Repeater {
-        model: root.actions
+        model: root.visibleActions
         delegate: Rectangle {
             required property var modelData
-            visible: (modelData.key !== "suspend" || root.suspendEnabled) && (modelData.key !== "hibernate" || root.hibernateAvailable)
+            required property int index
             // Fixed width: the confirm text is longer than the label, and the
             // panel must not resize when a row arms.
             implicitWidth: 220
             implicitHeight: 34
             radius: 8
             color: root.armed === modelData.key ? Theme.error : Theme.surfaceVariant
+            border.width: 2
+            border.color: index === root.focusIndex ? Theme.accent : "transparent"
 
             Text {
                 id: label

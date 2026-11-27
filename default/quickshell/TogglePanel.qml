@@ -22,6 +22,10 @@ ColumnLayout {
     property int probeGeneration: 0
 
     readonly property var rows: Logic.togglesAvailable(probeState)
+    property int focusIndex: 0
+
+    function scrollBy(delta) { focusIndex = Logic.moveFocus(focusIndex, delta, rows.length); }
+    function activateFocused() { if (rows.length > 0) activate(rows[focusIndex].key); }
 
     function setState(key, value) {
         var next = Object.assign({}, root.states);
@@ -85,10 +89,13 @@ ColumnLayout {
         delegate: Rectangle {
             id: row
             required property var modelData
+            required property int index
             implicitWidth: 300
             implicitHeight: 40
             radius: 8
             color: Theme.surfaceVariant
+            border.width: 2
+            border.color: index === root.focusIndex ? Theme.accent : "transparent"
 
             property var state: root.states[modelData.key]
 

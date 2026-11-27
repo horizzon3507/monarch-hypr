@@ -10,6 +10,7 @@ on:
       - "test/quickshell-capture-smoke.sh"
       - "test/quickshell-toggles-smoke.sh"
       - "test/quickshell-share-smoke.sh"
+      - "test/quickshell-keynav-smoke.sh"
       - ".github/workflows/quickshell-smoke.yml"
   push:
     branches: [dev]
@@ -21,6 +22,7 @@ on:
       - "test/quickshell-capture-smoke.sh"
       - "test/quickshell-toggles-smoke.sh"
       - "test/quickshell-share-smoke.sh"
+      - "test/quickshell-keynav-smoke.sh"
   workflow_dispatch:
 
 permissions:
@@ -34,7 +36,7 @@ jobs:
     steps:
       - name: Install Quickshell and a headless compositor
         run: |
-          pacman -Syu --noconfirm --needed quickshell sway qt6-wayland grim git sudo ttf-jetbrains-mono-nerd fontconfig
+          pacman -Syu --noconfirm --needed quickshell sway qt6-wayland grim wtype git sudo ttf-jetbrains-mono-nerd fontconfig
           useradd -m tester
           quickshell --version
 
@@ -57,6 +59,9 @@ jobs:
             fi
             if [[ -f default/quickshell/SharePanel.qml ]]; then
               bash test/quickshell-share-smoke.sh --screenshots "$GITHUB_WORKSPACE/smoke-shots"
+            fi
+            if [[ -f test/quickshell-keynav-smoke.sh ]]; then
+              bash test/quickshell-keynav-smoke.sh --screenshots "$GITHUB_WORKSPACE/smoke-shots"
             fi
           '
 
