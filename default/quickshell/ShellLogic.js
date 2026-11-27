@@ -178,6 +178,7 @@ function togglePanel(current, name) {
 var SESSION_ACTIONS = [
     { key: "lock", label: "Lock", command: "monarch-system-lock", confirm: false },
     { key: "suspend", label: "Suspend", command: "systemctl suspend", confirm: true },
+    { key: "hibernate", label: "Hibernate", command: "systemctl hibernate", confirm: true },
     { key: "logout", label: "Log out", command: "monarch-system-logout", confirm: true },
     { key: "reboot", label: "Reboot", command: "monarch-system-reboot", confirm: true },
     { key: "shutdown", label: "Shut down", command: "monarch-system-shutdown", confirm: true }

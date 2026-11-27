@@ -18,6 +18,8 @@ grep -q 'Quickshell.execDetached(\[Logic.sessionCommand(key)\])' "$QS/SessionPan
 ! grep -qE 'systemctl|monarch-system-(lock|logout|reboot|shutdown)' "$QS/SessionPanel.qml" || fail "no command text lives in the QML"
 grep -q 'monarch-toggle-enabled", "suspend-off"' "$QS/SessionPanel.qml" || fail "suspend follows the suspend-off toggle"
 grep -q 'key === "suspend" && !suspendEnabled' "$QS/SessionPanel.qml" || fail "the panel refuses suspend when the toggle disables it"
+grep -q 'key === "hibernate" && !hibernateAvailable' "$QS/SessionPanel.qml" || fail "the panel refuses hibernate when unavailable"
+grep -q '"monarch-hibernation-available"' "$QS/SessionPanel.qml" || fail "hibernate follows monarch-hibernation-available"
 grep -q 'target: "session"' "$QS/SessionPanel.qml" || fail "the panel registers the session IPC target"
 grep -q 'function press(key: string)' "$QS/SessionPanel.qml" || fail "IPC presses go through the arm/confirm flow"
 
@@ -39,9 +41,9 @@ const j = JSON.stringify;
 const out = [];
 out.push(L.panelName("session") === "session");
 const acts = L.sessionActions();
-out.push(j(acts.map(a => a.key)) === j(["lock", "suspend", "logout", "reboot", "shutdown"]));
-out.push(acts.filter(a => a.confirm).map(a => a.key).join(",") === "suspend,logout,reboot,shutdown" && !acts[0].confirm);
-out.push(L.sessionCommand("lock") === "monarch-system-lock" && L.sessionCommand("shutdown") === "monarch-system-shutdown" && L.sessionCommand("bogus") === "");
+out.push(j(acts.map(a => a.key)) === j(["lock", "suspend", "hibernate", "logout", "reboot", "shutdown"]));
+out.push(acts.filter(a => a.confirm).map(a => a.key).join(",") === "suspend,hibernate,logout,reboot,shutdown" && !acts[0].confirm);
+out.push(L.sessionCommand("lock") === "monarch-system-lock" && L.sessionCommand("shutdown") === "monarch-system-shutdown" && L.sessionCommand("hibernate") === "systemctl hibernate" && L.sessionCommand("bogus") === "");
 out.push(j(L.sessionClick("", "lock")) === j({run: true, armed: ""}));
 out.push(j(L.sessionClick("", "shutdown")) === j({run: false, armed: "shutdown"}));
 out.push(j(L.sessionClick("shutdown", "shutdown")) === j({run: true, armed: ""}));
