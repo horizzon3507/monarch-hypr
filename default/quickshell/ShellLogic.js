@@ -157,7 +157,7 @@ function bluetoothText(adapterEnabled, connected) {
 
 // Panels the host knows. Names come from the IPC call, so anything else is
 // refused rather than loaded.
-var PANELS = ["wifi-qr", "network", "theme", "display", "background", "crashes", "first-steps", "usage", "session"];
+var PANELS = ["wifi-qr", "network", "theme", "display", "background", "crashes", "first-steps", "usage", "session", "capture"];
 
 function panelName(name) {
     var n = String(name === undefined || name === null ? "" : name);
@@ -212,6 +212,51 @@ function sessionClick(armed, key) {
     if (!needsConfirm) return { run: true, armed: "" };
     if (armed === key) return { run: true, armed: "" };
     return { run: false, armed: key };
+}
+
+// Actions the capture panel offers. One-shot captures dispatch and the panel
+// closes; recordings are probed so an active recording shows a stop row
+// instead of the variants. Commands are argv arrays for execDetached.
+var CAPTURE_ACTIONS = [
+    { key: "screenshot", label: "Screenshot", command: ["monarch-capture-screenshot"] },
+    { key: "text", label: "Text extraction", command: ["monarch-capture-text-extraction"] },
+    { key: "qr", label: "QR scanner", command: ["monarch-capture-qr"] },
+    { key: "color", label: "Color picker", command: ["monarch-capture-color"] }
+];
+
+var CAPTURE_RECORD_ACTIONS = [
+    { key: "record", label: "Record screen", command: ["monarch-capture-screenrecording"], webcam: false },
+    { key: "record-audio", label: "Record with desktop audio", command: ["monarch-capture-screenrecording", "--with-desktop-audio"], webcam: false },
+    { key: "record-mic", label: "Record with desktop + mic", command: ["monarch-capture-screenrecording", "--with-desktop-audio", "--with-microphone-audio"], webcam: false },
+    { key: "record-webcam", label: "Record with webcam", command: ["monarch-capture-screenrecording-with-webcam", "--webcam-shape=circle"], webcam: true }
+];
+
+var CAPTURE_STOP_COMMAND = ["monarch-capture-screenrecording", "--stop-recording"];
+
+function captureActions() {
+    return CAPTURE_ACTIONS.map(function (a) {
+        return { key: a.key, label: a.label, command: a.command.slice() };
+    });
+}
+
+// Record variants the panel may offer; webcam variants need a webcam.
+function captureRecordActions(hasWebcam) {
+    return CAPTURE_RECORD_ACTIONS.filter(function (a) { return !a.webcam || hasWebcam === true; })
+        .map(function (a) { return { key: a.key, label: a.label, command: a.command.slice() }; });
+}
+
+function captureStopCommand() {
+    return CAPTURE_STOP_COMMAND.slice();
+}
+
+// The argv behind a capture key across both tables, or [] for anything the
+// panel does not know. "stop" maps to the stop-recording command.
+function captureCommand(key) {
+    if (key === "stop") return CAPTURE_STOP_COMMAND.slice();
+    var all = CAPTURE_ACTIONS.concat(CAPTURE_RECORD_ACTIONS);
+    for (var i = 0; i < all.length; i++)
+        if (all[i].key === key) return all[i].command.slice();
+    return [];
 }
 
 // Output of `monarch-wifi-qr --data`: one line
