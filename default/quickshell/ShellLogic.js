@@ -157,7 +157,7 @@ function bluetoothText(adapterEnabled, connected) {
 
 // Panels the host knows. Names come from the IPC call, so anything else is
 // refused rather than loaded.
-var PANELS = ["wifi-qr", "network", "theme", "display", "background", "crashes", "first-steps", "usage", "session", "capture"];
+var PANELS = ["wifi-qr", "network", "theme", "display", "background", "crashes", "first-steps", "usage", "session", "capture", "toggles"];
 
 function panelName(name) {
     var n = String(name === undefined || name === null ? "" : name);
@@ -256,6 +256,60 @@ function captureCommand(key) {
     var all = CAPTURE_ACTIONS.concat(CAPTURE_RECORD_ACTIONS);
     for (var i = 0; i < all.length; i++)
         if (all[i].key === key) return all[i].command.slice();
+    return [];
+}
+
+// Quick toggles with a uniform state read: `monarch-toggle-* status` prints
+// {"enabled":bool} (parsed by parseToggleStatus) and a bare call flips it.
+// key is stable for tests and IPC; status and action are argv arrays for
+// Process/execDetached. probe names a hardware gate (see TOGGLE_PROBES): the
+// row only appears when that probe exits 0. Labels say what "on" means, so
+// caffeine reads as keeping the session awake and notifications as DND.
+var TOGGLES = [
+    { key: "nightlight", label: "Night light", status: ["monarch-toggle-nightlight", "status"], action: ["monarch-toggle-nightlight"], probe: "" },
+    { key: "idle", label: "Caffeine (keep awake)", status: ["monarch-toggle-idle", "status"], action: ["monarch-toggle-idle"], probe: "" },
+    { key: "notifications", label: "Do not disturb", status: ["monarch-toggle-notification-silencing", "status"], action: ["monarch-toggle-notification-silencing"], probe: "" },
+    { key: "bar", label: "Top bar", status: ["monarch-toggle-bar", "status"], action: ["monarch-toggle-bar"], probe: "" },
+    { key: "battery-percentage", label: "Battery percentage", status: ["monarch-toggle-battery-percentage", "status"], action: ["monarch-toggle-battery-percentage"], probe: "battery" },
+    { key: "touchpad", label: "Touchpad", status: ["monarch-toggle-touchpad", "status"], action: ["monarch-toggle-touchpad"], probe: "touchpad" },
+    { key: "touchscreen", label: "Touchscreen", status: ["monarch-toggle-touchscreen", "status"], action: ["monarch-toggle-touchscreen"], probe: "touchscreen" }
+];
+
+// Hardware gates the panel probes once when it opens. key matches TOGGLES
+// probe names; command exits 0 when the hardware exists.
+var TOGGLE_PROBES = [
+    { key: "battery", command: ["monarch-battery-present"] },
+    { key: "touchpad", command: ["monarch-hw-touchpad"] },
+    { key: "touchscreen", command: ["monarch-hw-touchscreen"] }
+];
+
+function toggleProbes() {
+    return TOGGLE_PROBES.map(function (p) { return { key: p.key, command: p.command.slice() }; });
+}
+
+// Toggles visible for a probe outcome map, e.g. {battery: true, touchpad:
+// false}. A probe left unread (absent key) keeps its row hidden rather than
+// guessing the hardware exists.
+function togglesAvailable(probes) {
+    var p = probes || {};
+    return TOGGLES.filter(function (t) { return t.probe === "" || p[t.probe] === true; })
+        .map(function (t) {
+            return { key: t.key, label: t.label, status: t.status.slice(), action: t.action.slice(), probe: t.probe };
+        });
+}
+
+// The action argv behind a toggle key, or [] for anything the panel does not
+// know. Status argv comes from the same entry so a click and its re-read
+// never drift apart.
+function toggleAction(key) {
+    for (var i = 0; i < TOGGLES.length; i++)
+        if (TOGGLES[i].key === key) return TOGGLES[i].action.slice();
+    return [];
+}
+
+function toggleStatus(key) {
+    for (var i = 0; i < TOGGLES.length; i++)
+        if (TOGGLES[i].key === key) return TOGGLES[i].status.slice();
     return [];
 }
 

@@ -17,4 +17,5 @@ FirstStepsPanel 1.0 FirstStepsPanel.qml
 UsagePanel 1.0 UsagePanel.qml
 SessionPanel 1.0 SessionPanel.qml
 CapturePanel 1.0 CapturePanel.qml
+TogglePanel 1.0 TogglePanel.qml
 Wallpaper 1.0 Wallpaper.qml
