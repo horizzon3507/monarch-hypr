@@ -52,7 +52,8 @@ for cmd in monarch-system-lock monarch-system-logout monarch-system-reboot monar
   printf '#!/bin/bash\necho "%s $*" >>"%s/calls"\n' "$cmd" "$work" >"$stubs/$cmd"
   chmod +x "$stubs/$cmd"
 done
-# monarch-toggle-enabled is written per scenario (suspend on/off).
+# monarch-toggle-enabled and monarch-hibernation-available are written per
+# scenario (suspend on/off, hibernation present/absent).
 export PATH="$stubs:$PATH"
 
 cp "$(command -v sway)" "$work/sway-bin"
@@ -101,8 +102,10 @@ shell_errors() {
       -e 'quickshell.network: Network will not work. Could not find an available backend.' || true
 }
 
-# Scenario 1: suspend available -> five rows, arm/confirm over IPC, real dispatch.
+# Scenario 1: suspend on, hibernation available -> six rows, arm/confirm over
+# IPC, real dispatch.
 printf '#!/bin/bash\nexit 1\n' >"$stubs/monarch-toggle-enabled"; chmod +x "$stubs/monarch-toggle-enabled"
+printf '#!/bin/bash\nexit 0\n' >"$stubs/monarch-hibernation-available"; chmod +x "$stubs/monarch-hibernation-available"
 if start_shell; then ok "shell loads with the session panel code"; else not_ok "shell loads with the session panel code"; fi
 
 ipc panel open session
@@ -129,12 +132,20 @@ ipc session press lock
 sleep 0.5
 grep -q '^monarch-system-lock ' "$work/calls" && ok "lock runs without a confirm" || not_ok "lock runs without a confirm"
 
+ipc session press hibernate
+sleep 0.5
+[[ $(ipc session armed) == "hibernate" ]] && ok "first click arms hibernate" || not_ok "first click arms hibernate"
+ipc session press hibernate
+sleep 0.5
+grep -q '^systemctl hibernate$' "$work/calls" && ok "confirming hibernate runs systemctl hibernate" || not_ok "confirming hibernate runs systemctl hibernate"
+
 ipc panel close
 stop_shell
 [[ -z $(shell_errors) ]] && ok "no QML errors in the loaded shell" || { not_ok "no QML errors in the loaded shell"; shell_errors | sed 's/^/    /'; }
 
-# Scenario 2: suspend-off toggle set -> the Suspend row is not offered.
+# Scenario 2: suspend off and no hibernation -> neither is offered.
 printf '#!/bin/bash\nexit 0\n' >"$stubs/monarch-toggle-enabled"
+printf '#!/bin/bash\nexit 1\n' >"$stubs/monarch-hibernation-available"
 rm -f "$work/calls"
 if start_shell; then ok "shell reloads for the suspend-off case"; else not_ok "shell reloads for the suspend-off case"; fi
 ipc panel open session
@@ -144,6 +155,9 @@ shot session-suspend-off
 ipc session press suspend
 sleep 0.5
 [[ $(ipc session armed) == "" ]] && ok "suspend is refused when the toggle disables it" || not_ok "suspend is refused when the toggle disables it"
+ipc session press hibernate
+sleep 0.5
+[[ $(ipc session armed) == "" ]] && ok "hibernate is refused when unavailable" || not_ok "hibernate is refused when unavailable"
 [[ ! -s "$work/calls" ]] && ok "no command ran in the suspend-off case" || not_ok "no command ran in the suspend-off case"
 ipc panel close
 stop_shell
