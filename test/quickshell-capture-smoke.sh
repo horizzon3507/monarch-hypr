@@ -48,10 +48,16 @@ trap cleanup EXIT
 # Stub every command the panel can run: they log their argv instead of acting.
 stubs="$work/bin"
 mkdir "$stubs"
-for cmd in monarch-capture-screenshot monarch-capture-text-extraction monarch-capture-qr monarch-capture-color monarch-capture-screenrecording monarch-capture-screenrecording-with-webcam monarch-panel; do
+for cmd in monarch-capture-screenshot monarch-capture-text-extraction monarch-capture-qr monarch-capture-color monarch-capture-screenrecording-with-webcam monarch-panel; do
   printf '#!/bin/bash\necho "%s $*" >>"%s/calls"\n' "$cmd" "$work" >"$stubs/$cmd"
   chmod +x "$stubs/$cmd"
 done
+# monarch-capture-screenrecording needs a real --status path: the bar's
+# recording chip reads its exit code, and a stub that exits 0 for every call
+# would show "rec" in the no-recording screenshots. Mirror the real script:
+# --status defers to the per-scenario pgrep stub, anything else just logs.
+printf '#!/bin/bash\nif [[ $# -eq 1 && $1 == "--status" ]]; then pgrep -f "^gpu-screen-recorder" >/dev/null; exit $?; fi\necho "monarch-capture-screenrecording $*" >>"%s/calls"\n' "$work" >"$stubs/monarch-capture-screenrecording"
+chmod +x "$stubs/monarch-capture-screenrecording"
 # pgrep and monarch-hw-webcam are written per scenario.
 export PATH="$stubs:$PATH"
 
