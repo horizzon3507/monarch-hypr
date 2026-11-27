@@ -15,4 +15,5 @@ BackgroundPanel 1.0 BackgroundPanel.qml
 CrashPanel 1.0 CrashPanel.qml
 FirstStepsPanel 1.0 FirstStepsPanel.qml
 UsagePanel 1.0 UsagePanel.qml
+SessionPanel 1.0 SessionPanel.qml
 Wallpaper 1.0 Wallpaper.qml
