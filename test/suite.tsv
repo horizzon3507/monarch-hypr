@@ -172,6 +172,7 @@ test/shell.d/fingerprint-gate-test.sh	authentication-security	high	isolated
 test/shell.d/factory-account-scrub-test.sh	factory-reset	high	isolated
 test/shell.d/fingerprint-removal-test.sh	security	high	isolated
 test/monarch-i18n-test.sh	i18n	medium	isolated
+test/monarch-weather-icon-test.sh	weather	medium	isolated
 test/shell.d/hypr-geometry-test.sh	capture	high	isolated
 test/shell.d/hypr-dispatch-test.sh	capture	high	isolated
 test/monarch-hypr-instance-test.sh	display-recovery	high	isolated
