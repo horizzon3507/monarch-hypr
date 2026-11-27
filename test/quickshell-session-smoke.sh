@@ -132,6 +132,13 @@ ipc session press lock
 sleep 0.5
 grep -q '^monarch-system-lock ' "$work/calls" && ok "lock runs without a confirm" || not_ok "lock runs without a confirm"
 
+ipc session press suspend
+sleep 0.5
+[[ $(ipc session armed) == "suspend" ]] && ok "first click arms suspend" || not_ok "first click arms suspend"
+ipc session press suspend
+sleep 0.5
+grep -q '^systemctl suspend$' "$work/calls" && ok "confirming suspend runs systemctl suspend" || not_ok "confirming suspend runs systemctl suspend"
+
 ipc session press hibernate
 sleep 0.5
 [[ $(ipc session armed) == "hibernate" ]] && ok "first click arms hibernate" || not_ok "first click arms hibernate"
