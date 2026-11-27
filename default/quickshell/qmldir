@@ -18,4 +18,5 @@ UsagePanel 1.0 UsagePanel.qml
 SessionPanel 1.0 SessionPanel.qml
 CapturePanel 1.0 CapturePanel.qml
 TogglePanel 1.0 TogglePanel.qml
+SharePanel 1.0 SharePanel.qml
 Wallpaper 1.0 Wallpaper.qml
