@@ -64,6 +64,7 @@ test/shell.d/retired-sudoers-reconcile-test.sh	security	high	isolated
 test/monarch-network-speedtest-test.sh	network	medium	isolated
 test/monarch-network-status-test.sh	network	medium	isolated
 test/shell.d/wifi-option-boundary-test.sh	wifi	medium	isolated
+test/monarch-wifi-band-test.sh	wifi	medium	isolated
 test/shell.d/screencast-dnd-test.sh	notifications	high	isolated
 test/shell.d/chat-privacy-test.sh	privacy	medium	isolated
 test/shell.d/portal-recording-test.sh	privacy	high	isolated
