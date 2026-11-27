@@ -59,6 +59,7 @@ test/monarch-reconcile-test.sh	updates	high	isolated
 test/shell.d/managed-tree-test.sh	updates	medium	isolated
 test/shell.d/retired-sudoers-reconcile-test.sh	security	high	isolated
 test/monarch-network-speedtest-test.sh	network	medium	isolated
+test/monarch-network-status-test.sh	network	medium	isolated
 test/shell.d/wifi-option-boundary-test.sh	wifi	medium	isolated
 test/shell.d/screencast-dnd-test.sh	notifications	high	isolated
 test/shell.d/chat-privacy-test.sh	privacy	medium	isolated
