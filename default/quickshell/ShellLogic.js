@@ -157,7 +157,7 @@ function bluetoothText(adapterEnabled, connected) {
 
 // Panels the host knows. Names come from the IPC call, so anything else is
 // refused rather than loaded.
-var PANELS = ["wifi-qr", "network", "theme", "display", "background", "crashes", "first-steps", "usage"];
+var PANELS = ["wifi-qr", "network", "theme", "display", "background", "crashes", "first-steps", "usage", "session"];
 
 function panelName(name) {
     var n = String(name === undefined || name === null ? "" : name);
@@ -169,6 +169,46 @@ function togglePanel(current, name) {
     var next = panelName(name);
     if (next === "") return current;
     return current === next ? "" : next;
+}
+
+// Actions the session panel offers. key is stable for tests and the click
+// flow; label is what the row shows; command runs detached when the action
+// fires. Anything that suspends or ends the session needs a second click to
+// confirm; lock is safe on one click.
+var SESSION_ACTIONS = [
+    { key: "lock", label: "Lock", command: "monarch-system-lock", confirm: false },
+    { key: "suspend", label: "Suspend", command: "systemctl suspend", confirm: true },
+    { key: "logout", label: "Log out", command: "monarch-system-logout", confirm: true },
+    { key: "reboot", label: "Reboot", command: "monarch-system-reboot", confirm: true },
+    { key: "shutdown", label: "Shut down", command: "monarch-system-shutdown", confirm: true }
+];
+
+// A copy, so callers never mutate the table.
+function sessionActions() {
+    return SESSION_ACTIONS.map(function (a) {
+        return { key: a.key, label: a.label, command: a.command, confirm: a.confirm };
+    });
+}
+
+// The command behind a key, or "" for anything the panel does not know.
+function sessionCommand(key) {
+    for (var i = 0; i < SESSION_ACTIONS.length; i++)
+        if (SESSION_ACTIONS[i].key === key) return SESSION_ACTIONS[i].command;
+    return "";
+}
+
+// Click flow with a one-shot arm: the first click on a confirm action arms it,
+// the second click on the same action runs it, a click on another row disarms
+// it (and arms that one instead when it needs confirmation). Actions without
+// confirm run on the first click. Unknown keys change nothing.
+function sessionClick(armed, key) {
+    if (sessionCommand(key) === "") return { run: false, armed: armed };
+    var needsConfirm = false;
+    for (var i = 0; i < SESSION_ACTIONS.length; i++)
+        if (SESSION_ACTIONS[i].key === key) needsConfirm = SESSION_ACTIONS[i].confirm;
+    if (!needsConfirm) return { run: true, armed: "" };
+    if (armed === key) return { run: true, armed: "" };
+    return { run: false, armed: key };
 }
 
 // Output of `monarch-wifi-qr --data`: one line
