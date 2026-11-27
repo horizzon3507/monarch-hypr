@@ -20,6 +20,10 @@ grep -q 'monarch-toggle-enabled", "suspend-off"' "$QS/SessionPanel.qml" || fail 
 grep -q 'key === "suspend" && !suspendEnabled' "$QS/SessionPanel.qml" || fail "the panel refuses suspend when the toggle disables it"
 grep -q 'target: "session"' "$QS/SessionPanel.qml" || fail "the panel registers the session IPC target"
 grep -q 'function press(key: string)' "$QS/SessionPanel.qml" || fail "IPC presses go through the arm/confirm flow"
+
+# Rows keep a fixed width so the confirm state never resizes the panel.
+grep -q 'implicitWidth: 220' "$QS/SessionPanel.qml" || fail "session rows keep a fixed width"
+! grep -q 'implicitWidth: label.implicitWidth' "$QS/SessionPanel.qml" || fail "row width must not follow the label"
 pass "actions come from ShellLogic and suspend follows the toggle"
 
 if ! command -v node >/dev/null 2>&1; then
