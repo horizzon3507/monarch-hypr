@@ -41,6 +41,7 @@ test/monarch-crash-report-test.sh	crash-reporting	high	isolated
 test/monarch-crash-submit-test.sh	crash-reporting	high	isolated
 test/monarch-dev-env-test.sh	developer-environment	medium	isolated
 test/monarch-display-test.sh	displays	high	isolated
+test/monarch-display-scale-test.sh	displays	high	isolated
 test/monarch-drive-password-test.sh	drive-encryption	high	isolated
 test/monarch-hardware-menu-test.sh	hardware-menu	medium	isolated
 test/monarch-hermes-test.sh	developer-agents	medium	isolated
