@@ -3,6 +3,7 @@ test/shell.d/restart-trackpad-test.sh	trackpad-recovery	high	isolated
 test/shell.d/runtime-rekey-integration-test.sh	factory-reset	high	isolated
 test/shell.d/hibernation-resume-test.sh	hibernation	high	isolated
 test/monarch-voxtype-install-test.sh	dictation	high	isolated
+test/monarch-battery-monitor-test.sh	power	high	isolated
 test/monarch-todo-test.sh	todo	medium	isolated
 test/monarch-lazyvpn-test.sh	lazyvpn	medium	isolated
 test/shell.d/exegol-helpers-test.sh	exegol	medium	isolated
