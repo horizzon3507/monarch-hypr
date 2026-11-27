@@ -14,12 +14,14 @@ ColumnLayout {
 
     property string armed: ""
     property bool suspendEnabled: true
+    property bool hibernateAvailable: false
 
     readonly property var actions: Logic.sessionActions()
 
     function activate(key) {
-        // The suspend-off toggle removes suspend as an option, not just the row.
+        // Toggles remove an option entirely, not just its row.
         if (key === "suspend" && !suspendEnabled) return;
+        if (key === "hibernate" && !hibernateAvailable) return;
         var r = Logic.sessionClick(armed, key);
         armed = r.armed;
         if (r.run) {
@@ -34,7 +36,16 @@ ColumnLayout {
         onExited: function (exitCode) { root.suspendEnabled = exitCode !== 0 }
     }
 
-    Component.onCompleted: suspendProbe.running = true
+    Process {
+        id: hibernateProbe
+        command: ["monarch-hibernation-available"]
+        onExited: function (exitCode) { root.hibernateAvailable = exitCode === 0 }
+    }
+
+    Component.onCompleted: {
+        suspendProbe.running = true;
+        hibernateProbe.running = true;
+    }
 
     // Scripted control for tests and automation; goes through the same
     // arm/confirm flow as clicks, so confirm can never be skipped over IPC.
@@ -56,7 +67,7 @@ ColumnLayout {
         model: root.actions
         delegate: Rectangle {
             required property var modelData
-            visible: modelData.key !== "suspend" || root.suspendEnabled
+            visible: (modelData.key !== "suspend" || root.suspendEnabled) && (modelData.key !== "hibernate" || root.hibernateAvailable)
             // Fixed width: the confirm text is longer than the label, and the
             // panel must not resize when a row arms.
             implicitWidth: 220
