@@ -73,6 +73,7 @@ test/monarch-webapp-desktop-test.sh	webapps	high	isolated
 test/monarch-obsidian-theme-test.sh	theming	medium	isolated
 test/monarch-packages-exist-test.sh	package-repositories	high	network
 test/monarch-power-test.sh	power	medium	isolated
+test/monarch-battery-present-test.sh	power	medium	isolated
 test/monarch-preinstalls-test.sh	package-install	medium	isolated
 test/monarch-screensaver-idle-test.sh	idle	medium	isolated
 test/monarch-sddm-test.sh	login-screen	high	isolated
