@@ -55,6 +55,7 @@ test/monarch-menu-test.sh	menu	medium	isolated
 test/monarch-desktop-present-test.sh	menu-guards	medium	isolated
 test/shell.d/menu-file-path-test.sh	menu	high	isolated
 test/monarch-mise-agent-test.sh	developer-agents	medium	isolated
+test/monarch-language-test.sh	i18n	medium	isolated
 test/monarch-reconcile-test.sh	updates	high	isolated
 test/shell.d/managed-tree-test.sh	updates	medium	isolated
 test/shell.d/retired-sudoers-reconcile-test.sh	security	high	isolated
