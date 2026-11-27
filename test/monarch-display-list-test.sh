@@ -22,7 +22,7 @@ cat >"$TMP/bin/hyprctl" <<'STUB'
 cat <<'JSON'
 [
   {"name":"DP-1","disabled":false,"scale":1.5,"width":2560,"height":1440,"refreshRate":144.0,"make":"Dell","model":"S2721"},
-  {"name":"HDMI-A-1","disabled":true,"scale":1.0,"width":1920,"height":1080,"refreshRate":60.0,"make":"","model":"TV"}
+  {"name":"HDMI-A-1","disabled":true,"scale":2,"width":1920,"height":1080,"refreshRate":60.0,"make":"","model":"TV"}
 ]
 JSON
 STUB
@@ -31,9 +31,11 @@ chmod +x "$TMP/bin/monarch-hw-hypr-instance" "$TMP/bin/monarch-hypr-monitor-focu
 out=$("$ROOT/bin/monarch-display-list")
 
 # An enabled output reports state, scale, mode and the focused marker; a
-# disabled output stays listed with no mode.
+# disabled output stays listed with no mode. The disabled fixture uses an
+# integer scale so the assertion does not depend on the jq version's
+# decimal formatting.
 grep -Fqx $'DP-1\ton\t1.5\t2560x1440@144\tfocused\tDell S2721' <<<"$out"
-grep -Fqx $'HDMI-A-1\toff\t1\t\t\tTV' <<<"$out"
+grep -Fqx $'HDMI-A-1\toff\t2\t\t\tTV' <<<"$out"
 [[ $(wc -l <<<"$out") -eq 2 ]]
 
 # Without a Hyprland instance the tool fails loudly.
