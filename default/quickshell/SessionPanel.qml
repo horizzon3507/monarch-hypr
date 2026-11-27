@@ -18,6 +18,8 @@ ColumnLayout {
     readonly property var actions: Logic.sessionActions()
 
     function activate(key) {
+        // The suspend-off toggle removes suspend as an option, not just the row.
+        if (key === "suspend" && !suspendEnabled) return;
         var r = Logic.sessionClick(armed, key);
         armed = r.armed;
         if (r.run) {
@@ -33,6 +35,14 @@ ColumnLayout {
     }
 
     Component.onCompleted: suspendProbe.running = true
+
+    // Scripted control for tests and automation; goes through the same
+    // arm/confirm flow as clicks, so confirm can never be skipped over IPC.
+    IpcHandler {
+        target: "session"
+        function press(key: string): void { root.activate(key); }
+        function armed(): string { return root.armed; }
+    }
 
     Text {
         text: "Session"

@@ -6,6 +6,7 @@ on:
       - "default/quickshell/**"
       - "test/quickshell/**"
       - "test/quickshell-smoke.sh"
+      - "test/quickshell-session-smoke.sh"
       - ".github/workflows/quickshell-smoke.yml"
   push:
     branches: [dev]
@@ -13,6 +14,7 @@ on:
       - "default/quickshell/**"
       - "test/quickshell/**"
       - "test/quickshell-smoke.sh"
+      - "test/quickshell-session-smoke.sh"
   workflow_dispatch:
 
 permissions:
@@ -38,6 +40,9 @@ jobs:
           sudo -u tester env GITHUB_WORKSPACE="$GITHUB_WORKSPACE" bash -euo pipefail -c '
             cd "$GITHUB_WORKSPACE"
             bash test/quickshell-smoke.sh --screenshots "$GITHUB_WORKSPACE/smoke-shots"
+            if [[ -f default/quickshell/SessionPanel.qml ]]; then
+              bash test/quickshell-session-smoke.sh --screenshots "$GITHUB_WORKSPACE/smoke-shots"
+            fi
           '
 
       - name: Upload screenshots

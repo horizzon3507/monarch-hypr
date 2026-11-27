@@ -17,6 +17,9 @@ pass "session panel exists, is registered and uses theme colors"
 grep -q 'Quickshell.execDetached(\[Logic.sessionCommand(key)\])' "$QS/SessionPanel.qml" || fail "actions run detached through Logic.sessionCommand"
 ! grep -qE 'systemctl|monarch-system-(lock|logout|reboot|shutdown)' "$QS/SessionPanel.qml" || fail "no command text lives in the QML"
 grep -q 'monarch-toggle-enabled", "suspend-off"' "$QS/SessionPanel.qml" || fail "suspend follows the suspend-off toggle"
+grep -q 'key === "suspend" && !suspendEnabled' "$QS/SessionPanel.qml" || fail "the panel refuses suspend when the toggle disables it"
+grep -q 'target: "session"' "$QS/SessionPanel.qml" || fail "the panel registers the session IPC target"
+grep -q 'function press(key: string)' "$QS/SessionPanel.qml" || fail "IPC presses go through the arm/confirm flow"
 pass "actions come from ShellLogic and suspend follows the toggle"
 
 if ! command -v node >/dev/null 2>&1; then
