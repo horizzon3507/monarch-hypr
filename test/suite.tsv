@@ -58,6 +58,7 @@ test/shell.d/screencast-dnd-test.sh	notifications	high	isolated
 test/shell.d/chat-privacy-test.sh	privacy	medium	isolated
 test/shell.d/portal-recording-test.sh	privacy	high	isolated
 test/monarch-notification-test.sh	notifications	medium	isolated
+test/monarch-notification-send-test.sh	notifications	medium	isolated
 test/monarch-npx-install-test.sh	package-install	medium	isolated
 test/monarch-install-helpers-test.sh	package-install	high	isolated
 test/shell.d/pkg-drop-test.sh	package-install	high	isolated
