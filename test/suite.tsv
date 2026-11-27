@@ -102,6 +102,7 @@ test/monarch-toggle-battery-percentage-test.sh	power	medium	isolated
 test/monarch-webcam-overlay-test.sh	capture	medium	isolated
 test/monarch-wifi-band-test.sh	wifi	medium	isolated
 test/monarch-wifi-qr-test.sh	wifi	medium	isolated
+test/monarch-wifi-device-test.sh	wifi	medium	isolated
 test/monarch-windows-key-test.sh	windows	low	isolated
 test/shell.d/windows-vm-launch-test.sh	windows	medium	isolated
 test/shell.d/dns-security-test.sh	dns	medium	isolated
