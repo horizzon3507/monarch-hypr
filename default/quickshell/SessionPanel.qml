@@ -25,7 +25,7 @@ ColumnLayout {
         var r = Logic.sessionClick(armed, key);
         armed = r.armed;
         if (r.run) {
-            Quickshell.execDetached([Logic.sessionCommand(key)]);
+            Quickshell.execDetached(Logic.sessionCommand(key));
             armed = "";
         }
     }

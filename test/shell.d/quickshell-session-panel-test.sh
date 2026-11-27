@@ -14,7 +14,8 @@ pass "session panel exists, is registered and uses theme colors"
 
 # The panel runs only commands from ShellLogic, detached; no command text is
 # written into the QML itself.
-grep -q 'Quickshell.execDetached(\[Logic.sessionCommand(key)\])' "$QS/SessionPanel.qml" || fail "actions run detached through Logic.sessionCommand"
+grep -q 'Quickshell.execDetached(Logic.sessionCommand(key))' "$QS/SessionPanel.qml" || fail "actions run detached through Logic.sessionCommand"
+! grep -q 'execDetached(\[Logic.sessionCommand' "$QS/SessionPanel.qml" || fail "the argv is never wrapped as one string"
 ! grep -qE 'systemctl|monarch-system-(lock|logout|reboot|shutdown)' "$QS/SessionPanel.qml" || fail "no command text lives in the QML"
 grep -q 'monarch-toggle-enabled", "suspend-off"' "$QS/SessionPanel.qml" || fail "suspend follows the suspend-off toggle"
 grep -q 'key === "suspend" && !suspendEnabled' "$QS/SessionPanel.qml" || fail "the panel refuses suspend when the toggle disables it"
@@ -43,7 +44,7 @@ out.push(L.panelName("session") === "session");
 const acts = L.sessionActions();
 out.push(j(acts.map(a => a.key)) === j(["lock", "suspend", "hibernate", "logout", "reboot", "shutdown"]));
 out.push(acts.filter(a => a.confirm).map(a => a.key).join(",") === "suspend,hibernate,logout,reboot,shutdown" && !acts[0].confirm);
-out.push(L.sessionCommand("lock") === "monarch-system-lock" && L.sessionCommand("shutdown") === "monarch-system-shutdown" && L.sessionCommand("hibernate") === "systemctl hibernate" && L.sessionCommand("bogus") === "");
+out.push(j(L.sessionCommand("lock")) === j(["monarch-system-lock"]) && j(L.sessionCommand("shutdown")) === j(["monarch-system-shutdown"]) && j(L.sessionCommand("hibernate")) === j(["systemctl", "hibernate"]) && j(L.sessionCommand("suspend")) === j(["systemctl", "suspend"]) && j(L.sessionCommand("bogus")) === j([]));
 out.push(j(L.sessionClick("", "lock")) === j({run: true, armed: ""}));
 out.push(j(L.sessionClick("", "shutdown")) === j({run: false, armed: "shutdown"}));
 out.push(j(L.sessionClick("shutdown", "shutdown")) === j({run: true, armed: ""}));

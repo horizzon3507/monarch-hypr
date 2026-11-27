@@ -175,27 +175,29 @@ function togglePanel(current, name) {
 // flow; label is what the row shows; command runs detached when the action
 // fires. Anything that suspends or ends the session needs a second click to
 // confirm; lock is safe on one click.
+// Commands are argv arrays: Quickshell.execDetached takes an argv list, so a
+// single "systemctl suspend" string would be looked up as one program name.
 var SESSION_ACTIONS = [
-    { key: "lock", label: "Lock", command: "monarch-system-lock", confirm: false },
-    { key: "suspend", label: "Suspend", command: "systemctl suspend", confirm: true },
-    { key: "hibernate", label: "Hibernate", command: "systemctl hibernate", confirm: true },
-    { key: "logout", label: "Log out", command: "monarch-system-logout", confirm: true },
-    { key: "reboot", label: "Reboot", command: "monarch-system-reboot", confirm: true },
-    { key: "shutdown", label: "Shut down", command: "monarch-system-shutdown", confirm: true }
+    { key: "lock", label: "Lock", command: ["monarch-system-lock"], confirm: false },
+    { key: "suspend", label: "Suspend", command: ["systemctl", "suspend"], confirm: true },
+    { key: "hibernate", label: "Hibernate", command: ["systemctl", "hibernate"], confirm: true },
+    { key: "logout", label: "Log out", command: ["monarch-system-logout"], confirm: true },
+    { key: "reboot", label: "Reboot", command: ["monarch-system-reboot"], confirm: true },
+    { key: "shutdown", label: "Shut down", command: ["monarch-system-shutdown"], confirm: true }
 ];
 
 // A copy, so callers never mutate the table.
 function sessionActions() {
     return SESSION_ACTIONS.map(function (a) {
-        return { key: a.key, label: a.label, command: a.command, confirm: a.confirm };
+        return { key: a.key, label: a.label, command: a.command.slice(), confirm: a.confirm };
     });
 }
 
-// The command behind a key, or "" for anything the panel does not know.
+// The argv behind a key, or [] for anything the panel does not know.
 function sessionCommand(key) {
     for (var i = 0; i < SESSION_ACTIONS.length; i++)
-        if (SESSION_ACTIONS[i].key === key) return SESSION_ACTIONS[i].command;
-    return "";
+        if (SESSION_ACTIONS[i].key === key) return SESSION_ACTIONS[i].command.slice();
+    return [];
 }
 
 // Click flow with a one-shot arm: the first click on a confirm action arms it,
@@ -203,7 +205,7 @@ function sessionCommand(key) {
 // it (and arms that one instead when it needs confirmation). Actions without
 // confirm run on the first click. Unknown keys change nothing.
 function sessionClick(armed, key) {
-    if (sessionCommand(key) === "") return { run: false, armed: armed };
+    if (sessionCommand(key).length === 0) return { run: false, armed: armed };
     var needsConfirm = false;
     for (var i = 0; i < SESSION_ACTIONS.length; i++)
         if (SESSION_ACTIONS[i].key === key) needsConfirm = SESSION_ACTIONS[i].confirm;
