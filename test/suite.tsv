@@ -156,6 +156,7 @@ test/shell.d/hyprpicker-retirement-test.sh	package-install	medium	isolated
 test/shell.d/capture-color-test.sh	capture	medium	isolated
 test/shell.d/disktree-transition-test.sh	package-install	medium	isolated
 test/shell.d/capture-state-test.sh	capture	high	isolated
+test/monarch-state-test.sh	state	high	isolated
 test/shell.d/quattro-first-batch-test.sh	upstream-sync	high	isolated
 test/shell.d/polkit-auth-test.sh	security	high	isolated
 test/shell.d/fingerprint-activation-test.sh	security	high	isolated
