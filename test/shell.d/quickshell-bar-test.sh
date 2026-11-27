@@ -33,6 +33,12 @@ grep -q 'NetworkBackendType.None' "$QS/Connectivity.qml" || fail "wifi off is no
 grep -q 'anchors.right: parent.right' "$QS/Bar.qml" || fail "the right group is anchored to the bar edge"
 pass "clock is centered, text is readable, and the right group hugs the edge"
 
+# The power button opens the session panel; the bar does not run session
+# commands itself.
+grep -q 'Quickshell.execDetached(\["monarch-panel", "toggle", "session"\])' "$QS/Bar.qml" || fail "the power button toggles the session panel"
+! grep -qE 'monarch-system-(lock|logout|reboot|shutdown)|systemctl (suspend|poweroff|reboot)' "$QS/Bar.qml" || fail "the bar never runs session commands"
+pass "the power button opens the session panel and nothing else"
+
 if ! command -v node >/dev/null 2>&1; then
   pass "skipped bar logic checks: node is not installed"
   exit 0

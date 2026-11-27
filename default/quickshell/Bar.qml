@@ -63,6 +63,19 @@ Variants {
                 fontSize: bar.fontSize
                 Layout.leftMargin: implicitWidth > 0 ? 14 : 0
             }
+            // Power button: opens the session panel (lock, suspend, restart,
+            // shut down) instead of the terminal system menu.
+            Text {
+                text: "\u23FB"
+                color: Theme.fg
+                font.pixelSize: bar.fontSize + 1
+                Layout.leftMargin: 14
+                MouseArea {
+                    anchors.fill: parent
+                    anchors.margins: -6
+                    onClicked: Quickshell.execDetached(["monarch-panel", "toggle", "session"])
+                }
+            }
         }
     }
 }
