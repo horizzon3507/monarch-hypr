@@ -90,6 +90,7 @@ else
   Hyprland --config "$work/comp.conf" >"$work/comp.log" 2>&1 &
 fi
 comp_pid=$!
+echo "phase: $compositor launched (pid $comp_pid)"
 
 socket=""
 for _ in $(seq 1 100); do
@@ -99,6 +100,7 @@ for _ in $(seq 1 100); do
 done
 [[ -n $socket ]] || { echo "keynav-smoke: headless $compositor did not start" >&2; cat "$work/comp.log" >&2; exit 2; }
 export WAYLAND_DISPLAY=$socket
+echo "phase: wayland socket = $socket"
 unset QT_QPA_PLATFORM
 if [[ $compositor == hyprland ]]; then
   export HYPRLAND_INSTANCE_SIGNATURE=$(find "$XDG_RUNTIME_DIR/hypr" -mindepth 1 -maxdepth 1 -printf '%f\n' 2>/dev/null | head -n 1)
@@ -114,6 +116,7 @@ wtype - <"$work/wtype-stdin" >"$work/wtype.log" 2>&1 &
 wtype_pid=$!
 exec 9>"$work/wtype-stdin"
 sleep 0.5
+echo "phase: persistent keyboard held"
 
 failures=0
 ok() { echo "ok - $1"; }
@@ -123,10 +126,11 @@ not_ok() { echo "not ok - $1"; failures=$((failures + 1)); }
 # client receive a virtual-keyboard key on this compositor at all? This
 # separates a harness limitation from anything our shell does. Informational
 # only; the requirement itself is enforced after the panel closes below.
-stdbuf -oL wev >"$work/wev-baseline.log" 2>&1 &
+echo "phase: baseline probe"
+timeout 20 stdbuf -oL wev >"$work/wev-baseline.log" 2>&1 &
 wev_base_pid=$!
 sleep 2
-wtype -k a
+timeout 10 wtype -k a || { echo "baseline wtype hung or failed; $compositor log tail:"; tail -30 "$work/comp.log"; }
 sleep 1
 kill -INT "$wev_base_pid" 2>/dev/null
 wait "$wev_base_pid" 2>/dev/null
@@ -137,7 +141,7 @@ else
   cat "$work/wev-baseline.log" || true
 fi
 
-ipc() { quickshell ipc --path "$SHELL_DIR" call "$@" 2>>"$work/qs.log"; }
+ipc() { timeout 10 quickshell ipc --path "$SHELL_DIR" call "$@" 2>>"$work/qs.log"; }
 
 quickshell -p "$SHELL_DIR" >"$work/qs.log" 2>&1 &
 qs_pid=$!
@@ -174,32 +178,32 @@ else
 fi
 
 # Down moves the focus highlight to the next row (visible in the screenshot).
-wtype -k Down
+timeout 10 wtype -k Down
 sleep 0.5
 shot keynav-session-moved
 
 # Up, then Return activates Lock (row 0, no confirm) and dispatches it.
-wtype -k Up
+timeout 10 wtype -k Up
 sleep 0.3
-wtype -k Return
+timeout 10 wtype -k Return
 sleep 0.5
 grep -q '^monarch-system-lock $' "$work/calls" && ok "Return on the focused row dispatches lock" || not_ok "Return on the focused row dispatches lock"
 
 # Down to Suspend, Return arms it; a second Return dispatches the argv.
 rm -f "$work/calls"
-wtype -k Down
+timeout 10 wtype -k Down
 sleep 0.3
-wtype -k Return
+timeout 10 wtype -k Return
 sleep 0.5
 [[ $(ipc session armed) == "suspend" ]] && ok "Return arms the confirm row" || not_ok "Return arms the confirm row"
-wtype -k Return
+timeout 10 wtype -k Return
 sleep 0.5
 grep -q '^systemctl suspend$' "$work/calls" && ok "the second Return dispatches suspend" || not_ok "the second Return dispatches suspend"
 
 # Positive control: while the open panel holds the exclusive keyboard grab,
 # the compositor's own 'b' binding must NOT fire - the grab intercepts it.
 touch "$work/bindings"
-wtype -k b
+timeout 10 wtype -k b
 sleep 0.6
 [[ ! -s $work/bindings ]] && ok "the open panel's grab intercepts compositor bindings" || not_ok "the open panel's grab intercepts compositor bindings"
 
@@ -211,13 +215,13 @@ sleep 0.6
 ipc panel close || true
 sleep 0.8
 lines_before=$(wc -l <"$work/calls")
-stdbuf -oL wev >"$work/wev.log" 2>&1 &
+timeout 20 stdbuf -oL wev >"$work/wev.log" 2>&1 &
 wev_pid=$!
 sleep 2
-wtype -k b
+timeout 10 wtype -k b
 sleep 0.8
 grep -q binding-fired-b "$work/bindings" && ok "compositor bindings fire again after the panel closes" || not_ok "compositor bindings fire again after the panel closes"
-wtype -k a
+timeout 10 wtype -k a
 sleep 1
 kill -INT "$wev_pid" 2>/dev/null
 wait "$wev_pid" 2>/dev/null
