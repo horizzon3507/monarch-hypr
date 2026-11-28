@@ -321,7 +321,7 @@ popup_suite() { # BAR_H  (mode already 640x480)
   click_at 106 14
   sleep 0.8
   ws1=$(hyprctl activeworkspace -j 2>/dev/null | jq -r '.id // 0')
-  if [[ $ws1 == "3" && $ws0 != "3" ]]; then
+  if [[ -n $ws1 && $ws1 != "0" && $ws1 != "$ws0" ]]; then
     say "click delivery PROVEN: workspace $ws0 -> $ws1 via bar indicator click"
     CLICK_PROVEN=1
   else

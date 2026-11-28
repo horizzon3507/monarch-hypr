@@ -61,6 +61,11 @@ fi
 # failure, not a product defect.
 echo "--- monarch-install-terminal foot (as user) ---"
 echo monarch | sudo -S -v
+# Disposable-guest fixture: the provisioning scripts call plain sudo
+# internally, which cannot read a password on this tty-less ssh session.
+# Labeled test fixture only; the ISO ships no such file.
+echo monarch | sudo -S bash -c 'echo "monarch ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/99-vm-test && chmod 440 /etc/sudoers.d/99-vm-test' 2>/dev/null
+sudo -n true 2>/dev/null && say "passwordless sudo fixture active" || say "WARN: passwordless sudo fixture failed; provisioner installs may fail"
 export MONARCH_PATH=${MONARCH_PATH:-/usr/share/monarch}
 if [[ -x $MONARCH_PATH/bin/monarch-install-terminal ]]; then
   "$MONARCH_PATH/bin/monarch-install-terminal" foot 2>&1 | tail -8
@@ -92,7 +97,7 @@ done
 say "SUPER+Return after stock provisioning: spawned=$spawned (before=$before after=$(clients))"
 if [[ $spawned == 1 ]]; then
   say "the shipped Terminal bind works once a terminal is provisioned"
-  for a in $(hyprctl clients -j | jq -r '.[].address'); do hyprctl eval "return hl.dispatch('closewindow address:$a')" >/dev/null 2>&1; done
+  for a in $(hyprctl clients -j | jq -r '.[].address'); do hyprctl eval "return hl.dsp.window.close('address:$a')" >/dev/null 2>&1; done
 else
   bad "SUPER+Return spawned no window even after stock provisioning"
 fi
@@ -128,7 +133,7 @@ if [[ -f $HOME/checkout/config/foot/foot.ini ]]; then
   else
     say "foot launch stderr clean (no config errors)"
   fi
-  for a in $(hyprctl clients -j | jq -r '.[].address'); do hyprctl eval "return hl.dispatch('closewindow address:$a')" >/dev/null 2>&1; done
+  for a in $(hyprctl clients -j | jq -r '.[].address'); do hyprctl eval "return hl.dsp.window.close('address:$a')" >/dev/null 2>&1; done
 else
   say "checkout carries no config/foot/foot.ini; skipped"
 fi

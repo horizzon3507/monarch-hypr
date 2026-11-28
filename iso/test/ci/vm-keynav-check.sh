@@ -193,9 +193,13 @@ echo "--- base shell interception comparison ---"
 # base-ISO evidence separate from candidate-code verdicts. The panel-open
 # state is VERIFIED via layer-shell namespaces before the chord; an
 # unverified panel makes the comparison invalid (last round's failure).
-panel_open() { # any layer-shell namespace mentioning 'session'
-  hyprctl layers -j 2>/dev/null | jq -r '.. | .namespace? // empty' | grep -qi session
-}
+# Base shell note: every base panel shares the "monarch-panel" layer
+# namespace, and the bar power button execs monarch-panel, which addresses
+# the shell by config path - in this guest that path is not the running
+# worktree shell, so the click cannot open the panel here. Open the panel
+# the way the button ultimately does: direct IPC against the base path.
+base_ipc() { LC_ALL=C.UTF-8 quickshell ipc --path "$HOME/base-shell/default/quickshell" call panel "$@" 2>/dev/null | grep -vi 'warn\|qt\.' | head -1; }
+panel_open() { [[ $(base_ipc active) == *session* ]]; }
 BASE=99e0f22a7704a3f609361a9c6b5a6e1fb9ebd931
 if git -C "$HOME/checkout" fetch --quiet --depth 1 origin "$BASE" \
   && git -C "$HOME/checkout" worktree add --detach "$HOME/base-shell" "$BASE" >/dev/null 2>&1; then
@@ -220,16 +224,12 @@ if git -C "$HOME/checkout" fetch --quiet --depth 1 origin "$BASE" \
   echo "base-phase click-delivery control: workspace $bws0 -> $bws1 after indicator click"
   ydotool mousemove --absolute -x $((26 / csx)) -y $((14 / csy)) 2>/dev/null; sleep 0.4
   ydotool click 0xC0 2>/dev/null; sleep 0.8   # back to workspace 1
-  # open the base session panel via the power glyph; verify, retry up to 3x
+  # open the base session panel via direct IPC; verify via panel active
+  echo "base panel open via IPC: [$(base_ipc toggle session)]"
   panel=0
-  for try in 1 2 3; do
-    ydotool mousemove --absolute -x $(( (bw - 16) / csx )) -y $(( 15 / csy )) 2>/dev/null; sleep 0.4
-    echo "power-click cursorpos (try $try): $(hyprctl cursorpos 2>/dev/null | tr -d ' ') (target $((bw-16)),15)"
-    ydotool click 0xC0 2>/dev/null
-    for i in $(seq 1 20); do panel_open && break; sleep 0.2; done
-    panel_open && { panel=1; break; }
-    echo "base panel not verified open after try $try; retrying"
-  done
+  for i in $(seq 1 20); do panel_open && { panel=1; break; }; sleep 0.2; done
+  panel_open && panel=1
+  echo "base panel active state: [$(base_ipc active)]"
   grim "$HOME/keynav-out/base-panel-open.png" 2>/dev/null || true
   if [[ $panel == 1 ]]; then
     bpre=$(hyprctl clients -j | jq length)
