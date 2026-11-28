@@ -1,0 +1,89 @@
+name: VM GPU feasibility (probe)
+
+# Probe branch only. One question: can a QEMU guest on a GitHub-hosted
+# runner get a real DRM render node through virtio-gpu + virgl with
+# software (llvmpipe) host rendering? If yes, the ISO integration harness
+# (test/integration.d/base-test.sh already has the graphics switch) can run
+# the actual target compositor in a disposable VM on free runners.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  virgl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Install QEMU with virgl
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qemu-system-x86 qemu-utils libvirglrenderer1 libegl1 libgl1 curl xorriso >/dev/null
+          qemu-system-x86_64 -display help 2>&1 | grep -i egl || true
+          ls -l /dev/kvm || true
+
+      - name: Download a small guest (Alpine virt ISO)
+        run: |
+          idx=$(curl -fsSL https://dl-cdn.alpinelinux.org/alpine/latest-stable/releases/x86_64/)
+          iso=$(printf '%s' "$idx" | grep -o 'alpine-virt-[0-9.]*-x86_64\.iso' | sort -V | tail -1)
+          echo "guest iso: $iso"
+          curl -fsSL -o guest.iso "https://dl-cdn.alpinelinux.org/alpine/latest-stable/releases/x86_64/$iso"
+          echo "ISO=$iso" >> "$GITHUB_ENV"
+
+      - name: Boot with virtio-vga-gl + egl-headless and read the guest boot log
+        run: |
+          set -x
+          accel=kvm; [[ -w /dev/kvm ]] || accel=tcg
+          # virtio-vga-gl needs GL on the headless display; llvmpipe provides
+          # the host GL context with no GPU. Serial console: the virt ISO
+          # speaks serial by default; if the log stays empty we retry with
+          # an extracted kernel and an explicit console=ttyS0.
+          qemu-system-x86_64 \
+            -machine q35,accel=$accel -cpu max -smp 2 -m 1024 \
+            -cdrom guest.iso \
+            -device virtio-vga-gl -display egl-headless \
+            -serial file:serial1.log -pidfile qemu.pid -daemonize \
+            -netdev user,id=n0 -device virtio-net-pci,netdev=n0 || echo "QEMU-START-FAILED variant1"
+          sleep 60
+          [[ -f qemu.pid ]] && kill "$(cat qemu.pid)" 2>/dev/null || true
+          sleep 2
+          wc -c serial1.log 2>/dev/null || true
+
+      - name: Fallback - extracted kernel with explicit serial console
+        if: always()
+        run: |
+          if [[ -s serial1.log ]] && grep -qiE 'virtio|alpine|Linux version' serial1.log; then
+            echo "serial1.log has boot output, skipping fallback"; exit 0
+          fi
+          set -x
+          mkdir x && xorriso -osirrox on -indev guest.iso -extract /boot x/boot >/dev/null 2>&1
+          ls x/boot
+          accel=kvm; [[ -w /dev/kvm ]] || accel=tcg
+          qemu-system-x86_64 \
+            -machine q35,accel=$accel -cpu max -smp 2 -m 1024 \
+            -kernel x/boot/vmlinuz-virt -initrd x/boot/initramfs-virt \
+            -append "console=ttyS0,115200 modules=loop,squashfs,sd-mod,usb-storage,cdrom" \
+            -cdrom guest.iso \
+            -device virtio-vga-gl -display egl-headless \
+            -serial file:serial2.log -pidfile qemu2.pid -daemonize \
+            -netdev user,id=n0 -device virtio-net-pci,netdev=n0 || echo "QEMU-START-FAILED variant2"
+          sleep 75
+          [[ -f qemu2.pid ]] && kill "$(cat qemu2.pid)" 2>/dev/null || true
+          sleep 2
+          wc -c serial2.log 2>/dev/null || true
+
+      - name: Verdict
+        if: always()
+        run: |
+          log=serial1.log; [[ -s serial2.log ]] && log=serial2.log
+          echo "=== guest boot log: $log ==="
+          tail -60 "$log" 2>/dev/null || true
+          echo "=== verdict ==="
+          if grep -qiE 'virtio_gpu|virtio-gpu|\[drm\]' "$log" 2>/dev/null; then
+            grep -iE 'virtio_gpu|virtio-gpu|\[drm\]|renderD' "$log" | head -20
+            echo "VERDICT: guest kernel bound a virtio GPU driver"
+          else
+            echo "VERDICT: no virtio GPU driver evidence in the guest log"
+          fi
