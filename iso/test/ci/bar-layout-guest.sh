@@ -290,6 +290,13 @@ popup_suite() { # BAR_H  (mode already 640x480)
   local H=$1 W=640
   calibrate_pointer || true
 
+  # Park the cursor INSIDE the bar band before the reference shots: the
+  # calibration move lands below the bar (~2x scale), and a below-bar cursor
+  # in the closed shot merges into the below-bar diff bbox, dragging the
+  # row-click aim far off the real popup (observed: bbox 412x192, clicks at
+  # y=127 vs real icons at y~39).
+  move_to 320 14; sleep 0.3
+
   # Locate the "+N" overflow chip by OCR on the upscaled bar strip.
   grim "$OUT/popup-closed-640.png"
   # Grayscale + negate: raw color strips OCR as garbage (observed); the "+"
@@ -383,6 +390,7 @@ popup_suite() { # BAR_H  (mode already 640x480)
   say "popup below-bar bbox: $pbbox (bar bottom=$H)"
   IFS='x+' read -r pbw pbh pbx pby <<<"$pbbox"
   [[ -n ${pbw:-} && $pbw -gt 0 ]] || { bad "no below-bar popup region after chip click"; return; }
+  (( pbh <= 60 )) || say "warning: popup bbox height $pbh exceeds one icon row - diff pollution suspected"
   (( pby >= 0 && pby <= 10 )) || bad "popup top edge at $pby below the bar, expected 0-10 (hug the bar bottom)"
   (( pbx + pbw >= W - 40 )) || bad "popup right edge at $((pbx + pbw)), expected near the right edge ($W)"
 
@@ -401,6 +409,16 @@ popup_suite() { # BAR_H  (mode already 640x480)
     if [[ -n ${act_id:-} ]] && ! grep -qw "$act_id" <<<"$act_ids"; then
       act_ids="$act_ids $act_id"
       say "popup row $i: Activate delivered to fixture id $act_id (distinct)"
+      # First verified icon click must also close the popup (onActivated);
+      # prove it before sweeping the rest.
+      if [[ $i -eq 0 ]]; then
+        grim "$OUT/.state.png"
+        if popup_is_open "$OUT/.state.png"; then
+          bad "first popup icon click activated but did not close the popup"
+        else
+          say "first icon click closed the popup (onActivated close verified)"
+        fi
+      fi
     else
       bad "popup row $i click at $icon_x,$icon_y delivered no NEW Activate (last: ${act_id:-none}; seen:$act_ids)"
     fi
