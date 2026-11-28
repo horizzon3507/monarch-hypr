@@ -57,6 +57,24 @@ echo monarch | sudo -S pacman -Sy --needed --noconfirm \
   foot jq imagemagick tesseract-ocr grim ydotool python-gobject 2>&1 | tail -2
 python3 -c 'import gi' 2>/dev/null || bad "python-gobject unavailable - SNI fixture cannot run"
 
+# Deterministic update-helper isolation (bar phase only): shadow
+# monarch-update-available on PATH with a stub that always reports
+# "current", so the bar's update readout never takes bar budget mid-suite
+# (observed twice: 'upd N' appearing shifted the overflow chip ~35px and
+# polluted the churn arithmetic; a stale aim even launched the updater
+# TUI). PATH affects only this script's children; the real helper binary
+# is untouched and the product never sees the stub outside this phase.
+# Deliberate dnd churn remains the intentional budget-change coverage.
+mkdir -p "$OUT/test-bin"
+cat > "$OUT/test-bin/monarch-update-available" <<'STUB'
+#!/bin/sh
+printf '{"status":"current","count":0,"complete":true}\n'
+exit 1
+STUB
+chmod +x "$OUT/test-bin/monarch-update-available"
+export PATH="$OUT/test-bin:$PATH"
+say "update helper stubbed to 'current' for the bar phase (deterministic budget isolation)"
+
 # Pointer injection: uinput daemon (root) + client socket shared with us.
 export YDOTOOL_SOCKET=${YDOTOOL_SOCKET:-/tmp/.ydotool_socket}
 pgrep -x ydotoold >/dev/null 2>&1 || { echo monarch | sudo -S -b env YDOTOOL_SOCKET=$YDOTOOL_SOCKET ydotoold >/dev/null 2>&1; sleep 1; }
@@ -316,6 +334,10 @@ count_inline_icons() { # IMG -> inline magenta icon count
 # with the pill ending ~600), CHIP_LOG = all candidates.
 chip_aim() { # BAR_H -> 0 ok / 1 OCR blind
   local hh=$1 strip="$OUT/.chip-strip.png"
+  # Park the cursor OFF the chip first: after a chip click it sits on the
+  # chip and its pixels corrupt the strip OCR (observed: every re-aim
+  # following a chip-click reopen went OCR-blind).
+  move_to 320 14 2>/dev/null || true; sleep 0.3
   grim "$OUT/.chip-aim.png" 2>/dev/null || return 1
   magick "$OUT/.chip-aim.png" -crop "640x${hh}+0+0" -resize 400% -colorspace Gray -negate "$strip"
   CHIP_LOG=$(tesseract "$strip" - --psm 11 tsv 2>/dev/null \
