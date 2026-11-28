@@ -447,11 +447,27 @@ popup_suite() { # BAR_H  (mode already 640x480)
   # rows are icon-only; OCR cannot identify them): clicking row i must
   # deliver Activate to a DISTINCT fixture id, chip_n times. A row click
   # closes the popup (onActivated), so reopen between rows.
-  local act_ids="" i icon_x icon_y act_id
-  for i in $(seq 0 $((chip_n - 1))); do
+  # Row aim: detect the magenta fixture icons inside the popup region
+  # directly. Even division of the popup bbox misses when the icon row is
+  # right-aligned within a wider popup window (observed: rows 0-2 of 5
+  # clicked empty popup background at bbox-even offsets; rows 3-4 landed).
+  local icon_xs
+  icon_xs=$(magick "$OUT/popup-open-640.png" -crop "${pbw}x${pbh}+${pbx}+$((H + pby))" +repage -depth 8 txt:- 2>/dev/null \
+    | sed 's/[():,]/ /g' \
+    | awk -v x0="$pbx" -v w="$pbw" 'NR > 1 && $3 > 150 && $5 > 150 && $4 < 120 { m[$1] = 1 }
+        END { start = -1; last = -99
+              for (x = 0; x < w; x++)
+                if (m[x]) { if (x - last > 4 && start >= 0) { printf "%d ", x0 + int((start + last) / 2); start = -1 }
+                            if (start < 0) start = x; last = x }
+              if (start >= 0) printf "%d ", x0 + int((start + last) / 2) }')
+  local n_detected
+  n_detected=$(wc -w <<<"$icon_xs")
+  say "popup row icon centers (magenta-detected): [$icon_xs] count=$n_detected expected=$chip_n"
+  [[ $n_detected -eq $chip_n ]] || bad "magenta row detection found $n_detected icons, expected $chip_n - popup contents wrong or render incomplete"
+  local act_ids="" i=0 icon_y act_id
+  icon_y=$(( H + pby + pbh / 2 ))
+  for icon_x in $icon_xs; do
     ensure_popup_open || { bad "popup would not (re)open for row $i"; break; }
-    icon_x=$(( pbx + (i * pbw / chip_n) + (pbw / chip_n / 2) ))
-    icon_y=$(( H + pby + pbh / 2 ))
     click_at "$icon_x" "$icon_y"
     sleep 1
     act_id=$(grep ' ACTIVATE ' "$FIXTURE_LOG" 2>/dev/null | tail -1 | awk '{print $3}')
@@ -471,6 +487,7 @@ popup_suite() { # BAR_H  (mode already 640x480)
     else
       bad "popup row $i click at $icon_x,$icon_y delivered no NEW Activate (last: ${act_id:-none}; seen:$act_ids)"
     fi
+    i=$((i + 1))
   done
   local act_count
   act_count=$(wc -w <<<"$act_ids")
