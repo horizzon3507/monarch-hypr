@@ -626,8 +626,7 @@ popup_suite() { # BAR_H  (mode already 640x480)
   ! grep -q 'TypeError\|is not a function' <<<"$qs_tail" || bad "QML TypeError after dnd on - anchor.updateAnchor API problem"
   ! grep -q 'TRAYPOPDIAG overflowOpen=false' <<<"$qs_tail" || bad "overflowOpen went false after dnd on - patched build still closes on churn"
   ! grep -q 'TRAYPOPDIAG grab active=false' <<<"$qs_tail" || bad "focus grab dropped after dnd on - grab not retained through churn"
-  # Contents conservation through the churn: dnd ON hides one more inline
-  # icon, so the popup must hold chip_n+1 rows, rebound live.
+  # Contents conservation through the churn: same rows, same count.
   local churn_xs n_churn
   churn_xs=$(magick "$OUT/.state.png" -crop "${pw2}x${ph2}+${px2}+$((H + py2))" +repage -depth 8 txt:- 2>/dev/null \
     | sed 's/[():,]/ /g' \
@@ -638,8 +637,8 @@ popup_suite() { # BAR_H  (mode already 640x480)
                             if (start < 0) start = x; last = x }
               if (start >= 0) printf "%d ", x0 + int((start + last) / 2) }')
   n_churn=$(wc -w <<<"$churn_xs")
-  say "post-churn popup rows: [$churn_xs] count=$n_churn expected=$((chip_n + 1)) (dnd on hides one more inline icon)"
-  [[ $n_churn -eq $((chip_n + 1)) ]] || bad "post-churn popup contents wrong: $n_churn rows, expected $((chip_n + 1)) - contents did not rebind live"
+  say "post-churn popup rows: [$churn_xs] count=$n_churn expected=$chip_n"
+  [[ $n_churn -eq $chip_n ]] || bad "post-churn popup contents changed: $n_churn rows, expected $chip_n"
   # Reverse-direction churn: dnd OFF shrinks the budget back; the popup
   # must tolerate that too and stay open.
   makoctl mode -r do-not-disturb >/dev/null 2>&1 || true
