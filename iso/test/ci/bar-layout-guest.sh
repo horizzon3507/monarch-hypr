@@ -358,75 +358,86 @@ popup_suite() { # BAR_H  (mode already 640x480)
     fi
     return
   fi
-  # Placement: the popup's top edge must sit just under the bar.
-  local bx by bw bh
-  IFS='x+' read -r bw bh bx by <<<"$bbox"
-  say "popup placement: top=$by (bar bottom=$H), left=$bx, size ${bw}x${bh}"
-  (( by >= H - 2 && by <= H + 12 )) || bad "popup top edge at y=$by, expected just under the bar ($H)"
+  # Placement from the BELOW-BAR region only: the cursor sits on the chip
+  # inside the bar, so whole-frame diffs drag its pixels into the bbox.
+  below_bbox() {
+    magick "$OUT/popup-closed-640.png" -crop "640x$((480-H))+0+${H}" +repage "$OUT/.closed-below.png"
+    magick "$1" -crop "640x$((480-H))+0+${H}" +repage "$OUT/.cur-below.png"
+    diff_bbox "$OUT/.closed-below.png" "$OUT/.cur-below.png"
+  }
+  below_ae() {
+    magick "$OUT/popup-closed-640.png" -crop "640x$((480-H))+0+${H}" +repage "$OUT/.closed-below.png"
+    magick "$1" -crop "640x$((480-H))+0+${H}" +repage "$OUT/.cur-below.png"
+    diff_ae "$OUT/.closed-below.png" "$OUT/.cur-below.png"
+  }
+  popup_is_open() { local ae; ae=$(below_ae "$1"); [[ ${ae:-0} -ge 400 ]]; }
+  ensure_popup_open() {
+    grim "$OUT/.state.png"
+    popup_is_open "$OUT/.state.png" && return 0
+    click_at "$cx" "$cy"; sleep 1
+    grim "$OUT/.state.png"
+    popup_is_open "$OUT/.state.png"
+  }
+  local pbbox pbw pbh pbx pby
+  pbbox=$(below_bbox "$OUT/popup-open-640.png")
+  say "popup below-bar bbox: $pbbox (bar bottom=$H)"
+  IFS='x+' read -r pbw pbh pbx pby <<<"$pbbox"
+  [[ -n ${pbw:-} && $pbw -gt 0 ]] || { bad "no below-bar popup region after chip click"; return; }
+  (( pby >= 0 && pby <= 10 )) || bad "popup top edge at $pby below the bar, expected 0-10 (hug the bar bottom)"
+  (( pbx + pbw >= W - 40 )) || bad "popup right edge at $((pbx + pbw)), expected near the right edge ($W)"
 
-  # 1b. Popup identity: the popup must list exactly chip_n DISTINCT fixture
-  # items (OCR the row labels; fixture titles are "Fixture Item N").
-  magick "$OUT/popup-open-640.png" -crop "${bw}x${bh}+${bx}+${by}" -resize 300% -colorspace Gray -negate "$OUT/popup-open-ocr.png"
-  local popup_items popup_count
-  popup_items=$(tesseract "$OUT/popup-open-ocr.png" - --psm 6 2>/dev/null \
-    | grep -oiE 'fixture item [0-9]+' | grep -oE '[0-9]+$' | sort -n | uniq | tr '\n' ' ' | sed 's/ $//')
-  popup_count=$(wc -w <<<"$popup_items")
-  say "popup rows (OCR identities): [$popup_items] count=$popup_count expected=$chip_n"
-  [[ $popup_count -eq $chip_n ]] || bad "popup lists $popup_count distinct fixture items, expected $chip_n"
-
-  # 2. Click the first popup row: the fixture must receive Activate, and the
-  # activated item must be one of the popup's own rows.
-  local row_x=$((bx + bw / 2)) row_y=$((by + 16))
-  click_at "$row_x" "$row_y"
-  sleep 1
-  if grep -q ' ACTIVATE ' "$FIXTURE_LOG"; then
-    local act_id
-    act_id=$(grep ' ACTIVATE ' "$FIXTURE_LOG" | tail -1 | awk '{print $3}')
-    say "popup row click delivered Activate to fixture item $act_id"
-    if [[ -n $popup_items ]] && ! grep -qw "$act_id" <<<"$popup_items"; then
-      bad "activated item $act_id is not among the popup rows [$popup_items]"
+  # 1b/2. Row identity + activation through the SNI protocol itself (the
+  # rows are icon-only; OCR cannot identify them): clicking row i must
+  # deliver Activate to a DISTINCT fixture id, chip_n times. A row click
+  # closes the popup (onActivated), so reopen between rows.
+  local act_ids="" i icon_x icon_y act_id
+  for i in $(seq 0 $((chip_n - 1))); do
+    ensure_popup_open || { bad "popup would not (re)open for row $i"; break; }
+    icon_x=$(( pbx + (i * pbw / chip_n) + (pbw / chip_n / 2) ))
+    icon_y=$(( H + pby + pbh / 2 ))
+    click_at "$icon_x" "$icon_y"
+    sleep 1
+    act_id=$(grep ' ACTIVATE ' "$FIXTURE_LOG" 2>/dev/null | tail -1 | awk '{print $3}')
+    if [[ -n ${act_id:-} ]] && ! grep -qw "$act_id" <<<"$act_ids"; then
+      act_ids="$act_ids $act_id"
+      say "popup row $i: Activate delivered to fixture id $act_id (distinct)"
+    else
+      bad "popup row $i click at $icon_x,$icon_y delivered no NEW Activate (last: ${act_id:-none}; seen:$act_ids)"
     fi
-  else
-    bad "popup row click did not reach the SNI fixture (no ACTIVATE logged)"
-  fi
+  done
+  local act_count
+  act_count=$(wc -w <<<"$act_ids")
+  say "popup rows activated: [$act_ids] count=$act_count expected=$chip_n"
+  [[ $act_count -eq $chip_n ]] || bad "popup delivered $act_count distinct fixture activations, expected $chip_n rows"
   grim "$OUT/popup-after-item-click.png"
 
-  # 3. Escape must close it (popup focus/keyboard handling on real compositor).
+  # 3. Escape must close it. Keyboard focus reaches the popup only via the
+  # HyprlandFocusGrab; while the grab never activates (TRAYPOPDIAG grab
+  # lines) a failure here is a product gap, not harness noise. The cursor
+  # rests below the bar after the row clicks, so allow its pixels (<=300).
+  ensure_popup_open || bad "popup not open for the Escape check"
   timeout 10 wtype -k Escape
   sleep 1
   grim "$OUT/popup-after-escape.png"
   local ae_esc
-  ae_esc=$(diff_ae "$OUT/popup-closed-640.png" "$OUT/popup-after-escape.png")
-  say "popup after Escape: ae vs closed = $ae_esc"
-  [[ ${ae_esc:-99999} -lt 2000 ]] || bad "Escape did not close the tray popup"
+  ae_esc=$(below_ae "$OUT/popup-after-escape.png")
+  say "popup after Escape: below-bar ae vs closed = $ae_esc"
+  [[ ${ae_esc:-99999} -lt 300 ]] || bad "Escape did not close the tray popup"
 
-  # 4. Reopen, then an outside click must close it.
-  click_at "$cx" "$cy"
+  # 4. Reopen, then an outside click must close it (same grab dependency).
+  ensure_popup_open || bad "popup would not reopen for the outside-click check"
+  click_at 320 300 # desktop area far from bar/popup
   sleep 1
-  grim "$OUT/popup-reopened.png"
-  local ae_re
-  ae_re=$(diff_ae "$OUT/popup-closed-640.png" "$OUT/popup-reopened.png")
-  if [[ ${ae_re:-0} -lt 500 ]]; then
-    bad "popup did not reopen on second chip click"
-  else
-    click_at 320 300 # desktop area far from bar/popup
-    sleep 1
-    grim "$OUT/popup-after-outside-click.png"
-    local ae_out
-    ae_out=$(diff_ae "$OUT/popup-closed-640.png" "$OUT/popup-after-outside-click.png")
-    say "popup after outside click: ae vs closed = $ae_out"
-    [[ ${ae_out:-99999} -lt 2000 ]] || bad "outside click did not close the tray popup"
-  fi
+  grim "$OUT/popup-after-outside-click.png"
+  local ae_out
+  ae_out=$(below_ae "$OUT/popup-after-outside-click.png")
+  say "popup after outside click: below-bar ae vs closed = $ae_out"
+  [[ ${ae_out:-99999} -lt 300 ]] || bad "outside click did not close the tray popup"
 
   # 5. Reopen once more; the caller switches the output mode next and the
   #    popup must not survive it.
-  click_at "$cx" "$cy"
-  sleep 1
+  ensure_popup_open || say "popup would not reopen before resize; resize-close check will note it"
   grim "$OUT/popup-open-before-resize.png"
-  local ae_re2
-  ae_re2=$(diff_ae "$OUT/popup-closed-640.png" "$OUT/popup-open-before-resize.png")
-  say "popup reopened before resize: ae=$ae_re2"
-  [[ ${ae_re2:-0} -ge 500 ]] || say "popup would not reopen before resize; resize-close check will note it"
 }
 
 # --- run: wide first (measures the clean clock bounds), then narrow -----------
