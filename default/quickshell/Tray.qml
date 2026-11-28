@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Services.SystemTray
 
 // Status notifier icons. Left click activates, right click opens the item menu,
@@ -110,7 +111,12 @@ RowLayout {
         implicitWidth: overflowRow.implicitWidth + 16
         implicitHeight: overflowRow.implicitHeight + 16
         visible: root.overflowOpen && root.hiddenCount > 0
-        grabFocus: root.overflowOpen
+        // grabFocus maps to an xdg_popup grab, which Hyprland refuses for a
+        // popup whose parent is a layer-shell surface (the bar): the grab
+        // fails and the compositor immediately dismisses the popup, so it
+        // never appears. HyprlandFocusGrab below is the supported way to get
+        // the same outside-click dismissal on Hyprland.
+        grabFocus: false
         onClosed: root.overflowOpen = false
 
         Rectangle {
@@ -139,5 +145,18 @@ RowLayout {
                 }
             }
         }
+    }
+
+    // Outside-click dismissal and keyboard focus for the overflow popup via
+    // hyprland_focus_grab_v1: while active the popup keeps keyboard focus
+    // (Escape reaches its Keys handler) and a click anywhere outside the
+    // listed windows clears the grab, which closes the popup. Becomes active
+    // once the popup is actually visible; a compositor without the protocol
+    // just leaves the grab inactive and the popup stays open until toggled.
+    HyprlandFocusGrab {
+        id: overflowGrab
+        windows: [overflowPopup]
+        active: root.overflowOpen && overflowPopup.visible
+        onCleared: root.overflowOpen = false
     }
 }
