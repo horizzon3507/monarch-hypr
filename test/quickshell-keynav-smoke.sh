@@ -205,7 +205,18 @@ await_new_client() { # COUNT ADDRS(sorted) -> echoes the new address
   done
   return 1
 }
-close_client() { hyprctl dispatch closewindow "address:$1" >/dev/null 2>&1; sleep 0.5; }
+close_client() { # ADDRESS - verified; closewindow silently fails on this stack
+  local r
+  r=$(hyprctl dispatch closewindow "address:$1" 2>&1)
+  sleep 0.5
+  if hyprctl clients -j 2>/dev/null | jq -e --arg a "$1" '.[] | select(.address == $a)' >/dev/null 2>&1; then
+    echo "close_client: closewindow reply [$r] left $1 alive; falling back to focus + SUPER+Q"
+    hyprctl dispatch focuswindow "address:$1" >/dev/null 2>&1
+    sleep 0.5
+    press_chord 16 q
+    sleep 1
+  fi
+}
 baseline_bind_fired=0
 
 # The headless seat starts with no input devices at all (capabilities 0), so

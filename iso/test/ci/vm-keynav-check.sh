@@ -199,7 +199,15 @@ if git -C "$HOME/checkout" fetch --quiet --depth 1 origin "$BASE" \
   sleep 8
   kill -0 $! 2>/dev/null || { echo "base shell died; see base-qs.log"; tail -10 "$HOME/keynav-out/base-qs.log"; }
   bw=$(hyprctl monitors -j | jq -r '.[0].width')
-  ydotool mousemove --absolute -x $((bw - 16)) -y 15 2>/dev/null; sleep 0.3
+  # ydotool absolute coordinates are scaled vs output pixels on this stack
+  # (observed x2 at 640x480): calibrate, then click the power glyph.
+  ydotool mousemove --absolute -x 100 -y 100 2>/dev/null; sleep 0.4
+  cpos=$(hyprctl cursorpos 2>/dev/null | tr -d ' ')
+  csx=$(( ${cpos%%,*} / 100 )); csy=$(( ${cpos##*,} / 100 ))
+  [[ $csx -lt 1 ]] && csx=1; [[ $csy -lt 1 ]] && csy=1
+  echo "base-phase pointer scale: ${csx}x${csy} (from 100,100 -> $cpos)"
+  ydotool mousemove --absolute -x $(( (bw - 16) / csx )) -y $(( 15 / csy )) 2>/dev/null; sleep 0.4
+  echo "power-click cursorpos: $(hyprctl cursorpos 2>/dev/null | tr -d ' ') (target $((bw-16)),15)"
   ydotool click 0xC0 2>/dev/null; sleep 2
   grim "$HOME/keynav-out/base-panel-open.png" 2>/dev/null || true
   bpre=$(hyprctl clients -j | jq length)

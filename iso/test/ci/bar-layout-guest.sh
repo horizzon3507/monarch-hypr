@@ -63,8 +63,23 @@ say "shell restarted from candidate checkout (pid $QS_PID)"
 # terminal cursors produced phantom pixel diffs in earlier rounds (a cursor
 # blink reads as a 2600-pixel change, faking both "popup opened" and "popup
 # never closed"); popup detection needs a static desktop.
+# closewindow silently fails on this stack (observed: dispatch returns yet
+# the clients survive), so each close is verified and falls back to the
+# proven SUPER+Q chord on the focused window.
+close_window() { # ADDRESS
+  local r
+  r=$(hyprctl dispatch closewindow "address:$1" 2>&1)
+  sleep 0.5
+  if hyprctl clients -j | jq -e --arg a "$1" '.[] | select(.address == $a)' >/dev/null 2>&1; then
+    say "closewindow reply [$r] left $1 alive; falling back to focus + SUPER+Q"
+    hyprctl dispatch focuswindow "address:$1" >/dev/null 2>&1
+    sleep 0.5
+    ydotool key 125:1 16:1 16:0 125:0 2>/dev/null
+    sleep 1
+  fi
+}
 for a in $(hyprctl clients -j | jq -r '.[].address'); do
-  hyprctl dispatch closewindow "address:$a" >/dev/null 2>&1
+  close_window "$a"
 done
 sleep 1
 say "clients after phase-hygiene sweep: $(hyprctl clients -j | jq -c '[.[] | {class}]')" 
@@ -176,10 +191,41 @@ ae_lt() { [[ $(diff_ae "$1" "$2") -lt $3 ]]; }
 ae_ge() { [[ $(diff_ae "$1" "$2") -ge $3 ]]; }
 
 # --- pointer helpers ----------------------------------------------------------
+# ydotool's absolute device coordinates do NOT equal output pixels on this
+# stack (observed at 640x480: requesting 16 lands at 32, i.e. doubled and
+# clamped). Calibrate once per mode, then click with scaling plus one
+# correction pass, verifying the landing through hyprctl cursorpos.
+PTR_SX=1 PTR_SY=1
+calibrate_pointer() {
+  ydotool mousemove --absolute -x 100 -y 100 2>/dev/null
+  sleep 0.4
+  local pos ax ay
+  pos=$(hyprctl cursorpos 2>/dev/null | tr -d ' ')
+  ax=${pos%%,*}; ay=${pos##*,}
+  [[ $ax =~ ^[0-9]+$ && $ax -gt 0 && $ay -gt 0 ]] || { say "pointer calibration failed (cursorpos: $pos)"; return 1; }
+  PTR_SX=$(awk -v a="$ax" 'BEGIN{print a/100}')
+  PTR_SY=$(awk -v a="$ay" 'BEGIN{print a/100}')
+  say "pointer calibration: requested 100,100 -> $ax,$ay (scale ${PTR_SX}x${PTR_SY})"
+}
+move_to() { # X Y - lands the cursor on output pixel X,Y (verified)
+  local gx gy pos ax ay
+  gx=$(awk -v t="$1" -v s="$PTR_SX" 'BEGIN{printf "%d", t/s}')
+  gy=$(awk -v t="$2" -v s="$PTR_SY" 'BEGIN{printf "%d", t/s}')
+  ydotool mousemove --absolute -x "$gx" -y "$gy" 2>/dev/null
+  sleep 0.4
+  pos=$(hyprctl cursorpos 2>/dev/null | tr -d ' ')
+  ax=${pos%%,*}; ay=${pos##*,}
+  if [[ $ax != "$1" || $ay != "$2" ]]; then
+    gx=$(awk -v g="$gx" -v a="$ax" -v t="$1" -v s="$PTR_SX" 'BEGIN{printf "%d", g+(t-a)/s}')
+    gy=$(awk -v g="$gy" -v a="$ay" -v t="$2" -v s="$PTR_SY" 'BEGIN{printf "%d", g+(t-a)/s}')
+    ydotool mousemove --absolute -x "$gx" -y "$gy" 2>/dev/null
+    sleep 0.4
+    pos=$(hyprctl cursorpos 2>/dev/null | tr -d ' ')
+  fi
+  say "move_to $1,$2 -> cursorpos: $pos"
+}
 click_at() { # X Y  (left button)
-  ydotool mousemove --absolute -x "$1" -y "$2" 2>/dev/null
-  sleep 0.3
-  say "click_at $1,$2 -> hyprctl cursorpos: $(hyprctl cursorpos 2>/dev/null | tr -d ' ')"
+  move_to "$1" "$2"
   ydotool click 0xC0 2>/dev/null
   sleep 0.3
 }
@@ -242,6 +288,7 @@ count_inline_icons() { # IMG -> inline magenta icon count
 # --- tray overflow popup click-through (at 640px) ------------------------------
 popup_suite() { # BAR_H  (mode already 640x480)
   local H=$1 W=640
+  calibrate_pointer || true
 
   # Locate the "+N" overflow chip by OCR on the upscaled bar strip.
   grim "$OUT/popup-closed-640.png"
