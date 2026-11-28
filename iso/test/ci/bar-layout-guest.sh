@@ -3,9 +3,9 @@
 # Bar responsive-layout validation. Runs INSIDE the disposable VM guest,
 # attached to the real Hyprland session: no mocks, no offscreen replicas.
 #
-# What it proves, with the REAL Bar.qml/Workspaces.qml from the candidate
+# Geometry, with the REAL Bar.qml/Workspaces.qml/Tray.qml from the candidate
 # checkout driving the REAL bar on the REAL compositor:
-#   1. With 10 real workspaces (one window each) on a 640x480 output the
+#   1. With 10 real workspaces (one foot window each) on a 640x480 output the
 #      centered clock stays legible (OCR) and nothing paints in the measured
 #      gap strips flanking it (no workspace-row or right-group encroachment).
 #   2. The power/session control is still drawn at the right bar edge at
@@ -13,12 +13,18 @@
 #   3. At 1920x1080 the same invariants hold; all 10 real workspaces exist
 #      (hyprctl) and the screenshot shows every slot (human-inspected).
 #
+# Tray overflow popup click-through (real pointer via uinput/ydotool, real
+# SNI traffic from test/fixtures/tray_fixture.py - synthetic services, not
+# proof about any real application):
+#   4. The "+N" overflow chip renders at 640px; clicking it opens the popup
+#      below the bar (pixel-diff bounding box).
+#   5. Clicking a popup row delivers Activate to the fixture (handler path).
+#   6. Escape closes the popup; reopen + outside-click closes it; reopen +
+#      output mode change closes it (no stale popup after resize).
+#
 # Environment (set by the caller, same as the keynav smoke): WAYLAND_DISPLAY,
 # HYPRLAND_INSTANCE_SIGNATURE, XDG_RUNTIME_DIR. CWD must be the candidate
 # checkout root. Screenshots and crops land in $1 (default ~/keynav-out).
-#
-# Proof label: this validates the code under test (candidate checkout) against
-# the ISO-provided OS/compositor environment; both SHAs are in report.txt.
 
 set -uo pipefail
 
@@ -34,7 +40,14 @@ bad() { echo "bar-layout: FAIL: $*"; fail=1; }
 
 # --- tooling ---------------------------------------------------------------
 echo monarch | sudo -S pacman -Sy --needed --noconfirm \
-  foot jq imagemagick tesseract-ocr grim 2>&1 | tail -2
+  foot jq imagemagick tesseract-ocr grim ydotool python-gobject 2>&1 | tail -2
+python3 -c 'import gi' 2>/dev/null || bad "python-gobject unavailable - SNI fixture cannot run"
+
+# Pointer injection: uinput daemon (root) + client socket shared with us.
+export YDOTOOL_SOCKET=/tmp/.ydotool_socket
+echo monarch | sudo -S -b env YDOTOOL_SOCKET=$YDOTOOL_SOCKET ydotoold >/dev/null 2>&1
+sleep 1
+echo monarch | sudo -S chmod 666 $YDOTOOL_SOCKET 2>/dev/null || true
 
 # --- shell under test: restart from the candidate checkout ------------------
 pkill -x quickshell 2>/dev/null || true
@@ -60,6 +73,19 @@ say "real workspaces present: $ws_count (need 10)"
 hyprctl workspaces -j | jq -c '[.[] | {id, windows}]' > "$OUT/bar-workspaces.json"
 [[ $ws_count -ge 10 ]] || bad "only $ws_count workspaces exist; 10-slot scenario not reached"
 
+# --- six real SNI fixtures: the tray overflows into the "+N" chip ------------
+FIXTURE_LOG=$OUT/tray-fixture-calls.log
+python3 test/fixtures/tray_fixture.py --items 6 --log "$FIXTURE_LOG" >"$OUT/tray-fixture.log" 2>&1 &
+FIX_PID=$!
+reg=0
+for _ in $(seq 1 30); do
+  reg=$(grep -c '^REGISTERED' "$FIXTURE_LOG" 2>/dev/null || echo 0)
+  [[ $reg -ge 6 ]] && break
+  sleep 1
+done
+say "SNI fixtures registered: $reg/6 (synthetic test services, not real apps)"
+[[ $reg -ge 6 ]] || bad "SNI fixtures did not register; tray overflow scenario not reached"
+
 # --- monitor mode switching via the 0.56 Lua API ------------------------------
 MON=$(hyprctl monitors -j | jq -r '.[0].name')
 say "output: $MON"
@@ -76,7 +102,7 @@ set_mode() { # WxH; polls until applied, dumps available modes on failure
 }
 
 # --- pixel helpers ------------------------------------------------------------
-bar_bg=() # r g b of the bar background (pixel at 2,2 of the full shot)
+bar_bg=()
 read_bg() { # IMG
   local rgb
   rgb=$(magick "$1" -crop 1x1+2+2 -depth 8 -format "%[fx:int(r*255)] %[fx:int(g*255)] %[fx:int(b*255)]" info:)
@@ -90,7 +116,7 @@ bar_height() { # IMG W -> first row whose mean differs from the bar background
     m=$(magick "$img" -crop "${w}x1+0+$y" -depth 8 -format "%[mean]" info:)
     if awk -v a="$m" -v b="$row0" 'BEGIN{exit !(sqrt((a-b)*(a-b)) > 6)}'; then h=$y; break; fi
   done
-  [[ $h -gt 0 ]] || h=31 # fallback: 13px font * 2.4
+  [[ $h -gt 0 ]] || h=31
   echo "$h"
 }
 
@@ -108,8 +134,25 @@ clock_bounds() { # IMG W H -> absolute x of the clock's leftmost/rightmost ink
       END { if (min == "") print ""; else print min, max }'
 }
 
-# --- per-width checks ---------------------------------------------------------
-CLK_L=; CLK_R= # measured at 1920 (clean center), reused at 640
+# diff_bbox A B -> "WxH+X+Y" of pixels that changed (trimmed threshold box)
+diff_bbox() {
+  magick compare -metric AE "$1" "$2" "$OUT/diff-tmp.png" 2>/dev/null || true
+  magick "$OUT/diff-tmp.png" -colorspace Gray -threshold 25% -format "%@" info: 2>/dev/null
+}
+diff_ae() { # A B -> absolute count of changed pixels
+  magick compare -metric AE "$1" "$2" null: 2>&1 | tr -d ' '
+}
+
+# --- pointer helpers ----------------------------------------------------------
+click_at() { # X Y  (left button)
+  ydotool mousemove --absolute -x "$1" -y "$2" 2>/dev/null
+  sleep 0.3
+  ydotool click 0xC0 2>/dev/null
+  sleep 0.3
+}
+
+# --- per-width geometry checks -------------------------------------------------
+CLK_L=; CLK_R=
 check_bar() { # WIDTH
   local W=$1 img=$OUT/bar-$W.png
   grim "$img" || { bad "grim failed at $W"; return; }
@@ -117,14 +160,12 @@ check_bar() { # WIDTH
   local H; H=$(bar_height "$img" "$W")
   say "width $W: bar height ${H}px, bg rgb ${bar_bg[*]}"
 
-  # Clock legibility: center strip, upscaled, OCR must show HH:MM.
   magick "$img" -crop "280x${H}+$((W / 2 - 140))+0" -resize 400% -colorspace Gray "$OUT/bar-$W-clock.png"
   local ocr
   ocr=$(tesseract "$OUT/bar-$W-clock.png" - --psm 7 2>/dev/null | tr -d '\f')
   say "width $W: clock OCR: [$ocr]"
   grep -qE '[0-9]{1,2}:[0-9]{2}' <<<"$ocr" || bad "clock not legible at ${W}px (OCR found no HH:MM)"
 
-  # Clock ink bounds: measured here at 1920, only verified clear at 640.
   if [[ -z $CLK_L ]]; then
     local bounds; bounds=$(clock_bounds "$img" "$W" "$H")
     if [[ -n $bounds ]]; then CLK_L=${bounds% *}; CLK_R=${bounds#* }; fi
@@ -139,11 +180,94 @@ check_bar() { # WIDTH
     [[ $ink_r -le 2 ]] || bad "right gap strip painted at ${W}px (encroachment toward clock)"
   fi
 
-  # Power control: rightmost bar columns must show the glyph (not clipped).
   local pwr_sd
   pwr_sd=$(magick "$img" -crop "26x${H}+$((W - 36))+0" -depth 8 -format "%[standard-deviation]" info:)
   say "width $W: power-edge stddev=$pwr_sd"
   awk -v s="$pwr_sd" 'BEGIN{exit !(s > 10)}' || bad "no power glyph at the right edge at ${W}px"
+}
+
+# --- tray overflow popup click-through (at 640px) ------------------------------
+popup_suite() { # BAR_H  (mode already 640x480)
+  local H=$1 W=640
+
+  # Locate the "+N" overflow chip by OCR on the upscaled bar strip.
+  grim "$OUT/popup-closed-640.png"
+  magick "$OUT/popup-closed-640.png" -crop "${W}x${H}+0+0" -resize 400% "$OUT/bar-640-strip4x.png"
+  local chip
+  chip=$(tesseract "$OUT/bar-640-strip4x.png" - --psm 11 tsv 2>/dev/null \
+    | awk -F'\t' '$12 ~ /^\+[0-9]+/ {printf "%d %d", ($7+$9/2)/4, ($8+$10/2)/4; exit}')
+  say "overflow chip center: [${chip:-not found}]"
+  if [[ -z $chip ]]; then
+    bad "no +N overflow chip found at 640px (tray overflow not rendered or OCR blind)"
+    return
+  fi
+  local cx=${chip% *} cy=${chip#* }
+
+  # 1. Click the chip: the popup must appear below the bar.
+  click_at "$cx" "$cy"
+  sleep 1
+  grim "$OUT/popup-open-640.png"
+  local bbox ae
+  bbox=$(diff_bbox "$OUT/popup-closed-640.png" "$OUT/popup-open-640.png")
+  ae=$(diff_ae "$OUT/popup-closed-640.png" "$OUT/popup-open-640.png")
+  say "popup open: diff bbox=$bbox ae=$ae"
+  if [[ -z $bbox || $bbox == *0x0* || ${ae:-0} -lt 500 ]]; then
+    bad "clicking the overflow chip opened no popup at 640px"
+    return
+  fi
+  # Placement: the popup's top edge must sit just under the bar.
+  local bx by bw bh
+  IFS='x+' read -r bw bh bx by <<<"$bbox"
+  say "popup placement: top=$by (bar bottom=$H), left=$bx, size ${bw}x${bh}"
+  (( by >= H - 2 && by <= H + 12 )) || bad "popup top edge at y=$by, expected just under the bar ($H)"
+
+  # 2. Click the first popup row: the fixture must receive Activate.
+  local row_x=$((bx + bw / 2)) row_y=$((by + 16))
+  click_at "$row_x" "$row_y"
+  sleep 1
+  if grep -q '^ACTIVATE' "$FIXTURE_LOG"; then
+    say "popup row click delivered Activate to the SNI fixture: $(grep '^ACTIVATE' "$FIXTURE_LOG" | head -1)"
+  else
+    bad "popup row click did not reach the SNI fixture (no ACTIVATE logged)"
+  fi
+  grim "$OUT/popup-after-item-click.png"
+
+  # 3. Escape must close it (popup focus/keyboard handling on real compositor).
+  timeout 10 wtype -k Escape
+  sleep 1
+  grim "$OUT/popup-after-escape.png"
+  local ae_esc
+  ae_esc=$(diff_ae "$OUT/popup-closed-640.png" "$OUT/popup-after-escape.png")
+  say "popup after Escape: ae vs closed = $ae_esc"
+  [[ ${ae_esc:-99999} -lt 2000 ]] || bad "Escape did not close the tray popup"
+
+  # 4. Reopen, then an outside click must close it.
+  click_at "$cx" "$cy"
+  sleep 1
+  grim "$OUT/popup-reopened.png"
+  local ae_re
+  ae_re=$(diff_ae "$OUT/popup-closed-640.png" "$OUT/popup-reopened.png")
+  if [[ ${ae_re:-0} -lt 500 ]]; then
+    bad "popup did not reopen on second chip click"
+  else
+    click_at 320 300 # desktop area far from bar/popup
+    sleep 1
+    grim "$OUT/popup-after-outside-click.png"
+    local ae_out
+    ae_out=$(diff_ae "$OUT/popup-closed-640.png" "$OUT/popup-after-outside-click.png")
+    say "popup after outside click: ae vs closed = $ae_out"
+    [[ ${ae_out:-99999} -lt 2000 ]] || bad "outside click did not close the tray popup"
+  fi
+
+  # 5. Reopen once more; the caller switches the output mode next and the
+  #    popup must not survive it.
+  click_at "$cx" "$cy"
+  sleep 1
+  grim "$OUT/popup-open-before-resize.png"
+  local ae_re2
+  ae_re2=$(diff_ae "$OUT/popup-closed-640.png" "$OUT/popup-open-before-resize.png")
+  say "popup reopened before resize: ae=$ae_re2"
+  [[ ${ae_re2:-0} -ge 500 ]] || say "popup would not reopen before resize; resize-close check will note it"
 }
 
 # --- run: wide first (measures the clean clock bounds), then narrow -----------
@@ -153,16 +277,29 @@ if set_mode 1920x1080; then
 else
   bad "could not switch to 1920x1080"
 fi
+BAR_H_640=31
 if set_mode 640x480; then
   sleep 3
   check_bar 640
+  read_bg "$OUT/bar-640.png"
+  BAR_H_640=$(bar_height "$OUT/bar-640.png" 640)
+  popup_suite "$BAR_H_640"
 else
   bad "could not switch to 640x480"
 fi
+# Output change with the popup (possibly) open: it must close, not linger.
+if set_mode 1920x1080; then
+  sleep 3
+  grim "$OUT/bar-1920-after-resize.png"
+  ae_rs=$(diff_ae "$OUT/bar-1920.png" "$OUT/bar-1920-after-resize.png")
+  say "below-bar region after resize: ae vs earlier 1920 shot = $ae_rs"
+  [[ ${ae_rs:-99999} -lt 5000 ]] || bad "popup (or other stale content) survived the output mode change"
+fi
 set_mode 1024x768 >/dev/null 2>&1 || true
 
+kill "$FIX_PID" 2>/dev/null || true
 if [[ $fail == 0 ]]; then
-  say "BAR-LAYOUT RESULT: GREEN (real Hyprland, candidate checkout, 1920 + 640)"
+  say "BAR-LAYOUT RESULT: GREEN (real Hyprland, candidate checkout, geometry + popup click-through)"
   exit 0
 fi
 say "BAR-LAYOUT RESULT: RED - see $LOG"
