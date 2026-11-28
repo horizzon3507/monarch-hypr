@@ -15,6 +15,10 @@ ColumnLayout {
     spacing: 6
 
     readonly property var actions: Logic.shareActions()
+    property int focusIndex: 0
+
+    function scrollBy(delta) { focusIndex = Logic.moveFocus(focusIndex, delta, actions.length); }
+    function activateFocused() { if (actions.length > 0) activate(actions[focusIndex].key); }
 
     function activate(key) {
         var command = Logic.shareCommand(key);
@@ -41,10 +45,13 @@ ColumnLayout {
         model: root.actions
         delegate: Rectangle {
             required property var modelData
+            required property int index
             implicitWidth: 260
             implicitHeight: 34
             radius: 8
             color: Theme.surfaceVariant
+            border.width: 2
+            border.color: index === root.focusIndex ? Theme.accent : "transparent"
             Text {
                 anchors.centerIn: parent
                 text: modelData.label

@@ -171,6 +171,18 @@ function togglePanel(current, name) {
     return current === next ? "" : next;
 }
 
+// Focus index after moving delta rows within count rows, clamped at the
+// ends; an empty list keeps 0. Menu panels use this for keyboard navigation.
+function moveFocus(current, delta, count) {
+    var n = Math.floor(Number(count));
+    if (!(n > 0)) return 0;
+    var i = Math.floor(Number(current)) + Math.floor(Number(delta));
+    if (isNaN(i)) return 0;
+    if (i < 0) return 0;
+    if (i > n - 1) return n - 1;
+    return i;
+}
+
 // Actions the session panel offers. key is stable for tests and the click
 // flow; label is what the row shows; command runs detached when the action
 // fires. Anything that suspends or ends the session needs a second click to

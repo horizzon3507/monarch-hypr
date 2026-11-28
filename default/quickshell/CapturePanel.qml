@@ -17,6 +17,13 @@ ColumnLayout {
 
     readonly property var actions: Logic.captureActions()
     readonly property var recordActions: Logic.captureRecordActions(hasWebcam)
+    // One list for clicks and keyboard focus: an active recording replaces
+    // the record variants with the stop row, like the terminal capture menu.
+    readonly property var rows: root.actions.concat(root.recording ? [{ key: "stop", label: "Stop recording" }] : root.recordActions)
+    property int focusIndex: 0
+
+    function scrollBy(delta) { focusIndex = Logic.moveFocus(focusIndex, delta, rows.length); }
+    function activateFocused() { if (rows.length > 0) activate(rows[focusIndex].key); }
 
     // Dispatch, then close so the capture UI owns the screen.
     function activate(key) {
@@ -59,56 +66,20 @@ ColumnLayout {
     }
 
     Repeater {
-        model: root.actions
+        model: root.rows
         delegate: Rectangle {
             required property var modelData
+            required property int index
             implicitWidth: 260
             implicitHeight: 34
             radius: 8
-            color: Theme.surfaceVariant
+            color: modelData.key === "stop" ? Theme.error : Theme.surfaceVariant
+            border.width: 2
+            border.color: index === root.focusIndex ? Theme.accent : "transparent"
             Text {
                 anchors.centerIn: parent
                 text: modelData.label
-                color: Theme.fg
-                font.pixelSize: 14
-            }
-            MouseArea {
-                anchors.fill: parent
-                onClicked: root.activate(modelData.key)
-            }
-        }
-    }
-
-    Rectangle {
-        visible: root.recording
-        implicitWidth: 260
-        implicitHeight: 34
-        radius: 8
-        color: Theme.error
-        Text {
-            anchors.centerIn: parent
-            text: "Stop recording"
-            color: Theme.bg
-            font.pixelSize: 14
-        }
-        MouseArea {
-            anchors.fill: parent
-            onClicked: root.activate("stop")
-        }
-    }
-
-    Repeater {
-        model: root.recording ? [] : root.recordActions
-        delegate: Rectangle {
-            required property var modelData
-            implicitWidth: 260
-            implicitHeight: 34
-            radius: 8
-            color: Theme.surfaceVariant
-            Text {
-                anchors.centerIn: parent
-                text: modelData.label
-                color: Theme.fg
+                color: modelData.key === "stop" ? Theme.bg : Theme.fg
                 font.pixelSize: 14
             }
             MouseArea {

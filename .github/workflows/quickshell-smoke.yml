@@ -10,6 +10,7 @@ on:
       - "test/quickshell-capture-smoke.sh"
       - "test/quickshell-toggles-smoke.sh"
       - "test/quickshell-share-smoke.sh"
+      - "test/quickshell-keynav-smoke.sh"
       - ".github/workflows/quickshell-smoke.yml"
   push:
     branches: [dev]
@@ -21,6 +22,7 @@ on:
       - "test/quickshell-capture-smoke.sh"
       - "test/quickshell-toggles-smoke.sh"
       - "test/quickshell-share-smoke.sh"
+      - "test/quickshell-keynav-smoke.sh"
   workflow_dispatch:
 
 permissions:
@@ -34,13 +36,14 @@ jobs:
     steps:
       - name: Install Quickshell and a headless compositor
         run: |
-          pacman -Syu --noconfirm --needed quickshell sway qt6-wayland grim git sudo ttf-jetbrains-mono-nerd fontconfig
+          pacman -Syu --noconfirm --needed quickshell sway hyprland qt6-wayland grim wtype wev git sudo ttf-jetbrains-mono-nerd fontconfig
           useradd -m tester
           quickshell --version
 
       - uses: actions/checkout@v4
 
       - name: Run the smoke test
+        timeout-minutes: 30
         run: |
           chown -R tester: "$GITHUB_WORKSPACE"
           sudo -u tester env GITHUB_WORKSPACE="$GITHUB_WORKSPACE" bash -euo pipefail -c '
@@ -57,6 +60,15 @@ jobs:
             fi
             if [[ -f default/quickshell/SharePanel.qml ]]; then
               bash test/quickshell-share-smoke.sh --screenshots "$GITHUB_WORKSPACE/smoke-shots"
+            fi
+            if [[ -f test/quickshell-keynav-smoke.sh ]]; then
+              # Run on the actual target compositor as well as sway, and do
+              # not let a sway failure keep the Hyprland run from happening:
+              # collect both outcomes and fail at the end.
+              keynav_status=0
+              bash test/quickshell-keynav-smoke.sh --screenshots "$GITHUB_WORKSPACE/smoke-shots" || keynav_status=1
+              SMOKE_COMPOSITOR=hyprland bash test/quickshell-keynav-smoke.sh --screenshots "$GITHUB_WORKSPACE/smoke-shots/hyprland" || keynav_status=1
+              [[ $keynav_status -eq 0 ]]
             fi
           '
 

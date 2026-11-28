@@ -179,7 +179,11 @@ start_vm() {
 
   local cpu=host network="user,id=net0,hostfwd=tcp:127.0.0.1:$SSH_PORT-:22"
   local -a graphics=(-device virtio-vga -display none)
-  if [[ -n ${MONARCH_INTEGRATION_RENDER_NODE:-} ]]; then
+  if [[ ${MONARCH_INTEGRATION_GL:-} == "gtk-xvfb" ]]; then
+    # GPU-less virgl: llvmpipe GL through an Xvfb display (the caller starts
+    # Xvfb and exports DISPLAY). The guest gets a real DRM render node.
+    graphics=(-device virtio-vga-gl -display gtk,gl=on)
+  elif [[ -n ${MONARCH_INTEGRATION_RENDER_NODE:-} ]]; then
     graphics=(-device virtio-vga-gl -display "egl-headless,rendernode=$MONARCH_INTEGRATION_RENDER_NODE")
   fi
   [[ $ACCEL == "tcg" ]] && cpu=max
