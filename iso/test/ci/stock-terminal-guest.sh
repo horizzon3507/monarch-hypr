@@ -6,12 +6,13 @@
 # the resulting stock configuration. Independent verdict: does not gate the
 # keynav or bar phases.
 #
-#   1. Evidence for the first-run chicken-and-egg question: with zero
-#      terminals installed, the first-steps guide's launcher goes through
-#      xdg-terminal-exec - record what it does with nothing to launch.
-#   2. monarch-install-terminal foot (the supported stock script): installs
-#      the package, writes ~/.config/xdg-terminals.list and the desktop
-#      file. Verified, not assumed.
+#   1. Verify the actual shipped terminal state: which terminal packages
+#      the ISO installs, the system xdg-terminals.list preference order,
+#      and what xdg-terminal-exec launches with no user preference.
+#   2. monarch-install-terminal foot (the supported stock script): run AS
+#      THE USER with MONARCH_PATH set (sudo only primed for its internal
+#      pacman): installs the package, writes ~/.config/xdg-terminals.list
+#      and the desktop file. Verified, not assumed.
 #   3. SUPER+Return (real wtype chord) must then spawn a window, proving
 #      the delivered bind works once a terminal is provisioned.
 #
@@ -35,24 +36,37 @@ bad() { echo "stock-terminal: FAIL: $*"; fail=1; }
 
 say "scope: DELIVERED ISO provisioning path, no fixtures; verdict independent of keynav/bar phases"
 
-# --- 1. xdg-terminal-exec with no configured/installed terminal -------------
+# --- 1. the actual shipped terminal state -----------------------------------
 rm -f "$HOME/.config/xdg-terminals.list"
 say "user xdg-terminals.list removed (fresh-install state apart from packages)"
 stock_list=$(cat /etc/xdg/xdg-terminals.list 2>/dev/null || cat /usr/share/monarch/config/xdg-terminals.list 2>/dev/null || echo "(no system xdg-terminals.list found)")
 say "system terminal preference list: $stock_list"
-say "installed terminal packages: $(pacman -Qq alacritty foot kitty ghostty 2>/dev/null | tr '\n' ' ')(none listed = none)"
-echo "--- xdg-terminal-exec with empty user list (first-run launcher state) ---"
-timeout 10 xdg-terminal-exec --help >/dev/null 2>&1
+shipped_terms=$(pacman -Qq alacritty foot kitty ghostty 2>/dev/null | tr '\n' ' ')
+say "installed terminal packages: $shipped_terms(none listed = none)"
+# The shipped default path: with no user preference, xdg-terminal-exec must
+# resolve the system list against what the ISO actually installs.
+echo "--- xdg-terminal-exec with empty user list (shipped default resolution) ---"
 xt_out=$(timeout 10 xdg-terminal-exec true 2>&1); xt_rc=$?
 say "xdg-terminal-exec exit=$xt_rc output: $xt_out"
-[[ $xt_rc -ne 0 ]] && say "as suspected, the GUI installer's terminal launcher fails with no terminal - chicken-and-egg evidence for the first-run flow"
+if [[ $xt_rc -ne 0 ]]; then
+  bad "shipped default: xdg-terminal-exec cannot resolve any installed terminal ($shipped_terms)"
+else
+  say "shipped default resolves a terminal with no user preference"
+fi
 
 # --- 2. stock provisioning: monarch-install-terminal foot -------------------
-echo "--- monarch-install-terminal foot ---"
+# Runs AS THE USER: the script writes ~/.config and calls sudo internally for
+# pacman, so only prime the sudo credential first. Running the whole script
+# under sudo writes to /root and strips MONARCH_PATH - that was the earlier
+# failure, not a product defect.
+echo "--- monarch-install-terminal foot (as user) ---"
 echo monarch | sudo -S -v
-MONARCH_PATH=${MONARCH_PATH:-/usr/share/monarch}
-echo monarch | sudo -S "$MONARCH_PATH/bin/monarch-install-terminal" foot 2>&1 | tail -8 || \
-  echo monarch | sudo -S monarch-install-terminal foot 2>&1 | tail -8
+export MONARCH_PATH=${MONARCH_PATH:-/usr/share/monarch}
+if [[ -x $MONARCH_PATH/bin/monarch-install-terminal ]]; then
+  "$MONARCH_PATH/bin/monarch-install-terminal" foot 2>&1 | tail -8
+else
+  monarch-install-terminal foot 2>&1 | tail -8
+fi
 say "post-install: $(pacman -Qq foot 2>/dev/null || echo 'foot NOT installed')"
 say "user xdg-terminals.list: $(cat "$HOME/.config/xdg-terminals.list" 2>/dev/null | grep -v '^#' | head -3 | tr '\n' ' ')"
 ls -la "$HOME/.local/share/applications/foot.desktop" /usr/share/applications/foot.desktop 2>&1 | head -3

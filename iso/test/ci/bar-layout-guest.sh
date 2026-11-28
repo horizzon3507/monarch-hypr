@@ -58,9 +58,14 @@ sleep 8
 kill -0 "$QS_PID" 2>/dev/null || { bad "quickshell from candidate checkout died; see bar-qs.log"; tail -20 "$OUT/bar-qs.log"; exit 1; }
 say "shell restarted from candidate checkout (pid $QS_PID)"
 
-# --- ten real workspaces: one foot window each on 2..10 ----------------------
+# --- ten real workspaces -----------------------------------------------------
+# NOTE: on Hyprland 0.56 `dispatch exec "[workspace N silent] foot"` creates
+# the workspace but silently spawns nothing, while plain `dispatch exec foot`
+# works. Switching to each workspace creates it and empty workspaces persist
+# here (verified empirically in this guest), which is all the 10-slot
+# scenario needs.
 for ws in 2 3 4 5 6 7 8 9 10; do
-  hyprctl dispatch exec "[workspace $ws silent] foot" >/dev/null 2>&1
+  hyprctl dispatch workspace $ws >/dev/null 2>&1
 done
 hyprctl dispatch workspace 1 >/dev/null 2>&1
 ws_count=0
@@ -73,18 +78,20 @@ say "real workspaces present: $ws_count (need 10)"
 hyprctl workspaces -j | jq -c '[.[] | {id, windows}]' > "$OUT/bar-workspaces.json"
 [[ $ws_count -ge 10 ]] || bad "only $ws_count workspaces exist; 10-slot scenario not reached"
 
-# --- six real SNI fixtures: the tray overflows into the "+N" chip ------------
+# --- twelve real SNI fixtures: the tray overflows into the "+N" chip ----------
+# Six icons fit inline at 640px next to clock+indicators (observed: no chip);
+# twelve force real overflow.
 FIXTURE_LOG=$OUT/tray-fixture-calls.log
-python3 test/fixtures/tray_fixture.py --items 6 --log "$FIXTURE_LOG" >"$OUT/tray-fixture.log" 2>&1 &
+python3 test/fixtures/tray_fixture.py --items 12 --log "$FIXTURE_LOG" >"$OUT/tray-fixture.log" 2>&1 &
 FIX_PID=$!
 reg=0
 for _ in $(seq 1 30); do
   reg=$(grep -c ' REGISTERED ' "$FIXTURE_LOG" 2>/dev/null || true)
-  [[ $reg -ge 6 ]] && break
+  [[ $reg -ge 12 ]] && break
   sleep 1
 done
-say "SNI fixtures registered: $reg/6 (synthetic test services, not real apps)"
-[[ $reg -ge 6 ]] || bad "SNI fixtures did not register; tray overflow scenario not reached"
+say "SNI fixtures registered: $reg/12 (synthetic test services, not real apps)"
+[[ $reg -ge 12 ]] || bad "SNI fixtures did not register; tray overflow scenario not reached"
 
 # --- monitor mode switching via the 0.56 Lua API ------------------------------
 MON=$(hyprctl monitors -j | jq -r '.[0].name')
@@ -109,15 +116,23 @@ read_bg() { # IMG
   bar_bg=($rgb)
 }
 
-bar_height() { # IMG W -> first row whose mean differs from the bar background
-  local img=$1 w=$2 row0 y m h=0
-  row0=$(magick "$img" -crop "${w}x1+0+0" -depth 8 -format "%[mean]" info:)
-  for y in $(seq 8 60); do
-    m=$(magick "$img" -crop "${w}x1+0+$y" -depth 8 -format "%[mean]" info:)
-    if awk -v a="$m" -v b="$row0" 'BEGIN{exit !(sqrt((a-b)*(a-b)) > 6)}'; then h=$y; break; fi
-  done
-  [[ $h -gt 0 ]] || h=31
-  echo "$h"
+bar_height() { # IMG W -> bar bottom: first row where <50% of pixels match the bar bg
+  # A row-mean comparison misfires because slot borders and clock ink change
+  # row means well above the bar's bottom edge (observed: height detected as
+  # 8px on a ~28px bar). Instead count, per row, the fraction of pixels that
+  # match the bar background: content rows inside the bar stay >90% bg, the
+  # wallpaper below the bar is ~0% bg.
+  local img=$1 w=$2
+  magick "$img" -crop "${w}x64+0+0" -depth 8 txt:- 2>/dev/null \
+    | sed 's/[():,]/ /g' \
+    | awk -v r0="${bar_bg[0]}" -v g0="${bar_bg[1]}" -v b0="${bar_bg[2]}" -v w="$w" '
+      NR > 1 { y = $2
+               d = ($3-r0)^2 + ($4-g0)^2 + ($5-b0)^2
+               if (d <= 64) bg[y]++
+               cnt[y]++ }
+      END { for (y = 4; y < 60; y++)
+              if (cnt[y] > 0 && bg[y]/cnt[y] < 0.5) { print y; exit }
+            print 31 }'
 }
 
 ink_pixels() { # IMG CROP -> count of pixels differing from the bar background
@@ -139,9 +154,15 @@ diff_bbox() {
   magick compare -metric AE "$1" "$2" "$OUT/diff-tmp.png" 2>/dev/null || true
   magick "$OUT/diff-tmp.png" -colorspace Gray -threshold 25% -format "%@" info: 2>/dev/null
 }
-diff_ae() { # A B -> absolute count of changed pixels
-  magick compare -metric AE "$1" "$2" null: 2>&1 | tr -d ' '
+diff_ae() { # A B -> count of changed pixels (integer floor)
+  # ImageMagick prints "59.6693(2.87757e-05)" here; the parenthesized form
+  # breaks shell arithmetic. Strip it and floor.
+  local raw
+  raw=$(magick compare -metric AE "$1" "$2" null: 2>&1 | tr -d ' \n')
+  awk -v a="${raw%%(*}" 'BEGIN{printf "%d", a}'
 }
+ae_lt() { [[ $(diff_ae "$1" "$2") -lt $3 ]]; }
+ae_ge() { [[ $(diff_ae "$1" "$2") -ge $3 ]]; }
 
 # --- pointer helpers ----------------------------------------------------------
 click_at() { # X Y  (left button)
@@ -153,22 +174,28 @@ click_at() { # X Y  (left button)
 
 # --- per-width geometry checks -------------------------------------------------
 CLK_L=; CLK_R=
-check_bar() { # WIDTH
+check_bar() { # WIDTH (requested; measure against the CAPTURED size)
   local W=$1
   local img=$OUT/bar-$W.png
   grim "$img" || { bad "grim failed at $W"; return; }
+  local dim mon
+  dim=$(magick "$img" -format "%wx%h" info:)
+  local cap_w=${dim%x*} cap_h=${dim#*x}
+  mon=$(hyprctl monitors -j | jq -c '.[0] | {name, width, height, scale}' 2>/dev/null)
+  say "width $W requested; capture is ${cap_w}x${cap_h}; monitor: $mon"
+  [[ $cap_w == "$W" ]] || say "NOTE: grim captured ${cap_w}px, not requested ${W}px; all measurements use the captured width"
   read_bg "$img"
-  local H; H=$(bar_height "$img" "$W")
+  local H; H=$(bar_height "$img" "$cap_w")
   say "width $W: bar height ${H}px, bg rgb ${bar_bg[*]}"
 
-  magick "$img" -crop "280x${H}+$((W / 2 - 140))+0" -resize 400% -colorspace Gray "$OUT/bar-$W-clock.png"
+  magick "$img" -crop "280x${H}+$((cap_w / 2 - 140))+0" -resize 400% -colorspace Gray "$OUT/bar-$W-clock.png"
   local ocr
   ocr=$(tesseract "$OUT/bar-$W-clock.png" - --psm 7 2>/dev/null | tr -d '\f')
   say "width $W: clock OCR: [$ocr]"
   grep -qE '[0-9]{1,2}:[0-9]{2}' <<<"$ocr" || bad "clock not legible at ${W}px (OCR found no HH:MM)"
 
   if [[ -z $CLK_L ]]; then
-    local bounds; bounds=$(clock_bounds "$img" "$W" "$H")
+    local bounds; bounds=$(clock_bounds "$img" "$cap_w" "$H")
     if [[ -n $bounds ]]; then CLK_L=${bounds% *}; CLK_R=${bounds#* }; fi
     say "width $W: clock ink bounds x=$CLK_L..$CLK_R"
     [[ -n $CLK_L ]] || bad "could not measure clock bounds at ${W}px"
@@ -182,7 +209,7 @@ check_bar() { # WIDTH
   fi
 
   local pwr_sd
-  pwr_sd=$(magick "$img" -crop "26x${H}+$((W - 36))+0" -depth 8 -format "%[standard-deviation]" info:)
+  pwr_sd=$(magick "$img" -crop "26x${H}+$((cap_w - 36))+0" -depth 8 -format "%[standard-deviation]" info:)
   say "width $W: power-edge stddev=$pwr_sd"
   awk -v s="$pwr_sd" 'BEGIN{exit !(s > 10)}' || bad "no power glyph at the right edge at ${W}px"
 }

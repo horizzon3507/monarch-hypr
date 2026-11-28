@@ -274,8 +274,44 @@ shell_errors() {
 # panel open, the SUPER+Return startup bind must fire (a terminal window
 # appears). Without this, the bind's non-firing in-panel below would prove
 # nothing about interception.
+#
+# Two separable links are proven independently, because a chord that never
+# reaches the compositor and a bind whose command fails look identical from
+# the window list:
+#   1. chord/modifier delivery + bind dispatch: a focused wev must close on
+#      SUPER+Q (the shipped Close bind). wev logs wl_keyboard modifier
+#      events, so the logo modifier's arrival is structured evidence.
+#   2. this bind's command path: SUPER+Return must spawn a window; on
+#      failure the bind's exact command is run manually with stderr
+#      captured, separating compositor dispatch from the uwsm-app /
+#      xdg-terminal-exec path.
 if [[ $attach == 1 && $compositor == hyprland ]]; then
   echo "phase: bind witness positive control"
+
+  echo "positive-control 1/2: chord delivery (SUPER+Q closes a focused window)"
+  timeout 25 stdbuf -oL wev >"$work/wev-chord.log" 2>&1 &
+  wev_chord_pid=$!
+  for _ in $(seq 1 25); do
+    focused=$(hyprctl activewindow -j 2>/dev/null | grep -o '"class": "[^"]*"' | head -1 || true)
+    [[ $focused == *wev* ]] && break
+    sleep 0.3
+  done
+  echo "chord-check focused window: '${focused:-none}'"
+  timeout 10 wtype -M logo -k q -m logo
+  sleep 2
+  if ! kill -0 "$wev_chord_pid" 2>/dev/null; then
+    ok "a compositor chord fires with no panel open (SUPER+Q closed the focused window)"
+    echo "chord-check modifier evidence (wev wl_keyboard modifiers):"
+    grep -a 'modifiers' "$work/wev-chord.log" | tail -4 || echo "(no modifier lines logged)"
+  else
+    kill "$wev_chord_pid" 2>/dev/null || true
+    not_ok "a compositor chord fires with no panel open (SUPER+Q did not close the focused window)"
+    echo "chord-check wev log tail (did the logo modifier arrive?):"
+    grep -a 'modifiers' "$work/wev-chord.log" | tail -4 || true
+    tail -10 "$work/wev-chord.log"
+  fi
+
+  echo "positive-control 2/2: the SUPER+Return bind's command spawns a window"
   pre_addrs=$(client_addrs); pre_count=$(witness_clients)
   press_super_return
   if new_addr=$(await_new_client "$pre_count" "$pre_addrs"); then
@@ -284,6 +320,15 @@ if [[ $attach == 1 && $compositor == hyprland ]]; then
     close_client "$new_addr"
   else
     not_ok "the SUPER+Return startup bind fires before the panel opens (positive control)"
+    echo "manual probe: running the bind's exact command directly"
+    term_cwd=$(command -v monarch-cmd-terminal-cwd || echo /usr/share/monarch/bin/monarch-cmd-terminal-cwd)
+    uwsm=$(command -v uwsm-app || echo /usr/bin/uwsm-app)
+    ("$uwsm" -- xdg-terminal-exec --dir="$("$term_cwd")") >"$work/manual-bind-cmd.log" 2>&1 &
+    sleep 5
+    echo "clients after manual bind command: $(hyprctl clients -j 2>/dev/null | jq -c '[.[] | {class}]' || true)"
+    echo "manual command stderr/stdout tail:"
+    tail -10 "$work/manual-bind-cmd.log"
+    for a in $(comm -13 <(echo "$pre_addrs") <(client_addrs)); do close_client "$a"; done
   fi
 fi
 

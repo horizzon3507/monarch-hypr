@@ -118,7 +118,10 @@ sudo -n true 2>/dev/null || echo monarch | sudo -S true
 # this says nothing about the delivered ISO; on a real install the user's
 # chosen terminal answers the bind. foot is shm-based (no GL, unlike the
 # shipped default preference Alacritty, which never spawned on llvmpipe).
-echo monarch | sudo -S pacman -Sy --needed --noconfirm git wtype wev grim qt6-wayland jq foot xdg-terminal-exec 2>&1 | tail -3
+# adwaita-icon-theme: the tray fixture's IconName (dialog-information) must
+# resolve to a real icon; without a theme the shell shows its missing-icon
+# fallback squares, which read as a rendering bug in the bar screenshots.
+echo monarch | sudo -S pacman -Sy --needed --noconfirm git wtype wev grim qt6-wayland jq foot xdg-terminal-exec adwaita-icon-theme 2>&1 | tail -3
 mkdir -p "$HOME/.config"
 printf 'foot.desktop\n' > "$HOME/.config/xdg-terminals.list"
 rm -rf "$HOME/checkout"
