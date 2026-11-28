@@ -166,6 +166,11 @@ if [[ -f iso/test/ci/bar-layout-guest.sh ]]; then
 else
   echo "bar-layout phase not present in this checkout; skipped"
 fi
+echo "--- stock terminal phase ---"
+if [[ -f iso/test/ci/stock-terminal-guest.sh ]]; then
+  bash iso/test/ci/stock-terminal-guest.sh "$HOME/keynav-out" 2>&1 | tail -30
+  echo "stock-terminal exit: ${PIPESTATUS[0]}"
+fi
 GUEST
 keynav_rc=${PIPESTATUS[0]}
 collect
@@ -188,6 +193,14 @@ if grep -q 'bar-layout exit:' "$R"; then
   else
     note "RESULT: bar layout RED or indeterminate - see report"
     gate_rc=1
+  fi
+fi
+# Stock terminal provisioning: reported separately, does not gate.
+if grep -q 'stock-terminal exit:' "$R"; then
+  if grep -q 'stock-terminal exit: 0' "$R"; then
+    note "RESULT: stock terminal provisioning GREEN (delivered-ISO path)"
+  else
+    note "RESULT: stock terminal provisioning RED (informational, not gating) - see stock-terminal.log"
   fi
 fi
 exit $gate_rc
