@@ -112,7 +112,15 @@ set -x
 sha=$1
 export PATH="$PATH"
 sudo -n true 2>/dev/null || echo monarch | sudo -S true
-echo monarch | sudo -S pacman -Sy --needed --noconfirm git wtype wev grim qt6-wayland jq 2>&1 | tail -3
+# TEST FIXTURE: foot + xdg-terminal-exec exist here only to give the keynav
+# smoke's SUPER+Return bind witness something to spawn. The ISO deliberately
+# ships NO terminal (monarch-install-terminal is the post-install flow), so
+# this says nothing about the delivered ISO; on a real install the user's
+# chosen terminal answers the bind. foot is shm-based (no GL, unlike the
+# shipped default preference Alacritty, which never spawned on llvmpipe).
+echo monarch | sudo -S pacman -Sy --needed --noconfirm git wtype wev grim qt6-wayland jq foot xdg-terminal-exec 2>&1 | tail -3
+mkdir -p "$HOME/.config"
+printf 'foot.desktop\n' > "$HOME/.config/xdg-terminals.list"
 rm -rf "$HOME/checkout"
 git clone --quiet https://github.com/horizzon3507/monarch-hypr.git "$HOME/checkout"
 cd "$HOME/checkout"
