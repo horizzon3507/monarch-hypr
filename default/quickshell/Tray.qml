@@ -18,7 +18,6 @@ RowLayout {
 
     property bool overflowOpen: false
     onOverflowOpenChanged: {
-        console.log("TRAYPOPDIAG overflowOpen=" + root.overflowOpen);
         if (!root.overflowOpen) overflowGrab.active = false;
     }
 
@@ -78,10 +77,10 @@ RowLayout {
     // also change with the width, which reshuffles the popup's contents.
     Connections {
         target: root.Window.window
-        function onWidthChanged() { console.log("TRAYPOPDIAG bar-window width changed -> " + root.Window.window.width); root.overflowOpen = false }
-        function onHeightChanged() { console.log("TRAYPOPDIAG bar-window height changed -> " + root.Window.window.height); root.overflowOpen = false }
+        function onWidthChanged() { root.overflowOpen = false }
+        function onHeightChanged() { root.overflowOpen = false }
     }
-    onMaxVisibleChanged: { console.log("TRAYPOPDIAG maxVisible changed -> " + root.maxVisible); root.overflowOpen = false }
+    onMaxVisibleChanged: root.overflowOpen = false
 
     Text {
         id: overflowChip
@@ -91,22 +90,10 @@ RowLayout {
         font.pixelSize: Math.max(10, root.iconSize - 3)
         opacity: root.overflowOpen ? 1.0 : 0.7
 
-        // TEMPORARY VM DIAGNOSTIC (combined-validation branch only, do not
-        // merge to product branches): report the chip's compositor-space
-        // geometry so the harness can compare it with the clicked cursorpos.
-        onVisibleChanged: if (visible) console.log("TRAYPOPDIAG chip-geom global=" + mapToGlobal(0, 0).x + "," + mapToGlobal(0, 0).y + " size=" + width + "x" + height);
-
         MouseArea {
             anchors.fill: parent
             anchors.margins: -4
-            // TEMPORARY VM DIAGNOSTIC: press fires before click; if presses
-            // never log while workspace-indicator clicks work, the click
-            // never reaches the chip (input region / hit-test), not the handler.
-            onPressed: console.log("TRAYPOPDIAG chip-pressed local=" + mouse.x + "," + mouse.y);
-            onClicked: {
-                console.log("TRAYPOPDIAG chip-click hidden=" + root.hiddenCount + " open->" + (!root.overflowOpen));
-                root.overflowOpen = !root.overflowOpen;
-            }
+            onClicked: root.overflowOpen = !root.overflowOpen
         }
     }
 
@@ -133,11 +120,7 @@ RowLayout {
         // never appears. HyprlandFocusGrab below is the supported way to get
         // the same outside-click dismissal on Hyprland.
         grabFocus: false
-        onVisibleChanged: console.log("TRAYPOPDIAG popup visible=" + visible)
-        onClosed: {
-            console.log("TRAYPOPDIAG popup closed");
-            root.overflowOpen = false;
-        }
+        onClosed: root.overflowOpen = false
 
         Rectangle {
             anchors.fill: parent
@@ -180,11 +163,7 @@ RowLayout {
         id: overflowGrab
         windows: [overflowPopup]
         active: false
-        onActiveChanged: console.log("TRAYPOPDIAG grab active=" + active)
-        onCleared: {
-            console.log("TRAYPOPDIAG grab cleared");
-            root.overflowOpen = false;
-        }
+        onCleared: root.overflowOpen = false
     }
 
     Connections {
@@ -199,7 +178,6 @@ RowLayout {
         interval: 50
         onTriggered: {
             overflowGrab.active = root.overflowOpen && overflowPopup.visible;
-            console.log("TRAYPOPDIAG grab activate attempt, active=" + overflowGrab.active);
         }
     }
 }
