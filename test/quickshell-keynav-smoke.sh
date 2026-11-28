@@ -152,8 +152,11 @@ if command -v wev >/dev/null; then
   stdbuf -oL wev -f wl_keyboard >"$work/wev.log" 2>&1 &
   wev_pid=$!
   sleep 2
-  wtype -k a
-  sleep 0.8
+  # Type through the persistent FIFO keyboard - the same device whose keys
+  # provably reached the panel above - so a transient second virtual
+  # keyboard is not a variable in this check.
+  printf 'a\n' >&9
+  sleep 1.2
   kill -INT "$wev_pid" 2>/dev/null
   wait "$wev_pid" 2>/dev/null
   if grep -q "sym: a" "$work/wev.log"; then
