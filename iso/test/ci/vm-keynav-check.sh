@@ -18,6 +18,10 @@ set -uo pipefail
 
 [[ -f ${1:-} ]] || { echo "error: ISO not found: '${1:-}'" >&2; exit 2; }
 ISO=$(realpath "$1") CANDIDATE_SHA=$2 OUT=$3
+# Optional 4th arg: source commit the ISO was built from (prefix ok). When set,
+# the guest must prove the SHIPPED package matches it and matches the candidate
+# shell before the checkout overlay is trusted.
+EXPECT_SHIPPED=${4:-}
 HERE=$(cd -- "${BASH_SOURCE%/*}" && pwd)
 mkdir -p "$OUT"
 OUT=$(realpath "$OUT")
@@ -107,9 +111,10 @@ done
 ssh_guest 'ls -l /run/user/1000/wayland-* 2>/dev/null; ls -l /dev/dri 2>/dev/null; loginctl list-sessions 2>/dev/null' | tee -a "$R"
 
 # Everything below runs in the guest; stream its output into the report.
-ssh_guest 'bash -s' -- "$CANDIDATE_SHA" <<'GUEST' | tee -a "$R"
+ssh_guest 'bash -s' -- "$CANDIDATE_SHA" "$EXPECT_SHIPPED" <<'GUEST' | tee -a "$R"
 set -x
 sha=$1
+expect_shipped=${2:-}
 export PATH="$PATH"
 sudo -n true 2>/dev/null || echo monarch | sudo -S true
 # TEST FIXTURE: foot + xdg-terminal-exec exist here only to give the keynav
@@ -142,6 +147,26 @@ cd "$HOME/checkout"
 git fetch --quiet --depth 1 origin "$sha" || git fetch --quiet origin feat/panel-keynav
 git checkout --quiet "$sha" || { echo "CANDIDATE CHECKOUT FAILED for $sha"; exit 1; }
 echo "tested candidate SHA: $(git rev-parse HEAD)"
+echo "--- shipped package verification (before any overlay is trusted) ---"
+# The installed ISO ships the shell under /usr/share/monarch/default. The
+# tests below run the CANDIDATE CHECKOUT (MONARCH_PATH), so without this check
+# a stale ISO would silently be tested with new code.
+ship_rev=$(cat /usr/share/monarch/revision 2>/dev/null || echo MISSING)
+echo "shipped package revision: $ship_rev"
+echo "shipped package version: $(cat /usr/share/monarch/version 2>/dev/null || echo MISSING)"
+echo "shipped quickshell dir: $(ls /usr/share/monarch/default/quickshell 2>/dev/null | wc -l) entries"
+ship_diff=$(diff -r /usr/share/monarch/default/quickshell "$HOME/checkout/default/quickshell" 2>&1)
+if [[ -z $ship_diff ]]; then
+  echo "SHIPPED-QUICKSHELL: IDENTICAL to candidate checkout default/quickshell"
+else
+  echo "SHIPPED-QUICKSHELL: DIFFERS from candidate checkout (overlay substitutes code):"
+  echo "$ship_diff" | head -15
+fi
+if [[ -n $expect_shipped ]]; then
+  if [[ $ship_rev == "$expect_shipped"* ]]; then echo "SHIPPED-REVISION: MATCHES expected ISO source $expect_shipped"
+  else echo "SHIPPED-REVISION: MISMATCH (expected $expect_shipped, ISO has $ship_rev)"; fi
+fi
+echo "--- end shipped package verification ---"
 echo "guest render nodes:"; ls -l /dev/dri
 mkdir -p "$HOME/keynav-out"
 # Attach to the running Hyprland session; the smoke restarts the shell from
@@ -290,5 +315,16 @@ elif grep -q 'base shell comparison INVALID' "$R"; then
   gate_rc=1
 elif grep -q 'INHERITED BASELINE' "$R"; then
   note "RESULT: open-panel bind behavior matches the pre-PR122 base shell (inherited baseline, non-regression)"
+fi
+# Shipped-package gate: only when the workflow names the ISO source commit.
+if [[ -n $EXPECT_SHIPPED ]]; then
+  if grep -q 'SHIPPED-REVISION: MATCHES' "$R" && grep -q 'SHIPPED-QUICKSHELL: IDENTICAL' "$R"; then
+    note "RESULT: shipped ISO package revision matches $EXPECT_SHIPPED and its quickshell shell is identical to the candidate under test"
+  else
+    note "RESULT: shipped ISO package does NOT match expected source/candidate - the overlay would test code the ISO does not ship; see report"
+    gate_rc=1
+  fi
+else
+  grep -q 'SHIPPED-QUICKSHELL: IDENTICAL' "$R" || note "NOTE: shipped quickshell differs from the candidate checkout (no expected ISO source supplied, not gated)"
 fi
 exit $gate_rc

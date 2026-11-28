@@ -30,10 +30,10 @@ jobs:
     timeout-minutes: 120
     env:
       # ISO run that produced the environment artifact. The artifact expires
-      # 2026-12-04T23:51Z; the preflight below fails with rebuild
+      # 2026-12-05T10:14Z; the preflight below fails with rebuild
       # instructions instead of letting the job break silently.
-      ISO_RUN_ID: 46083322004
-      ISO_SOURCE_SHA: 99e0f22
+      ISO_RUN_ID: 46133168545
+      ISO_SOURCE_SHA: 52e86ab
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
@@ -75,7 +75,8 @@ jobs:
           bash iso/test/ci/vm-keynav-check.sh \
             "$(ls iso/monarch-*.iso | head -1)" \
             "$CANDIDATE_SHA" \
-            iso/out
+            iso/out \
+            "$ISO_SOURCE_SHA"
 
       - name: Upload validation output
         if: always()
