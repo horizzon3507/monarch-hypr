@@ -36,7 +36,7 @@ jobs:
     steps:
       - name: Install Quickshell and a headless compositor
         run: |
-          pacman -Syu --noconfirm --needed quickshell sway qt6-wayland grim wtype git sudo ttf-jetbrains-mono-nerd fontconfig
+          pacman -Syu --noconfirm --needed quickshell sway qt6-wayland grim wtype wev git sudo ttf-jetbrains-mono-nerd fontconfig
           useradd -m tester
           quickshell --version
 

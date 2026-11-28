@@ -142,6 +142,31 @@ wtype -k Return
 sleep 0.5
 grep -q '^systemctl suspend$' "$work/calls" && ok "the second Return dispatches suspend" || not_ok "the second Return dispatches suspend"
 
+# Focus hand-back: close the panel, then a benign normal client (wev) must
+# actually receive the next key. Failing to trigger the panel alone is not
+# enough - the panel could silently swallow keys while closed.
+ipc panel close || true
+sleep 0.8
+if command -v wev >/dev/null; then
+  lines_before=$(wc -l <"$work/calls")
+  wev -f wl_keyboard >"$work/wev.log" 2>&1 &
+  wev_pid=$!
+  sleep 2
+  wtype -k a
+  sleep 0.8
+  kill "$wev_pid" 2>/dev/null
+  wait "$wev_pid" 2>/dev/null
+  if grep -q "sym: a" "$work/wev.log"; then
+    ok "a normal client receives keys after the panel closes"
+  else
+    head -30 "$work/wev.log" || true
+    not_ok "a normal client receives keys after the panel closes"
+  fi
+  [[ $(wc -l <"$work/calls") -eq $lines_before ]] && ok "the key reached no panel action" || not_ok "the key reached no panel action"
+else
+  not_ok "wev available for the focus hand-back check"
+fi
+
 kill "$qs_pid" 2>/dev/null; wait "$qs_pid" 2>/dev/null; qs_pid=""
 [[ -z $(shell_errors) ]] && ok "no QML errors in the loaded shell" || { not_ok "no QML errors in the loaded shell"; shell_errors | sed 's/^/    /'; }
 
