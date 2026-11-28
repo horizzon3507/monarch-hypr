@@ -149,16 +149,19 @@ ipc panel close || true
 sleep 0.8
 if command -v wev >/dev/null; then
   lines_before=$(wc -l <"$work/calls")
-  stdbuf -oL wev -f wl_keyboard >"$work/wev.log" 2>&1 &
+  stdbuf -oL wev >"$work/wev.log" 2>&1 &
   wev_pid=$!
   sleep 2
-  # Type through the persistent FIFO keyboard - the same device whose keys
-  # provably reached the panel above - so a transient second virtual
-  # keyboard is not a variable in this check.
-  printf 'a\n' >&9
-  sleep 1.2
+  echo "--- sway seats before probe ---"
+  swaymsg -s "$swaysock" -t get_seats 2>&1 | grep -E 'focus|capabilities' || true
+  swaymsg -s "$swaysock" -t get_tree 2>&1 | grep -E '"focused"|"name"' | head -10 || true
+  echo "--- probe: transient wtype -k a ---"
+  wtype -k a; echo "wtype exit: $?"
+  sleep 1
   kill -INT "$wev_pid" 2>/dev/null
   wait "$wev_pid" 2>/dev/null
+  echo "--- full wev log ---"
+  cat "$work/wev.log" || true
   if grep -q "sym: a" "$work/wev.log"; then
     ok "a normal client receives keys after the panel closes"
   else
