@@ -80,6 +80,15 @@ if [[ $compositor == sway ]]; then
   WLR_BACKENDS=headless WLR_LIBINPUT_NO_DEVICES=1 WLR_RENDERER=pixman \
     "$work/sway-bin" -c "$work/comp.conf" >"$work/comp.log" 2>&1 &
 else
+  # Hyprland needs a DRM render node: aquamarine's headless backend has no
+  # drmFD, so without /dev/dri/renderD* the GBM allocator cannot be created
+  # and Hyprland aborts at startup ("CBackend::create() failed"). Skip with
+  # a clear message instead of a doomed launch.
+  if ! ls /dev/dri/renderD* >/dev/null 2>&1; then
+    echo "keynav-smoke: hyprland skipped - no DRM render node in this environment"
+    echo "keynav-smoke (hyprland): skipped (no GPU; aquamarine headless backend has no allocator)"
+    exit 0
+  fi
   {
     echo 'monitor = HEADLESS-1, 1920x1080@60, 0x0, 1'
     printf 'bind = , b, exec, echo binding-fired-b >> "%s/bindings"\n' "$work"
@@ -151,6 +160,24 @@ for _ in $(seq 1 $((load_timeout * 5))); do
 done
 grep -q 'Configuration Loaded' "$work/qs.log" && ok "shell loads with the keyboard navigation code" || not_ok "shell loads with the keyboard navigation code"
 
+# Mid probe, informational: shell running but no panel ever opened. Together
+# with the no-shell baseline and the post-close check this pinpoints whether
+# the shell's mere presence or the panel open/close cycle affects toplevel
+# key delivery.
+timeout 20 stdbuf -oL wev >"$work/wev-mid.log" 2>&1 &
+wev_mid_pid=$!
+sleep 2
+timeout 10 wtype -k c
+sleep 1
+kill -INT "$wev_mid_pid" 2>/dev/null
+wait "$wev_mid_pid" 2>/dev/null
+if grep -q "sym: c" "$work/wev-mid.log"; then
+  echo "mid: toplevel key delivery works with the shell running (no panel opened)"
+else
+  echo "mid: NO toplevel key delivery with the shell running (no panel opened):"
+  cat "$work/wev-mid.log" || true
+fi
+
 shot() { [[ -z $screenshots ]] || { sleep 1; grim "$screenshots/$1.png" 2>>"$work/qs.log" || true; }; }
 
 shell_errors() {
@@ -196,16 +223,18 @@ sleep 0.3
 timeout 10 wtype -k Return
 sleep 0.5
 [[ $(ipc session armed) == "suspend" ]] && ok "Return arms the confirm row" || not_ok "Return arms the confirm row"
-timeout 10 wtype -k Return
-sleep 0.5
-grep -q '^systemctl suspend$' "$work/calls" && ok "the second Return dispatches suspend" || not_ok "the second Return dispatches suspend"
 
 # Positive control: while the open panel holds the exclusive keyboard grab,
 # the compositor's own 'b' binding must NOT fire - the grab intercepts it.
+# Must run BEFORE the dispatch below, because the panel closes on dispatch.
 touch "$work/bindings"
 timeout 10 wtype -k b
 sleep 0.6
 [[ ! -s $work/bindings ]] && ok "the open panel's grab intercepts compositor bindings" || not_ok "the open panel's grab intercepts compositor bindings"
+
+timeout 10 wtype -k Return
+sleep 0.5
+grep -q '^systemctl suspend$' "$work/calls" && ok "the second Return dispatches suspend" || not_ok "the second Return dispatches suspend"
 
 # Focus hand-back: close the panel, then keys must flow through normal
 # routing again. Three witnesses, strongest first: the compositor's 'b'
@@ -218,9 +247,16 @@ lines_before=$(wc -l <"$work/calls")
 timeout 20 stdbuf -oL wev >"$work/wev.log" 2>&1 &
 wev_pid=$!
 sleep 2
+if [[ $compositor == sway ]] && command -v swaymsg >/dev/null; then
+  swaysock=$(find "$XDG_RUNTIME_DIR" -maxdepth 1 -name 'sway-ipc.*.sock' | head -n 1)
+  echo "seat focus post-close: $(swaymsg -s "$swaysock" -t get_seats 2>&1 | grep -E '"focus"' || true)"
+  swaymsg -s "$swaysock" -t get_tree 2>&1 | grep -B2 -A2 '"focused": true' | head -12 || true
+fi
 timeout 10 wtype -k b
 sleep 0.8
 grep -q binding-fired-b "$work/bindings" && ok "compositor bindings fire again after the panel closes" || not_ok "compositor bindings fire again after the panel closes"
+timeout 10 wtype -k Down
+sleep 0.6
 timeout 10 wtype -k a
 sleep 1
 kill -INT "$wev_pid" 2>/dev/null
