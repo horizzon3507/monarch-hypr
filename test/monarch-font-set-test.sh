@@ -70,7 +70,7 @@ run_font() {
 }
 
 assert_unchanged() {
-  diff -r "$FONT_TEST_CASE/before" "$HOME/.config" || fail "rejected family changed configuration"
+  diff -r --no-dereference "$FONT_TEST_CASE/before" "$HOME/.config" || fail "rejected family changed configuration"
   [[ ! -e $FONT_TEST_CASE/hook && ! -e $FONT_TEST_CASE/signals ]] || fail "rejected family reloaded an app or called the hook"
 }
 

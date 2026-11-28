@@ -1,5 +1,6 @@
-# Dynamic theme colors (Noctalia)
-theme = noctalia
+# Rendered by monarch-theme-render from the active Monarch palette;
+# themes/monarch-current links to the rendered file.
+theme = monarch-current
 
 # Font
 font-family = "JetBrainsMono Nerd Font"

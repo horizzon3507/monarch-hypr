@@ -1,8 +1,10 @@
 # monarch-text-size.toml carries the font size, and this file deliberately
 # sets none: alacritty loads imports first and lets the importing file win,
 # so a size here could not be overridden. A missing import is skipped.
+# The first import is rendered by monarch-theme-render from the active
+# Monarch palette.
 general.import = [
-  "~/.config/alacritty/themes/noctalia.toml",
+  "~/.config/monarch/current/theme/alacritty.toml",
   "~/.config/alacritty/monarch-text-size.toml",
 ]
 
