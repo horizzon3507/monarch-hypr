@@ -39,6 +39,8 @@ done
 # First run no longer enables Noctalia plugins.
 ! grep -q 'enable-noctalia-plugins' "$ROOT/bin/monarch-provision-first-run" || fail "first run still enables Noctalia plugins"
 # Reconcile no longer waits for, restarts or enables anything from Noctalia (static check).
+# Migrating legacy Noctalia theme REFERENCES out of user configs is allowed and
+# expected; only Noctalia service/plugin management is banned here.
 U="$ROOT/install/reconcile/user.sh"
-! grep -qi noctalia "$U" || fail "reconcile user step has no Noctalia handling"
+! grep -qiE '(restart|enable|wait)[^\n]*noctalia|noctalia[^\n]*(restart|enable|wait)|qs -c noctalia' "$U" || fail "reconcile user step waits for, restarts or enables Noctalia"
 pass "launch and crash-history routes use the shell and never call Noctalia"

@@ -26,7 +26,7 @@ new_home() {
 
 run_migration() { HOME=$BASE bash -c 'source "$1"; terminal_themes_migrate' _ "$SCRIPT" 2>/dev/null; }
 
-legacy_config() { git -C "$REPO" show "99e0f22:config/$1"; }
+legacy_config() { cat "$REPO/test/fixtures/terminal-themes-legacy/$1"; }
 
 backups() { find "$BASE/.config" -name '*.monarch-backup.*' | wc -l; }
 
