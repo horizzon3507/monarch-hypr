@@ -43,8 +43,13 @@ pass "monarch-panel builds the IPC call and rejects bad input"
 # focus while open, Escape, and a visible close button. Static checks only; the
 # runtime behavior is validated on a live compositor.
 HOST="$QS/PanelHost.qml"
-grep -q 'WlrKeyboardFocus.Exclusive' "$HOST" || fail "an open panel takes exclusive keyboard focus"
-grep -q 'WlrKeyboardFocus.None' "$HOST" || fail "a closed panel releases keyboard focus"
+# Exclusive is requested unconditionally: asking for it only when a panel
+# opens can leave an already-mapped surface without keyboard interactivity,
+# and then no key reaches the panel. A closed panel releases focus because
+# the window is invisible and its surface unmapped, not because the request
+# is withdrawn.
+grep -q 'WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive' "$HOST" || fail "an open panel takes exclusive keyboard focus"
+grep -q 'visible: root.current !== ""' "$HOST" || fail "a closed panel unmaps its window and releases keyboard focus"
 ! grep -q 'WlrKeyboardFocus.OnDemand' "$HOST" || fail "focus does not wait for a click"
 grep -q 'Keys.onEscapePressed: root.current = ""' "$HOST" || fail "Escape closes the panel"
 grep -q 'objectName: "closeButton"' "$HOST" || fail "the host draws a close button"
