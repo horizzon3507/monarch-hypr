@@ -21,20 +21,18 @@
 #   5. Clicking a popup row delivers Activate to the fixture (handler path).
 #   6. Escape closes the popup; reopen + outside-click closes it; reopen +
 #      output mode change closes it (no stale popup after resize).
-#   7. Deliberate budget churn (patched contract): with the popup open,
-#      forcing do-not-disturb on grows the indicator budget and shifts the
-#      chip; the popup must STAY OPEN, re-anchored to the moved chip, with
-#      contents intact, the grab retained and working dismissals. Both
-#      churn directions are exercised. A resolution change must still close.
-#      (Pre-change contract asserted a close via the maxVisible guard; the
-#      re-anchor patch replaces that behavior.)
+#   7. Deliberate budget churn: with the popup open, forcing do-not-disturb
+#      on grows the indicator budget, shrinks maxVisible and must close the
+#      popup by design (the maxVisible guard). This is the controlled twin
+#      of the churn the screencast-dnd service otherwise injects whenever
+#      the harness itself screenshots (grim = screencast = dnd flips).
 #
 # Capture hygiene: monarch-screencast-dnd.service silences notifications
 # while any screencast runs, so EVERY grim this script takes flips the dnd
 # chip on for a poll cycle and the maxVisible guard force-closes the popup
 # mid-suite (observed: dnd false->true->false, maxVisible 7->6->7). The
 # service is stopped for the suite duration and restarted after the resize
-# check; the deliberate churn check above keeps the churn path covered.
+# check; the deliberate churn check above keeps the guard path covered.
 #
 # Environment (set by the caller, same as the keynav smoke): WAYLAND_DISPLAY,
 # HYPRLAND_INSTANCE_SIGNATURE, XDG_RUNTIME_DIR. CWD must be the candidate
@@ -586,100 +584,26 @@ popup_suite() { # BAR_H  (mode already 640x480)
   say "popup after outside click: below-bar ae vs closed = $ae_out"
   [[ ${ae_out:-99999} -lt 300 ]] || bad "outside click did not close the tray popup"
 
-  # 4b. Deliberate budget churn, PATCHED contract: forcing do-not-disturb
-  # ON grows the indicator budget by one chip; the tray row and the chip
-  # shift left, and the re-anchor patch must keep the popup OPEN, re-anchor
-  # it to the moved chip, keep its contents, retain the grab, and keep every
-  # dismissal path working. dnd OFF afterwards is the reverse-direction
-  # churn: also tolerated. Output resize must still close (checked below).
+  # 4b. Deliberate budget churn: forcing do-not-disturb ON grows the
+  # indicator budget by one chip, maxVisible shrinks (7->6 observed) and
+  # the maxVisible guard must close the popup. This is the controlled twin
+  # of the capture-induced churn the screencast-dnd service injected in
+  # earlier runs; the guard path stays covered while the suite above runs
+  # in a settled capture state.
   ensure_popup_open || bad "popup would not reopen for the deliberate dnd-churn check"
-  grim "$OUT/.pre-churn.png"
-  local pre_bbox pre_re pw0 ph0 px0 py0
-  pre_bbox=$(below_bbox "$OUT/.pre-churn.png")
-  IFS='x+' read -r pw0 ph0 px0 py0 <<<"$pre_bbox"
-  pre_re=$((px0 + pw0))
   makoctl mode -a do-not-disturb >/dev/null 2>&1 || bad "could not force do-not-disturb on for the churn check"
-  local churn_shifted=0 post_re=0 j pb2 pw2=0 ph2=0 px2=0 py2=0
-  for j in $(seq 1 12); do
+  local churn_closed=0
+  for i in $(seq 1 10); do
     sleep 1
     grim "$OUT/.state.png"
-    if ! popup_is_open "$OUT/.state.png"; then
-      bad "patched contract VIOLATED: budget churn closed the popup (${j}s after dnd on)"
-      break
-    fi
-    pb2=$(below_bbox "$OUT/.state.png")
-    IFS='x+' read -r pw2 ph2 px2 py2 <<<"$pb2"
-    post_re=$((px2 + pw2))
-    if (( pre_re - post_re >= 10 )); then churn_shifted=1; break; fi
+    if ! popup_is_open "$OUT/.state.png"; then churn_closed=1; break; fi
   done
-  say "deliberate dnd churn (patched): popup re-anchored within ${j}s = $churn_shifted (right edge $pre_re -> $post_re)"
-  [[ $churn_shifted == 1 ]] || bad "popup did not re-anchor to the moved chip within 12s of dnd on (right edge $pre_re -> $post_re, expected a 10-100px left shift)"
-  (( pre_re - post_re <= 100 )) || bad "popup re-anchor overshot: right edge $pre_re -> $post_re (>100px shift)"
-  (( py2 >= 0 && py2 <= 10 )) || bad "re-anchored popup top edge at $py2 below the bar, expected 0-10"
-  # The reanchor must have actually run, in order (dnd line -> maxVisible
-  # witness -> reanchor fire), without dropping the grab or the popup, and
-  # without a QML TypeError (anchor.updateAnchor missing on Quickshell).
-  local qs_tail
-  qs_tail=$(sed 's/\x1b\[[0-9;]*m//g' "$OUT/bar-qs.log" | awk '/TRAYPOPDIAG chipstate dnd: false -> true/{found=1} found')
-  say "churn log slice: $(grep TRAYPOPDIAG <<<"$qs_tail" | head -10 | tr '\n' ' | ')"
-  grep -q 'TRAYPOPDIAG reanchor fired' <<<"$qs_tail" || bad "no reanchor fired after dnd on (updateAnchor missing or geometry hooks never ran)"
-  ! grep -q 'TypeError\|is not a function' <<<"$qs_tail" || bad "QML TypeError after dnd on - anchor.updateAnchor API problem"
-  ! grep -q 'TRAYPOPDIAG overflowOpen=false' <<<"$qs_tail" || bad "overflowOpen went false after dnd on - patched build still closes on churn"
-  ! grep -q 'TRAYPOPDIAG grab active=false' <<<"$qs_tail" || bad "focus grab dropped after dnd on - grab not retained through churn"
-  # Contents conservation through the churn: same rows, same count.
-  local churn_xs n_churn
-  churn_xs=$(magick "$OUT/.state.png" -crop "${pw2}x${ph2}+${px2}+$((H + py2))" +repage -depth 8 txt:- 2>/dev/null \
-    | sed 's/[():,]/ /g' \
-    | awk -v x0="$px2" -v w="$pw2" 'NR > 1 && $3 > 150 && $5 > 150 && $4 < 120 { m[$1] = 1 }
-        END { start = -1; last = -99
-              for (x = 0; x < w; x++)
-                if (m[x]) { if (x - last > 4 && start >= 0) { printf "%d ", x0 + int((start + last) / 2); start = -1 }
-                            if (start < 0) start = x; last = x }
-              if (start >= 0) printf "%d ", x0 + int((start + last) / 2) }')
-  n_churn=$(wc -w <<<"$churn_xs")
-  say "post-churn popup rows: [$churn_xs] count=$n_churn expected=$chip_n"
-  [[ $n_churn -eq $chip_n ]] || bad "post-churn popup contents changed: $n_churn rows, expected $chip_n"
-  # Reverse-direction churn: dnd OFF shrinks the budget back; the popup
-  # must tolerate that too and stay open.
+  say "deliberate dnd churn: popup closed within ${i}s of dnd on = $churn_closed (maxVisible guard)"
+  say "TRAYPOPDIAG after dnd churn: $(grep TRAYPOPDIAG "$OUT/bar-qs.log" 2>/dev/null | tail -6 | tr '\n' ' | ')"
+  [[ $churn_closed == 1 ]] || bad "deliberate dnd budget churn did NOT close the popup - maxVisible guard not firing"
   makoctl mode -r do-not-disturb >/dev/null 2>&1 || true
-  sleep 7
-  grim "$OUT/.state.png"
-  popup_is_open "$OUT/.state.png" || bad "reverse churn (dnd off) closed the popup - re-anchor must tolerate both directions"
-  say "reverse churn (dnd off): popup still open, re-anchored back"
+  sleep 7  # let the next poll drop the chip and restore the budget before reopening
   say "dnd state after churn cleanup: $(monarch-toggle-notification-silencing status 2>/dev/null || echo unreadable)"
-  # Dismissals AFTER re-anchors: a row click still activates (and closes
-  # via onActivated), then reopen + Escape closes, reopen + outside click
-  # closes.
-  local act_before act_after
-  act_before=$(grep -c ' ACTIVATE ' "$FIXTURE_LOG" 2>/dev/null || echo 0)
-  grim "$OUT/.state.png"
-  local back_bbox bw2 bh2 bx2 by2 back_xs
-  back_bbox=$(below_bbox "$OUT/.state.png")
-  IFS='x+' read -r bw2 bh2 bx2 by2 <<<"$back_bbox"
-  back_xs=$(magick "$OUT/.state.png" -crop "${bw2}x${bh2}+${bx2}+$((H + by2))" +repage -depth 8 txt:- 2>/dev/null \
-    | sed 's/[():,]/ /g' \
-    | awk -v x0="$bx2" -v w="$bw2" 'NR > 1 && $3 > 150 && $5 > 150 && $4 < 120 { m[$1] = 1 }
-        END { start = -1; last = -99
-              for (x = 0; x < w; x++)
-                if (m[x]) { if (x - last > 4 && start >= 0) { printf "%d ", x0 + int((start + last) / 2); start = -1 }
-                            if (start < 0) start = x; last = x }
-              if (start >= 0) printf "%d ", x0 + int((start + last) / 2) }')
-  set -- $back_xs
-  [[ $# -ge 1 ]] || bad "no popup rows detected after reverse churn"
-  click_at "$1" "$icon_y"; sleep 1
-  act_after=$(grep -c ' ACTIVATE ' "$FIXTURE_LOG" 2>/dev/null || echo 0)
-  say "post-churn row action: ACTIVATE count $act_before -> $act_after (onActivated closes the popup)"
-  [[ $act_after -gt $act_before ]] || bad "post-churn row click delivered no Activate - popup rows dead after re-anchor"
-  ensure_popup_open || bad "popup would not reopen for post-churn Escape"
-  timeout 10 wtype -k Escape
-  sleep 1
-  grim "$OUT/.state.png"
-  popup_is_open "$OUT/.state.png" && bad "post-churn Escape did not close the popup" || say "post-churn Escape closed the popup"
-  ensure_popup_open || bad "popup would not reopen for post-churn outside click"
-  click_at 320 300
-  sleep 1
-  grim "$OUT/.state.png"
-  popup_is_open "$OUT/.state.png" && bad "post-churn outside click did not close the popup" || say "post-churn outside click closed the popup"
 
   # 5. Reopen once more; the caller switches the output mode next and the
   #    popup must not survive it.
