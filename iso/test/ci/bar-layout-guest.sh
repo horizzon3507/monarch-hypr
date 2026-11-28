@@ -21,6 +21,18 @@
 #   5. Clicking a popup row delivers Activate to the fixture (handler path).
 #   6. Escape closes the popup; reopen + outside-click closes it; reopen +
 #      output mode change closes it (no stale popup after resize).
+#   7. Deliberate budget churn: with the popup open, forcing do-not-disturb
+#      on grows the indicator budget, shrinks maxVisible and must close the
+#      popup by design (the maxVisible guard). This is the controlled twin
+#      of the churn the screencast-dnd service otherwise injects whenever
+#      the harness itself screenshots (grim = screencast = dnd flips).
+#
+# Capture hygiene: monarch-screencast-dnd.service silences notifications
+# while any screencast runs, so EVERY grim this script takes flips the dnd
+# chip on for a poll cycle and the maxVisible guard force-closes the popup
+# mid-suite (observed: dnd false->true->false, maxVisible 7->6->7). The
+# service is stopped for the suite duration and restarted after the resize
+# check; the deliberate churn check above keeps the guard path covered.
 #
 # Environment (set by the caller, same as the keynav smoke): WAYLAND_DISPLAY,
 # HYPRLAND_INSTANCE_SIGNATURE, XDG_RUNTIME_DIR. CWD must be the candidate
@@ -293,6 +305,20 @@ popup_suite() { # BAR_H  (mode already 640x480)
   local H=$1 W=640
   calibrate_pointer || true
 
+  # Capture-hygiene settle (harness environment only, no product change):
+  # stop the screencast-dnd coupling so our own screenshots stop churning
+  # the bar budget, force dnd off, and wait out one 5s indicator poll so
+  # the chip state is steady before the reference shots. The deliberate
+  # churn check at the end re-proves the guard on purpose.
+  systemctl --user stop monarch-screencast-dnd.service 2>/dev/null \
+    && say "screencast-dnd service stopped for the popup suite (harness capture hygiene)" \
+    || say "screencast-dnd service not stoppable/absent; continuing"
+  makoctl mode -r do-not-disturb >/dev/null 2>&1 || true
+  sleep 6
+  local dnd_now
+  dnd_now=$(monarch-toggle-notification-silencing status 2>/dev/null || true)
+  say "dnd state after settle: ${dnd_now:-unreadable}"
+
   # Park the cursor INSIDE the bar band before the reference shots: the
   # calibration move lands below the bar (~2x scale), and a below-bar cursor
   # in the closed shot merges into the below-bar diff bbox, dragging the
@@ -475,6 +501,27 @@ popup_suite() { # BAR_H  (mode already 640x480)
   say "popup after outside click: below-bar ae vs closed = $ae_out"
   [[ ${ae_out:-99999} -lt 300 ]] || bad "outside click did not close the tray popup"
 
+  # 4b. Deliberate budget churn: forcing do-not-disturb ON grows the
+  # indicator budget by one chip, maxVisible shrinks (7->6 observed) and
+  # the maxVisible guard must close the popup. This is the controlled twin
+  # of the capture-induced churn the screencast-dnd service injected in
+  # earlier runs; the guard path stays covered while the suite above runs
+  # in a settled capture state.
+  ensure_popup_open || bad "popup would not reopen for the deliberate dnd-churn check"
+  makoctl mode -a do-not-disturb >/dev/null 2>&1 || bad "could not force do-not-disturb on for the churn check"
+  local churn_closed=0
+  for i in $(seq 1 10); do
+    sleep 1
+    grim "$OUT/.state.png"
+    if ! popup_is_open "$OUT/.state.png"; then churn_closed=1; break; fi
+  done
+  say "deliberate dnd churn: popup closed within ${i}s of dnd on = $churn_closed (maxVisible guard)"
+  say "TRAYPOPDIAG after dnd churn: $(grep TRAYPOPDIAG "$OUT/bar-qs.log" 2>/dev/null | tail -6 | tr '\n' ' | ')"
+  [[ $churn_closed == 1 ]] || bad "deliberate dnd budget churn did NOT close the popup - maxVisible guard not firing"
+  makoctl mode -r do-not-disturb >/dev/null 2>&1 || true
+  sleep 7  # let the next poll drop the chip and restore the budget before reopening
+  say "dnd state after churn cleanup: $(monarch-toggle-notification-silencing status 2>/dev/null || echo unreadable)"
+
   # 5. Reopen once more; the caller switches the output mode next and the
   #    popup must not survive it.
   ensure_popup_open || say "popup would not reopen before resize; resize-close check will note it"
@@ -506,6 +553,11 @@ if set_mode 1920x1080; then
   say "below-bar region after resize: ae vs earlier 1920 shot = $ae_rs"
   [[ ${ae_rs:-99999} -lt 5000 ]] || bad "popup (or other stale content) survived the output mode change"
 fi
+# Popup assertions are done: restore the capture-dnd coupling stopped for
+# the suite (harness capture hygiene, see popup_suite).
+systemctl --user start monarch-screencast-dnd.service 2>/dev/null \
+  && say "screencast-dnd service restarted after the popup checks" \
+  || say "screencast-dnd service not restartable/absent; continuing"
 set_mode 1024x768 >/dev/null 2>&1 || true
 
 kill "$FIX_PID" 2>/dev/null || true
