@@ -72,16 +72,44 @@ RowLayout {
         }
     }
 
-    // The popup's anchor is computed when it is shown. A resize or output
-    // change moves the bar window without moving the popup, so close it
-    // instead of leaving it stale at the old position; the inline cap can
-    // also change with the width, which reshuffles the popup's contents.
+    // A resize or output change moves the bar window itself: close the
+    // popup rather than leave it stale at the old position.
     Connections {
         target: root.Window.window
-        function onWidthChanged() { console.log("TRAYPOPDIAG bar-window width changed -> " + root.Window.window.width); root.overflowOpen = false }
-        function onHeightChanged() { console.log("TRAYPOPDIAG bar-window height changed -> " + root.Window.window.height); root.overflowOpen = false }
+        function onWidthChanged() { root.overflowOpen = false }
+        function onHeightChanged() { root.overflowOpen = false }
     }
-    onMaxVisibleChanged: { console.log("TRAYPOPDIAG maxVisible changed -> " + root.maxVisible); root.overflowOpen = false }
+
+    // Content churn is not a resize: when the chip moves inside the bar
+    // window (the inline cap reshuffling the row, an indicator chip or a
+    // readout growing, the right-side group shifting), re-anchor the open
+    // popup to the chip's new position instead of closing it. The anchor
+    // does not follow the item on its own (Quickshell 0.3.2 PopupAnchor
+    // docs); anchor.updateAnchor() recomputes it from the chip's CURRENT
+    // bounds, and Quickshell turns that into a live xdg_popup_reposition
+    // on xdg-shell v3+ compositors (Hyprland), with a hide/show fallback
+    // on older ones. It is driven by the geometry notifications below,
+    // not by maxVisibleChanged: that fires before the layout has moved
+    // anything, so the recompute would read the chip's stale position.
+    // Popup contents rebind live and every dismissal path (chip toggle,
+    // Escape, outside click, item activation, window resize) is unchanged.
+    function reanchorOverflow() {
+        if (root.overflowOpen && overflowPopup.visible)
+            overflowPopup.anchor.updateAnchor();
+    }
+    onXChanged: reanchorOverflow()
+    onYChanged: reanchorOverflow()
+    Connections {
+        target: root.parent
+        function onXChanged() { root.reanchorOverflow(); }
+        function onYChanged() { root.reanchorOverflow(); }
+    }
+    Connections {
+        target: overflowChip
+        function onXChanged() { root.reanchorOverflow(); }
+        function onYChanged() { root.reanchorOverflow(); }
+        function onWidthChanged() { root.reanchorOverflow(); }
+    }
 
     Text {
         id: overflowChip
