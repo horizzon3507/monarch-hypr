@@ -44,8 +44,9 @@ echo monarch | sudo -S pacman -Sy --needed --noconfirm \
 python3 -c 'import gi' 2>/dev/null || bad "python-gobject unavailable - SNI fixture cannot run"
 
 # Pointer injection: uinput daemon (root) + client socket shared with us.
-export YDOTOOL_SOCKET=/tmp/.ydotool_socket
-echo monarch | sudo -S -b env YDOTOOL_SOCKET=$YDOTOOL_SOCKET ydotoold >/dev/null 2>&1
+export YDOTOOL_SOCKET=${YDOTOOL_SOCKET:-/tmp/.ydotool_socket}
+pgrep -x ydotoold >/dev/null 2>&1 || { echo monarch | sudo -S -b env YDOTOOL_SOCKET=$YDOTOOL_SOCKET ydotoold >/dev/null 2>&1; sleep 1; }
+echo monarch | sudo -S chmod 0666 "$YDOTOOL_SOCKET" 2>/dev/null || true
 sleep 1
 echo monarch | sudo -S chmod 666 $YDOTOOL_SOCKET 2>/dev/null || true
 
@@ -220,10 +221,13 @@ popup_suite() { # BAR_H  (mode already 640x480)
 
   # Locate the "+N" overflow chip by OCR on the upscaled bar strip.
   grim "$OUT/popup-closed-640.png"
-  magick "$OUT/popup-closed-640.png" -crop "${W}x${H}+0+0" -resize 400% "$OUT/bar-640-strip4x.png"
+  # Grayscale + negate: raw color strips OCR as garbage (observed); the "+"
+  # of the chip is often dropped, so accept a bare number in the right-edge
+  # zone (x > 2100 of 2560, before the power glyph ~2471) as the chip.
+  magick "$OUT/popup-closed-640.png" -crop "${W}x${H}+0+0" -resize 400% -colorspace Gray -negate "$OUT/bar-640-strip4x.png"
   local chip
   chip=$(tesseract "$OUT/bar-640-strip4x.png" - --psm 11 tsv 2>/dev/null \
-    | awk -F'\t' '$12 ~ /^\+[0-9]+/ {printf "%d %d", ($7+$9/2)/4, ($8+$10/2)/4; exit}')
+    | awk -F'\t' '$12 ~ /^\+?[0-9]+$/ && $7 > 2100 && $7 < 2450 {printf "%d %d", ($7+$9/2)/4, ($8+$10/2)/4; exit}')
   say "overflow chip center: [${chip:-not found}]"
   if [[ -z $chip ]]; then
     bad "no +N overflow chip found at 640px (tray overflow not rendered or OCR blind)"

@@ -76,7 +76,14 @@ grep -q 'foot' "$HOME/.config/xdg-terminals.list" 2>/dev/null || bad "monarch-in
 # --- 3. the shipped SUPER+Return bind against the stock config ---------------
 clients() { hyprctl clients -j 2>/dev/null | jq '[.[].address] | length'; }
 before=$(clients)
-timeout 10 wtype -M logo -k Return -m logo
+# Real-evdev chord via ydotool (see vm-keynav-check.sh: wtype's virtual
+# keycodes never match Hyprland binds); wtype kept only as labeled fallback.
+if [[ -n ${YDOTOOL_SOCKET:-} && -S $YDOTOOL_SOCKET ]]; then
+  timeout 10 ydotool key 125:1 28:1 28:0 125:0
+else
+  say "ydotool unavailable; wtype chord fallback (keycode matching known-broken)"
+  timeout 10 wtype -M logo -k Return -m logo
+fi
 spawned=0
 for _ in $(seq 1 30); do
   [[ $(clients) -gt $before ]] && { spawned=1; break; }

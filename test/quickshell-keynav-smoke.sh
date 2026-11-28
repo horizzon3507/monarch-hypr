@@ -170,7 +170,27 @@ fi
 # disturb later focus checks.
 client_addrs() { hyprctl clients -j 2>/dev/null | jq -r '.[].address' | sort; }
 witness_clients() { hyprctl clients -j 2>/dev/null | jq '[.[].address] | length'; }
-press_super_return() { timeout 10 wtype -M logo -k Return -m logo; }
+# Modifier chords must carry real evdev keycodes: wtype's virtual keyboard
+# maps syms to custom keycodes (observed in the VM: q arrives as keycode 9
+# with Mod4 depressed, wev sees it correctly, yet Hyprland's keycode-based
+# bind matching never matches SUPER+Q/SUPER+Return), which made every
+# wtype modifier chord a compositor no-op. ydotool injects through uinput
+# exactly like a physical keyboard (KEY_LEFTMETA=125). Plain printable keys
+# below keep using wtype - client-side keymap translation makes those
+# correct. press_chord KEYCODE SYM.
+chord_injector=wtype
+if [[ -n ${YDOTOOL_SOCKET:-} && -S $YDOTOOL_SOCKET ]] && timeout 5 ydotool key 125:0 >/dev/null 2>&1; then
+  chord_injector=ydotool
+fi
+echo "chord injector: $chord_injector"
+press_chord() {
+  if [[ $chord_injector == ydotool ]]; then
+    timeout 10 ydotool key 125:1 "$1":1 "$1":0 125:0
+  else
+    timeout 10 wtype -M logo -k "$2" -m logo
+  fi
+}
+press_super_return() { press_chord 28 Return; }
 await_new_client() { # COUNT ADDRS(sorted) -> echoes the new address
   local before_count=$1 before_addrs=$2 n a
   for _ in $(seq 1 30); do
@@ -297,7 +317,7 @@ if [[ $attach == 1 && $compositor == hyprland ]]; then
     sleep 0.3
   done
   echo "chord-check focused window: '${focused:-none}'"
-  timeout 10 wtype -M logo -k q -m logo
+  press_chord 16 q
   sleep 2
   if ! kill -0 "$wev_chord_pid" 2>/dev/null; then
     ok "a compositor chord fires with no panel open (SUPER+Q closed the focused window)"

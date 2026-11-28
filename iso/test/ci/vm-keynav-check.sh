@@ -121,7 +121,15 @@ sudo -n true 2>/dev/null || echo monarch | sudo -S true
 # adwaita-icon-theme: the tray fixture's IconName (dialog-information) must
 # resolve to a real icon; without a theme the shell shows its missing-icon
 # fallback squares, which read as a rendering bug in the bar screenshots.
-echo monarch | sudo -S pacman -Sy --needed --noconfirm git wtype wev grim qt6-wayland jq foot xdg-terminal-exec adwaita-icon-theme 2>&1 | tail -3
+echo monarch | sudo -S pacman -Sy --needed --noconfirm git wtype wev grim qt6-wayland jq foot xdg-terminal-exec adwaita-icon-theme ydotool 2>&1 | tail -3
+# uinput daemon for ydotool: modifier chords are injected as real evdev
+# keycodes (KEY_LEFTMETA=125) because wtype's virtual-keyboard keycodes never
+# match Hyprland's keycode-based binds (q arrived as keycode 9 in VM runs).
+export YDOTOOL_SOCKET=/tmp/.ydotool_socket
+pgrep -x ydotoold >/dev/null 2>&1 || echo monarch | sudo -S -b env YDOTOOL_SOCKET=$YDOTOOL_SOCKET ydotoold >/dev/null 2>&1
+sleep 1
+echo monarch | sudo -S chmod 0666 "$YDOTOOL_SOCKET" 2>/dev/null || true
+[[ -S $YDOTOOL_SOCKET ]] && echo "ydotoold up on $YDOTOOL_SOCKET" || echo "WARNING: ydotoold socket missing; chords fall back to wtype"
 mkdir -p "$HOME/.config"
 printf 'foot.desktop\n' > "$HOME/.config/xdg-terminals.list"
 rm -rf "$HOME/checkout"
