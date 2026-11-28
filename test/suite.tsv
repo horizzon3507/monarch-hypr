@@ -226,4 +226,5 @@ test/shell.d/quickshell-state-chips-test.sh	desktop-shell	medium	isolated
 test/shell.d/hyprpaper-absent-test.sh	desktop-shell	medium	isolated
 test/shell.d/quickshell-wallpaper-test.sh	desktop-shell	medium	isolated
 test/monarch-theme-helix-obsidian-test.sh	themes	medium	isolated
+test/terminal-themes-migration-test.sh	themes	medium	isolated
 test/shell.d/lid-close-lock-test.sh	desktop-shell	fast	isolated

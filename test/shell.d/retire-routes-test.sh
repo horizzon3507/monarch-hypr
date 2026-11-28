@@ -39,6 +39,22 @@ done
 # First run no longer enables Noctalia plugins.
 ! grep -q 'enable-noctalia-plugins' "$ROOT/bin/monarch-provision-first-run" || fail "first run still enables Noctalia plugins"
 # Reconcile no longer waits for, restarts or enables anything from Noctalia (static check).
+# Migrating legacy Noctalia theme REFERENCES out of user configs is allowed and
+# expected; only Noctalia service/plugin management is banned here.
 U="$ROOT/install/reconcile/user.sh"
-! grep -qi noctalia "$U" || fail "reconcile user step has no Noctalia handling"
+BANNED='(restart|enable|wait)[^\n]*noctalia|noctalia[^\n]*(restart|enable|wait)|qs -c noctalia'
+! grep -qiE "$BANNED" "$U" || fail "reconcile user step waits for, restarts or enables Noctalia"
+# Negative controls: every command form the old protection intended to catch
+# must still trip the ban when injected into a copy of the current user.sh.
+for banned in \
+  'systemctl --user enable noctalia.service' \
+  'systemctl --user restart noctalia.service' \
+  'noctalia-shell --restart' \
+  'qs -c noctalia ipc call panels toggle' \
+  'while ! pgrep noctalia; do sleep 1; done # wait for noctalia'; do
+  cp "$U" "$tmp/user-banned.sh"
+  printf '%s\n' "$banned" >> "$tmp/user-banned.sh"
+  grep -qiE "$BANNED" "$tmp/user-banned.sh" || fail "negative control: banned form escaped detection: $banned"
+done
+pass "noctalia service management stays banned in reconcile (negative controls included)"
 pass "launch and crash-history routes use the shell and never call Noctalia"

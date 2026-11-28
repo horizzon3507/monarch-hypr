@@ -45,6 +45,11 @@ done
 # Apply the current theme through the Hyprland shell.
 monarch-theme-apply >/dev/null 2>&1 || true
 
+# Migrate legacy Noctalia terminal theme references to the Monarch-rendered
+# themes in existing installs (fresh configs already carry the new paths).
+source "$MONARCH_PATH/install/reconcile/terminal-themes.sh"
+terminal_themes_migrate
+
 # The optional todo package handles its own plugin activation and legacy copies.
 monarch_reconcile_todo "$MONARCH_PATH"
 monarch_reconcile_lazyvpn "$MONARCH_PATH"
