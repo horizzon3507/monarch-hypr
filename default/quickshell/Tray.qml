@@ -17,7 +17,9 @@ RowLayout {
 
     property bool overflowOpen: false
 
-    readonly property var trayItems: SystemTray.items
+    // items is a Quickshell ObjectModel (a QAbstractListModel), not a JS
+    // array: it has no length/slice. Read .values for array operations.
+    readonly property var trayItems: SystemTray.items.values
     readonly property int shownCount: root.maxVisible >= 0
         ? Math.min(root.maxVisible, trayItems.length) : trayItems.length
     readonly property int hiddenCount: Math.max(0, trayItems.length - shownCount)
