@@ -388,7 +388,7 @@ kill "$qs_pid" 2>/dev/null; wait "$qs_pid" 2>/dev/null; qs_pid=""
 # the screenshots so a remote run's verdict can be audited afterwards.
 if [[ -n $screenshots ]]; then
   mkdir -p "$screenshots/work"
-  cp -a "$work"/*.log "$work"/calls "$work"/bindings "$screenshots/work/" 2>/dev/null || true
+  cp -a "$work"/*.log "$work"/*.json "$work"/calls "$work"/bindings "$screenshots/work/" 2>/dev/null || true
   [[ $bindings_file == $work/* ]] || cp -a "$bindings_file" "$screenshots/work/probe-bindings" 2>/dev/null || true
 fi
 
