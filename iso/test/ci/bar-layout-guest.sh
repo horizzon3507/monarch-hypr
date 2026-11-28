@@ -59,6 +59,16 @@ sleep 8
 kill -0 "$QS_PID" 2>/dev/null || { bad "quickshell from candidate checkout died; see bar-qs.log"; tail -20 "$OUT/bar-qs.log"; exit 1; }
 say "shell restarted from candidate checkout (pid $QS_PID)"
 
+# Phase hygiene: close any windows the keynav smoke left behind. Blinking
+# terminal cursors produced phantom pixel diffs in earlier rounds (a cursor
+# blink reads as a 2600-pixel change, faking both "popup opened" and "popup
+# never closed"); popup detection needs a static desktop.
+for a in $(hyprctl clients -j | jq -r '.[].address'); do
+  hyprctl dispatch closewindow "address:$a" >/dev/null 2>&1
+done
+sleep 1
+say "clients after phase-hygiene sweep: $(hyprctl clients -j | jq -c '[.[] | {class}]')" 
+
 # --- ten real workspaces -----------------------------------------------------
 # NOTE: on Hyprland 0.56 `dispatch exec "[workspace N silent] foot"` creates
 # the workspace but silently spawns nothing, while plain `dispatch exec foot`
@@ -169,6 +179,7 @@ ae_ge() { [[ $(diff_ae "$1" "$2") -ge $3 ]]; }
 click_at() { # X Y  (left button)
   ydotool mousemove --absolute -x "$1" -y "$2" 2>/dev/null
   sleep 0.3
+  say "click_at $1,$2 -> hyprctl cursorpos: $(hyprctl cursorpos 2>/dev/null | tr -d ' ')"
   ydotool click 0xC0 2>/dev/null
   sleep 0.3
 }
@@ -222,8 +233,9 @@ count_inline_icons() { # IMG -> inline magenta icon count
   magick "$1" -crop "640x26+0+3" -depth 8 txt:- 2>/dev/null \
     | sed 's/[():,]/ /g' \
     | awk 'NR > 1 && $3 > 150 && $5 > 150 && $4 < 120 { m[$1] = 1 }
-           END { runs = 0
-                 for (x = 1; x < 640; x++) if (m[x] && !m[x-1]) runs++
+           END { runs = 0; last = -99
+                 for (x = 0; x < 640; x++)
+                   if (m[x]) { if (x - last > 4) runs++; last = x }
                  print runs }'
 }
 

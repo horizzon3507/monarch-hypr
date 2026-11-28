@@ -415,6 +415,7 @@ if [[ $compositor == hyprland ]]; then
       not_ok "the open panel's grab intercepts compositor bindings (unverifiable: witness positive control did not fire)"
     else
       pre_addrs=$(client_addrs); pre_count=$(witness_clients)
+      hyprctl layers -j >"$work/layers-inpanel.json" 2>/dev/null || true
       press_super_return
       sleep 4
       if [[ $(witness_clients) -eq $pre_count ]]; then
@@ -473,8 +474,11 @@ if [[ $attach == 1 && $compositor == hyprland ]]; then
   if new_addr=$(await_new_client "$pre_count" "$pre_addrs"); then
     bind_refired=1
     close_client "$new_addr"
-    # The spawned terminal took the focus; wait until it lands back on wev
-    # before the key-receipt checks below.
+    # The spawned terminal took the focus and nothing hands it back on its
+    # own (observed: the 'a' probe landed in the terminal). Explicitly
+    # refocus wev, then wait for the focus to actually land before the
+    # key-receipt checks below.
+    hyprctl dispatch focuswindow "class:wev" >/dev/null 2>&1
     for _ in $(seq 1 25); do
       focused=$(hyprctl activewindow -j 2>/dev/null | grep -o '"class": "[^"]*"' | head -1 || true)
       [[ $focused == *wev* ]] && break
