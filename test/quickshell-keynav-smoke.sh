@@ -18,6 +18,9 @@ SHELL_DIR="$ROOT/default/quickshell"
 screenshots=""
 load_timeout=10
 compositor=${SMOKE_COMPOSITOR:-sway}
+# SMOKE_ATTACH=1: do not start a compositor; use the running session
+# (SMOKE_COMPOSITOR only selects the introspection tooling).
+attach=${SMOKE_ATTACH:-0}
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -33,6 +36,7 @@ case $compositor in
   hyprland) comp_bin=Hyprland ;;
   *) echo "keynav-smoke: unknown compositor '$compositor'" >&2; exit 2 ;;
 esac
+[[ $attach == 1 ]] && comp_bin=true
 
 for tool in quickshell grim wtype wev "$comp_bin"; do
   command -v "$tool" >/dev/null || { echo "keynav-smoke: $tool is not installed" >&2; exit 2; }
@@ -40,8 +44,12 @@ done
 [[ $(id -u) -ne 0 ]] || { echo "keynav-smoke: run as a non-root user" >&2; exit 2; }
 
 work=$(mktemp -d)
-export XDG_RUNTIME_DIR="$work/run"
-mkdir -p "$XDG_RUNTIME_DIR" && chmod 700 "$XDG_RUNTIME_DIR"
+if [[ $attach == 1 ]]; then
+  : "${XDG_RUNTIME_DIR:=/run/user/$(id -u)}"
+else
+  export XDG_RUNTIME_DIR="$work/run"
+  mkdir -p "$XDG_RUNTIME_DIR" && chmod 700 "$XDG_RUNTIME_DIR"
+fi
 export HOME="$work/home"
 mkdir -p "$HOME" $screenshots
 
@@ -73,8 +81,12 @@ export PATH="$stubs:$PATH"
 # Start the compositor with a probe binding: 'b' fires only when a key
 # reaches the compositor's normal routing, so it distinguishes a stuck
 # keyboard grab from a client-delivery problem in the hand-back check below.
-echo "keynav-smoke: compositor = $compositor"
-if [[ $compositor == sway ]]; then
+echo "keynav-smoke: compositor = $compositor attach = $attach"
+if [[ $attach == 1 ]]; then
+  socket=$(basename "${WAYLAND_DISPLAY:-wayland-1}")
+  [[ -S $XDG_RUNTIME_DIR/$socket ]] || socket=$(find "$XDG_RUNTIME_DIR" -maxdepth 1 -name 'wayland-[0-9]*' ! -name '*.lock' -printf '%f\n' | head -n 1)
+  [[ -n $socket ]] || { echo "keynav-smoke: no wayland socket in the running session" >&2; exit 2; }
+elif [[ $compositor == sway ]]; then
   cp "$(command -v sway)" "$work/sway-bin"
   printf 'bindsym b exec echo binding-fired-b >> "%s/bindings"\n' "$work" >"$work/comp.conf"
   WLR_BACKENDS=headless WLR_LIBINPUT_NO_DEVICES=1 WLR_RENDERER=pixman \
@@ -98,9 +110,10 @@ else
   } >"$work/comp.conf"
   Hyprland --config "$work/comp.conf" >"$work/comp.log" 2>&1 &
 fi
-comp_pid=$!
-echo "phase: $compositor launched (pid $comp_pid)"
+comp_pid=${comp_pid:-}
+echo "phase: $compositor launched (pid ${comp_pid:-attached})"
 
+if [[ $attach != 1 ]]; then
 socket=""
 for _ in $(seq 1 100); do
   socket=$(find "$XDG_RUNTIME_DIR" -maxdepth 1 -name 'wayland-[0-9]*' ! -name '*.lock' -printf '%f\n' | head -n 1)
@@ -108,11 +121,16 @@ for _ in $(seq 1 100); do
   sleep 0.2
 done
 [[ -n $socket ]] || { echo "keynav-smoke: headless $compositor did not start" >&2; cat "$work/comp.log" >&2; exit 2; }
+fi
 export WAYLAND_DISPLAY=$socket
 echo "phase: wayland socket = $socket"
 unset QT_QPA_PLATFORM
 if [[ $compositor == hyprland ]]; then
   export HYPRLAND_INSTANCE_SIGNATURE=$(find "$XDG_RUNTIME_DIR/hypr" -mindepth 1 -maxdepth 1 -printf '%f\n' 2>/dev/null | head -n 1)
+fi
+if [[ $attach == 1 && $compositor == hyprland ]]; then
+  # The live session's config is not ours: add the probe binding at runtime.
+  timeout 10 hyprctl keyword "bind = , b, exec, echo binding-fired-b >> $work/bindings" >/dev/null 2>&1 || true
 fi
 
 # The headless seat starts with no input devices at all (capabilities 0), so
@@ -152,6 +170,12 @@ fi
 
 ipc() { timeout 10 quickshell ipc --path "$SHELL_DIR" call "$@" 2>>"$work/qs.log"; }
 
+if [[ $attach == 1 ]]; then
+  # Stop the session's own shell so the smoke can start the candidate one
+  # with the stub PATH; the compositor keeps running either way.
+  pkill -x quickshell 2>/dev/null || true
+  sleep 1
+fi
 quickshell -p "$SHELL_DIR" >"$work/qs.log" 2>&1 &
 qs_pid=$!
 for _ in $(seq 1 $((load_timeout * 5))); do
