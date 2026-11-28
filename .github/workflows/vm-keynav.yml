@@ -26,7 +26,7 @@ jobs:
         run: |
           chmod +x iso/test/ci/vm-keynav-check.sh
           bash iso/test/ci/vm-keynav-check.sh \
-            "$(ls iso/monarch-*-x86_64.iso | head -1)" \
+            "$(ls iso/monarch-*.iso | head -1)" \
             "$PR122_SHA" \
             iso/out
       - name: Upload validation output

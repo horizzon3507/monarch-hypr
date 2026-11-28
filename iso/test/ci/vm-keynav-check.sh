@@ -16,13 +16,14 @@
 
 set -uo pipefail
 
+[[ -f ${1:-} ]] || { echo "error: ISO not found: '${1:-}'" >&2; exit 2; }
 ISO=$(realpath "$1") CANDIDATE_SHA=$2 OUT=$3
 HERE=$(cd -- "${BASH_SOURCE%/*}" && pwd)
 mkdir -p "$OUT"
 OUT=$(realpath "$OUT")
 
 sudo apt-get update -qq
-sudo apt-get install -y -qq qemu-system-x86 qemu-system-gui qemu-utils ovmf libvirglrenderer1 xvfb imagemagick tesseract-ocr socat xorriso openssh-client jq >/dev/null
+sudo apt-get install -y -qq qemu-system-x86 qemu-system-gui qemu-utils ovmf libvirglrenderer1 libegl1 libgl1 xvfb imagemagick tesseract-ocr socat xorriso openssh-client jq >/dev/null
 
 # base-test.sh was written for an Arch host: OVMF path and `magick` binary.
 sudo mkdir -p /usr/share/edk2/x64
