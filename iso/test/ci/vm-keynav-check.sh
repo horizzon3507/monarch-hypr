@@ -140,6 +140,22 @@ timeout 10 hyprctl configerrors 2>&1 | tail -6
 hyprctl binds -j > "$HOME/keynav-out/hyprctl-binds.json" 2>/dev/null || true
 hyprctl version -j 2>/dev/null | head -c 400; echo
 echo "--- end session evidence ---"
+# Foot spawn probe: last run's SUPER+Return witness never produced a window
+# and the bar phase's `dispatch exec foot` produced none either (all 10
+# workspaces listed 0 windows). Isolate whether foot can spawn at all here.
+echo "--- foot spawn probe ---"
+foot --version 2>&1 | head -2
+ldd "$(command -v foot)" 2>/dev/null | grep 'not found' || echo "foot libs: all resolved"
+timeout 8 foot >"$HOME/keynav-out/foot-stdout.log" 2>"$HOME/keynav-out/foot-stderr.log" &
+sleep 3
+echo "clients after manual foot: $(hyprctl clients -j | jq -c '[.[] | {class}]')"
+echo "foot stderr:"; tail -5 "$HOME/keynav-out/foot-stderr.log"
+hyprctl dispatch exec foot >/dev/null 2>&1
+sleep 3
+echo "clients after dispatch exec foot: $(hyprctl clients -j | jq -c '[.[] | {class}]')"
+for a in $(hyprctl clients -j | jq -r '.[].address'); do hyprctl dispatch closewindow "address:$a" >/dev/null 2>&1; done
+sleep 1
+echo "--- end foot spawn probe ---"
 SMOKE_ATTACH=1 SMOKE_COMPOSITOR=hyprland \
   bash test/quickshell-keynav-smoke.sh --screenshots "$HOME/keynav-out" 2>&1 | tee "$HOME/keynav-out/smoke-full.log" | tail -80
 echo "keynav exit: ${PIPESTATUS[0]}"

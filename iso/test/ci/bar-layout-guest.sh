@@ -79,7 +79,7 @@ python3 test/fixtures/tray_fixture.py --items 6 --log "$FIXTURE_LOG" >"$OUT/tray
 FIX_PID=$!
 reg=0
 for _ in $(seq 1 30); do
-  reg=$(grep -c '^REGISTERED' "$FIXTURE_LOG" 2>/dev/null || echo 0)
+  reg=$(grep -c ' REGISTERED ' "$FIXTURE_LOG" 2>/dev/null || true)
   [[ $reg -ge 6 ]] && break
   sleep 1
 done
@@ -154,7 +154,8 @@ click_at() { # X Y  (left button)
 # --- per-width geometry checks -------------------------------------------------
 CLK_L=; CLK_R=
 check_bar() { # WIDTH
-  local W=$1 img=$OUT/bar-$W.png
+  local W=$1
+  local img=$OUT/bar-$W.png
   grim "$img" || { bad "grim failed at $W"; return; }
   read_bg "$img"
   local H; H=$(bar_height "$img" "$W")
