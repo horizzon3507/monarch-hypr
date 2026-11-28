@@ -178,7 +178,10 @@ clock_bounds() { # IMG W H -> absolute x of the clock's leftmost/rightmost ink
 # diff_bbox A B -> "WxH+X+Y" of pixels that changed (trimmed threshold box)
 diff_bbox() {
   magick compare -metric AE "$1" "$2" "$OUT/diff-tmp.png" 2>/dev/null || true
-  magick "$OUT/diff-tmp.png" -colorspace Gray -threshold 25% -format "%@" info: 2>/dev/null
+  # Opening (erode then dilate) drops sparse sub-bar noise pixels that
+  # otherwise drag the bbox far off the real region (observed: 17 px at the
+  # bar edge stretched the popup bbox to x318, real content x482+).
+  magick "$OUT/diff-tmp.png" -colorspace Gray -threshold 25% -morphology Erode Diamond:1 -morphology Dilate Diamond:2 -format "%@" info: 2>/dev/null
 }
 diff_ae() { # A B -> count of changed pixels (integer floor)
   # ImageMagick prints "59.6693(2.87757e-05)" here; the parenthesized form
