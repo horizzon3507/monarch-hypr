@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Services.SystemTray
 
 // Status notifier icons. Left click activates, right click opens the item menu,
@@ -16,6 +17,7 @@ RowLayout {
     property int maxVisible: -1
 
     property bool overflowOpen: false
+    onOverflowOpenChanged: console.log("TRAYPOPDIAG overflowOpen=" + root.overflowOpen)
 
     // items is a Quickshell ObjectModel (a QAbstractListModel), not a JS
     // array: it has no length/slice. Read .values for array operations.
@@ -89,7 +91,10 @@ RowLayout {
         MouseArea {
             anchors.fill: parent
             anchors.margins: -4
-            onClicked: root.overflowOpen = !root.overflowOpen
+            onClicked: {
+                console.log("TRAYPOPDIAG chip-click hidden=" + root.hiddenCount + " open->" + (!root.overflowOpen));
+                root.overflowOpen = !root.overflowOpen;
+            }
         }
     }
 
@@ -110,8 +115,17 @@ RowLayout {
         implicitWidth: overflowRow.implicitWidth + 16
         implicitHeight: overflowRow.implicitHeight + 16
         visible: root.overflowOpen && root.hiddenCount > 0
-        grabFocus: root.overflowOpen
-        onClosed: root.overflowOpen = false
+        // grabFocus maps to an xdg_popup grab, which Hyprland refuses for a
+        // popup whose parent is a layer-shell surface (the bar): the grab
+        // fails and the compositor immediately dismisses the popup, so it
+        // never appears. HyprlandFocusGrab below is the supported way to get
+        // the same outside-click dismissal on Hyprland.
+        grabFocus: false
+        onVisibleChanged: console.log("TRAYPOPDIAG popup visible=" + visible)
+        onClosed: {
+            console.log("TRAYPOPDIAG popup closed");
+            root.overflowOpen = false;
+        }
 
         Rectangle {
             anchors.fill: parent
@@ -138,6 +152,23 @@ RowLayout {
                     }
                 }
             }
+        }
+    }
+
+    // Outside-click dismissal and keyboard focus for the overflow popup via
+    // hyprland_focus_grab_v1: while active the popup keeps keyboard focus
+    // (Escape reaches its Keys handler) and a click anywhere outside the
+    // listed windows clears the grab, which closes the popup. Becomes active
+    // once the popup is actually visible; a compositor without the protocol
+    // just leaves the grab inactive and the popup stays open until toggled.
+    HyprlandFocusGrab {
+        id: overflowGrab
+        windows: [overflowPopup]
+        active: root.overflowOpen && overflowPopup.visible
+        onActiveChanged: console.log("TRAYPOPDIAG grab active=" + active)
+        onCleared: {
+            console.log("TRAYPOPDIAG grab cleared");
+            root.overflowOpen = false;
         }
     }
 }
