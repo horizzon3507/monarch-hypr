@@ -17,6 +17,7 @@ RowLayout {
     property int maxVisible: -1
 
     property bool overflowOpen: false
+    onOverflowOpenChanged: console.log("TRAYPOPDIAG overflowOpen=" + root.overflowOpen)
 
     // items is a Quickshell ObjectModel (a QAbstractListModel), not a JS
     // array: it has no length/slice. Read .values for array operations.
@@ -90,7 +91,10 @@ RowLayout {
         MouseArea {
             anchors.fill: parent
             anchors.margins: -4
-            onClicked: root.overflowOpen = !root.overflowOpen
+            onClicked: {
+                console.log("TRAYPOPDIAG chip-click hidden=" + root.hiddenCount + " open->" + (!root.overflowOpen));
+                root.overflowOpen = !root.overflowOpen;
+            }
         }
     }
 
@@ -117,7 +121,11 @@ RowLayout {
         // never appears. HyprlandFocusGrab below is the supported way to get
         // the same outside-click dismissal on Hyprland.
         grabFocus: false
-        onClosed: root.overflowOpen = false
+        onVisibleChanged: console.log("TRAYPOPDIAG popup visible=" + visible)
+        onClosed: {
+            console.log("TRAYPOPDIAG popup closed");
+            root.overflowOpen = false;
+        }
 
         Rectangle {
             anchors.fill: parent
@@ -157,6 +165,10 @@ RowLayout {
         id: overflowGrab
         windows: [overflowPopup]
         active: root.overflowOpen && overflowPopup.visible
-        onCleared: root.overflowOpen = false
+        onActiveChanged: console.log("TRAYPOPDIAG grab active=" + active)
+        onCleared: {
+            console.log("TRAYPOPDIAG grab cleared");
+            root.overflowOpen = false;
+        }
     }
 }
