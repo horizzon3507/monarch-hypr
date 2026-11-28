@@ -360,21 +360,29 @@ popup_suite() { # BAR_H  (mode already 640x480)
   # detector: poll layer namespaces for ~1.2s so an instant open-close
   # still leaves a trace, and keep a rapid post-click frame.
   ns_before=$(hyprctl layers -j 2>/dev/null | jq -r '.. | .namespace? // empty' | sort -u)
-  click_at "$cx" "$cy"
-  newns=""
-  for i in $(seq 1 12); do
-    newns=$(comm -13 <(printf '%s\n' "$ns_before") <(hyprctl layers -j 2>/dev/null | jq -r '.. | .namespace? // empty' | sort -u) | tr '\n' ' ')
-    [[ -n $newns ]] && break
-    sleep 0.1
+  # Aim retry: on the clean (diag-free) head the OCR-biased aim can still
+  # sit off-pill; one corrective click 8px further left keeps a pure aim
+  # miss from masquerading as a chip handler defect.
+  local attempt
+  for attempt in 0 -8; do
+    click_at "$((cx + attempt))" "$cy"
+    newns=""
+    for i in $(seq 1 12); do
+      newns=$(comm -13 <(printf '%s\n' "$ns_before") <(hyprctl layers -j 2>/dev/null | jq -r '.. | .namespace? // empty' | sort -u) | tr '\n' ' ')
+      [[ -n $newns ]] && break
+      sleep 0.1
+    done
+    grim "$OUT/popup-transient-640.png" 2>/dev/null || true
+    sleep 1
+    grim "$OUT/popup-open-640.png"
+    local bbox ae
+    bbox=$(diff_bbox "$OUT/popup-closed-640.png" "$OUT/popup-open-640.png")
+    ae=$(diff_ae "$OUT/popup-closed-640.png" "$OUT/popup-open-640.png")
+    [[ -n $bbox && $bbox != *0x0* && ${ae:-0} -ge 500 ]] && break
+    [[ $attempt -eq 0 ]] && say "chip click at $cx,$cy opened nothing (ae=$ae); re-aiming 8px left"
   done
   say "post-chip-click new layer surfaces: [${newns:-none}]"
   say "TRAYPOPDIAG: $(grep TRAYPOPDIAG "$OUT/bar-qs.log" 2>/dev/null | tail -8 | tr '\n' ' | ')"
-  grim "$OUT/popup-transient-640.png" 2>/dev/null || true
-  sleep 1
-  grim "$OUT/popup-open-640.png"
-  local bbox ae
-  bbox=$(diff_bbox "$OUT/popup-closed-640.png" "$OUT/popup-open-640.png")
-  ae=$(diff_ae "$OUT/popup-closed-640.png" "$OUT/popup-open-640.png")
   say "popup open: diff bbox=$bbox ae=$ae"
   if [[ -z $bbox || $bbox == *0x0* || ${ae:-0} -lt 500 ]]; then
     if [[ ${CLICK_PROVEN:-0} == 1 ]]; then
