@@ -2,9 +2,10 @@ name: VM GPU feasibility (probe)
 
 # Probe branch only. One question: can a QEMU guest on a GitHub-hosted
 # runner get a real DRM render node through virtio-gpu + virgl with
-# software (llvmpipe) host rendering? If yes, the ISO integration harness
-# (test/integration.d/base-test.sh already has the graphics switch) can run
-# the actual target compositor in a disposable VM on free runners.
+# software (llvmpipe) host rendering? First attempt failed: qemu's
+# egl-headless insists on a host DRM render node ("egl: no drm render node
+# available"). Next variants: GL through Xvfb (gtk/sdl displays with gl=on,
+# llvmpipe GLX) and a vgem dummy render node if the module loads.
 
 on:
   workflow_dispatch:
@@ -19,12 +20,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Install QEMU with virgl
+      - name: Install QEMU with virgl and Xvfb
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq qemu-system-x86 qemu-utils libvirglrenderer1 libegl1 libgl1 curl xorriso >/dev/null
-          qemu-system-x86_64 -display help 2>&1 | grep -i egl || true
+          sudo apt-get install -y -qq qemu-system-x86 qemu-system-gui qemu-utils libvirglrenderer1 libegl1 libgl1 mesa-utils xvfb curl xorriso >/dev/null
+          qemu-system-x86_64 -display help 2>&1 || true
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules >/dev/null
+          sudo udevadm control --reload-rules; sudo udevadm trigger --name-match=kvm || true
+          [[ -w /dev/kvm ]] || sudo chmod 666 /dev/kvm || true
           ls -l /dev/kvm || true
+          sudo modprobe vgem && ls -l /dev/dri/ || echo "no vgem"
 
       - name: Download a small guest (Alpine virt ISO)
         run: |
@@ -32,60 +37,64 @@ jobs:
           iso=$(printf '%s' "$idx" | grep -o 'alpine-virt-[0-9.]*-x86_64\.iso' | sort -V | tail -1)
           echo "guest iso: $iso"
           curl -fsSL -o guest.iso "https://dl-cdn.alpinelinux.org/alpine/latest-stable/releases/x86_64/$iso"
-          echo "ISO=$iso" >> "$GITHUB_ENV"
 
-      - name: Boot with virtio-vga-gl + egl-headless and read the guest boot log
+      - name: Extract guest kernel for explicit serial console
         run: |
-          set -x
-          accel=kvm; [[ -w /dev/kvm ]] || accel=tcg
-          # virtio-vga-gl needs GL on the headless display; llvmpipe provides
-          # the host GL context with no GPU. Serial console: the virt ISO
-          # speaks serial by default; if the log stays empty we retry with
-          # an extracted kernel and an explicit console=ttyS0.
-          qemu-system-x86_64 \
-            -machine q35,accel=$accel -cpu max -smp 2 -m 1024 \
-            -cdrom guest.iso \
-            -device virtio-vga-gl -display egl-headless \
-            -serial file:serial1.log -pidfile qemu.pid -daemonize \
-            -netdev user,id=n0 -device virtio-net-pci,netdev=n0 || echo "QEMU-START-FAILED variant1"
-          sleep 60
-          [[ -f qemu.pid ]] && kill "$(cat qemu.pid)" 2>/dev/null || true
-          sleep 2
-          wc -c serial1.log 2>/dev/null || true
-
-      - name: Fallback - extracted kernel with explicit serial console
-        if: always()
-        run: |
-          if [[ -s serial1.log ]] && grep -qiE 'virtio|alpine|Linux version' serial1.log; then
-            echo "serial1.log has boot output, skipping fallback"; exit 0
-          fi
-          set -x
           mkdir x && xorriso -osirrox on -indev guest.iso -extract /boot x/boot >/dev/null 2>&1
           ls x/boot
+
+      - name: Variant A - GL over Xvfb (gtk display)
+        run: |
+          set -x
+          Xvfb :99 -screen 0 1024x768x24 &
+          xvfb_pid=$!
+          sleep 2
+          DISPLAY=:99 glxinfo -B 2>&1 | head -8 || true
+          accel=kvm; [[ -w /dev/kvm ]] || accel=tcg
+          DISPLAY=:99 qemu-system-x86_64 \
+            -machine q35,accel=$accel -cpu max -smp 2 -m 1024 \
+            -kernel x/boot/vmlinuz-virt -initrd x/boot/initramfs-virt \
+            -append "console=ttyS0,115200 modules=loop,squashfs,sd-mod,usb-storage,cdrom" \
+            -cdrom guest.iso \
+            -device virtio-vga-gl -display gtk,gl=on \
+            -serial file:serialA.log -pidfile qemuA.pid -daemonize \
+            -netdev user,id=n0 -device virtio-net-pci,netdev=n0 || echo "QEMU-START-FAILED variantA"
+          sleep 75
+          [[ -f qemuA.pid ]] && kill "$(cat qemuA.pid)" 2>/dev/null || true
+          kill $xvfb_pid 2>/dev/null || true
+          wc -c serialA.log 2>/dev/null || true
+
+      - name: Variant B - egl-headless with vgem render node
+        if: always()
+        run: |
+          set -x
+          rn=$(ls /dev/dri/renderD* 2>/dev/null | head -1)
+          echo "render node: ${rn:-none}"
+          [[ -n $rn ]] || { echo "SKIP: no host render node"; exit 0; }
           accel=kvm; [[ -w /dev/kvm ]] || accel=tcg
           qemu-system-x86_64 \
             -machine q35,accel=$accel -cpu max -smp 2 -m 1024 \
             -kernel x/boot/vmlinuz-virt -initrd x/boot/initramfs-virt \
             -append "console=ttyS0,115200 modules=loop,squashfs,sd-mod,usb-storage,cdrom" \
             -cdrom guest.iso \
-            -device virtio-vga-gl -display egl-headless \
-            -serial file:serial2.log -pidfile qemu2.pid -daemonize \
-            -netdev user,id=n0 -device virtio-net-pci,netdev=n0 || echo "QEMU-START-FAILED variant2"
+            -device virtio-vga-gl -display "egl-headless,rendernode=$rn" \
+            -serial file:serialB.log -pidfile qemuB.pid -daemonize \
+            -netdev user,id=n0 -device virtio-net-pci,netdev=n0 || echo "QEMU-START-FAILED variantB"
           sleep 75
-          [[ -f qemu2.pid ]] && kill "$(cat qemu2.pid)" 2>/dev/null || true
-          sleep 2
-          wc -c serial2.log 2>/dev/null || true
+          [[ -f qemuB.pid ]] && kill "$(cat qemuB.pid)" 2>/dev/null || true
+          wc -c serialB.log 2>/dev/null || true
 
       - name: Verdict
         if: always()
         run: |
-          log=serial1.log; [[ -s serial2.log ]] && log=serial2.log
-          echo "=== guest boot log: $log ==="
-          tail -60 "$log" 2>/dev/null || true
-          echo "=== verdict ==="
-          if grep -qiE 'virtio_gpu|virtio-gpu|\[drm\]' "$log" 2>/dev/null; then
-            grep -iE 'virtio_gpu|virtio-gpu|\[drm\]|renderD' "$log" | head -20
-            echo "VERDICT: guest kernel bound a virtio GPU driver"
-          else
-            echo "VERDICT: no virtio GPU driver evidence in the guest log"
-          fi
+          for log in serialA.log serialB.log; do
+            echo "=== $log ==="
+            [[ -s $log ]] || { echo "(empty)"; continue; }
+            if grep -qiE 'virtio_gpu|\[drm\]' "$log"; then
+              grep -iE 'virtio_gpu|\[drm\]|renderD|virgl' "$log" | head -15
+              echo "VERDICT: $log - guest kernel bound the virtio GPU driver"
+            else
+              echo "VERDICT: $log - booted but no virtio GPU driver evidence:"
+              tail -20 "$log"
+            fi
+          done
