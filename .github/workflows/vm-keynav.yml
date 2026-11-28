@@ -1,0 +1,86 @@
+name: VM Keynav Validation
+
+# On-target keyboard-navigation gate: installs the RC ISO in a disposable VM
+# (virgl GPU via Xvfb + llvmpipe host GL), boots the real Hyprland session,
+# checks out the exact candidate SHA inside the guest and runs
+# test/quickshell-keynav-smoke.sh in attach mode with real wtype keys.
+# Runs on pushes that touch the shell, its keynav smoke or this harness;
+# unrelated pushes do not pay for a full VM run.
+
+on:
+  push:
+    branches: [feat/panel-keynav, probe/vm-gpu-feasibility]
+    paths:
+      - default/quickshell/**
+      - test/quickshell-keynav-smoke.sh
+      - .github/workflows/vm-keynav.yml
+      - iso/test/ci/vm-keynav-check.sh
+      - iso/test/integration.d/**
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: Exact commit SHA to validate in the guest
+        required: true
+
+jobs:
+  vm-keynav:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+    timeout-minutes: 120
+    env:
+      # ISO run that produced the environment artifact. The artifact expires
+      # 2026-12-04T23:51Z; the preflight below fails with rebuild
+      # instructions instead of letting the job break silently.
+      ISO_RUN_ID: 46083322004
+      ISO_SOURCE_SHA: 99e0f22
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Resolve the candidate SHA under test
+        run: |
+          if [[ -n "${{ github.event.inputs.candidate_sha || '' }}" ]]; then
+            cand="${{ github.event.inputs.candidate_sha || '' }}"
+          elif [[ "${{ github.ref }}" == "refs/heads/feat/panel-keynav" ]]; then
+            cand="${{ github.sha }}"
+          else
+            cand="$(git rev-parse HEAD)"
+          fi
+          echo "CANDIDATE_SHA=$cand" >> "$GITHUB_ENV"
+          echo "candidate under test: $cand"
+
+      - name: Preflight - the RC ISO artifact must still exist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if ! gh api "repos/$GITHUB_REPOSITORY/actions/runs/$ISO_RUN_ID/artifacts" \
+              --jq '.artifacts[] | select(.name=="monarch-iso") | .id' | grep -q .; then
+            echo "::error::RC ISO artifact (run $ISO_RUN_ID) is gone or expired." \
+              "Rebuild: dispatch the ISO workflow on $ISO_SOURCE_SHA, then set ISO_RUN_ID" \
+              "in .github/workflows/vm-keynav.yml to the new run id."
+            exit 1
+          fi
+
+      - name: Download the RC ISO artifact
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: monarch-iso
+          path: iso/
+          run-id: ${{ env.ISO_RUN_ID }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install the ISO and run the keynav validation in the VM
+        run: |
+          chmod +x iso/test/ci/vm-keynav-check.sh
+          bash iso/test/ci/vm-keynav-check.sh \
+            "$(ls iso/monarch-*.iso | head -1)" \
+            "$CANDIDATE_SHA" \
+            iso/out
+
+      - name: Upload validation output
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: vm-keynav-out
+          path: iso/out/
+          if-no-files-found: warn
