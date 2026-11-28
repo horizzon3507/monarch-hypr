@@ -138,14 +138,16 @@ if [[ $attach == 1 && $compositor == hyprland ]]; then
   # Verify registration: without this check the "grab intercepts bindings"
   # control below is vacuous and a post-close miss is misread as a stuck grab.
   echo "phase: registering probe binding at runtime"
-  timeout 10 hyprctl keyword "bind = , b, exec, echo binding-fired-b >> $work/bindings" 2>&1 | tail -2
+  # Hyprland 0.56 dropped the legacy `keyword` IPC request ("unknown
+  # request"); runtime config changes go through `eval` (Lua). Try eval
+  # first, legacy keyword second for older Hyprland.
+  timeout 10 hyprctl eval "hl.bind(\"b\", hl.dsp.exec_cmd(\"echo binding-fired-b >> $work/bindings\"))" 2>&1 | tail -2
   for _ in $(seq 1 10); do
     hyprctl binds -j 2>/dev/null | grep -q binding-fired-b && { binding_registered=1; break; }
     sleep 0.3
   done
   if [[ $binding_registered == 0 ]]; then
-    # Retry with the two-argument keyword form before giving up.
-    timeout 10 hyprctl keyword bind ", b, exec, echo binding-fired-b >> $work/bindings" 2>&1 | tail -2
+    timeout 10 hyprctl keyword "bind = , b, exec, echo binding-fired-b >> $work/bindings" 2>&1 | tail -2
     for _ in $(seq 1 10); do
       hyprctl binds -j 2>/dev/null | grep -q binding-fired-b && { binding_registered=1; break; }
       sleep 0.3
