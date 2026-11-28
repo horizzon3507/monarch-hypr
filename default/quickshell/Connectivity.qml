@@ -11,6 +11,9 @@ RowLayout {
     id: root
     spacing: 12
     property int fontSize: 13
+    // Compact mode (narrow bars): drop the wifi network name, keep the
+    // signal strength; bluetooth shortens to "bt".
+    property bool compact: false
 
     // "Wi-Fi is off" is only claimed when NetworkManager is the backend and it
     // reports devices. With no backend (no daemon) wifiEnabled is false too, and
@@ -46,7 +49,9 @@ RowLayout {
                 delegate: Text {
                     required property var modelData
                     visible: modelData.connected
-                    text: modelData.name + " " + Logic.signalPercent(modelData.signalStrength) + "%"
+                    text: root.compact
+                        ? Logic.signalPercent(modelData.signalStrength) + "%"
+                        : modelData.name + " " + Logic.signalPercent(modelData.signalStrength) + "%"
                     font.pixelSize: root.fontSize
                     color: Theme.fg
                 }
@@ -57,7 +62,7 @@ RowLayout {
     Text {
         readonly property var adapter: Bluetooth.defaultAdapter
         visible: adapter !== null
-        text: visible ? Logic.bluetoothText(adapter.enabled, connectedNames()) : ""
+        text: visible ? (root.compact ? "bt" : Logic.bluetoothText(adapter.enabled, connectedNames())) : ""
         font.pixelSize: root.fontSize
         color: Theme.fg
         opacity: visible && adapter.enabled ? 1.0 : 0.6

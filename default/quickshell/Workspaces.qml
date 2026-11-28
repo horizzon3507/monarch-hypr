@@ -10,6 +10,18 @@ RowLayout {
     spacing: 4
 
     property int fontSize: 13
+    // Width the bar grants this group, in px. 0 means unlimited (legacy
+    // behavior for callers that do not know the available space).
+    property int availableWidth: 0
+
+    readonly property int slotWidth: Math.round(fontSize * 1.9)
+    // How many slots fit the granted width. Zero when the grant fits not even
+    // one slot: nothing renders rather than a slot spilling onto the clock.
+    readonly property int maxSlots: availableWidth > 0
+        ? (availableWidth >= slotWidth
+            ? Math.max(1, Math.floor((availableWidth + spacing) / (slotWidth + spacing)))
+            : 0)
+        : 0
 
     function ids() {
         var out = [];
@@ -25,8 +37,33 @@ RowLayout {
         return null;
     }
 
+    function focusedId() {
+        var list = Hyprland.workspaces.values;
+        for (var i = 0; i < list.length; i++)
+            if (list[i].focused) return list[i].id;
+        return -1;
+    }
+
+    // Slots that fit the granted width. A grant of 0 means unlimited (legacy
+    // callers). A positive grant that fits nothing shows nothing. Otherwise
+    // the focused workspace is always kept: if capping would drop it, it
+    // replaces the highest shown slot.
+    function visibleSlots() {
+        var all = Logic.workspaceSlots(root.ids());
+        if (root.availableWidth <= 0) return all;
+        if (all.length <= root.maxSlots) return all;
+        if (root.maxSlots <= 0) return [];
+        var out = all.slice(0, root.maxSlots);
+        var focus = root.focusedId();
+        if (focus > 0 && out.indexOf(focus) < 0) {
+            out[out.length - 1] = focus;
+            out.sort(function (a, b) { return a - b; });
+        }
+        return out;
+    }
+
     Repeater {
-        model: Logic.workspaceSlots(root.ids())
+        model: root.visibleSlots()
 
         delegate: Rectangle {
             id: slot
@@ -35,7 +72,7 @@ RowLayout {
             readonly property bool focused: ws !== null && ws.focused
             readonly property bool urgent: ws !== null && ws.urgent
 
-            implicitWidth: root.fontSize * 1.9
+            implicitWidth: root.slotWidth
             implicitHeight: root.fontSize * 1.7
             radius: 4
             color: focused ? Theme.accent : (urgent ? Theme.error : "transparent")

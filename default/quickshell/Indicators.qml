@@ -12,6 +12,36 @@ RowLayout {
     id: root
     spacing: 12
     property int fontSize: 13
+    // Compact mode (narrow bars): vol/brightness readouts hide, state chips
+    // (including the privacy-sensitive recording chip) and battery stay.
+    property bool compact: false
+
+    // Widths for the bar's adaptive budget, computed only from parts whose
+    // visibility does not depend on `compact`, so the bar's level decision
+    // stays free of binding loops.
+    readonly property bool hasBri: Logic.brightnessText(root.brightness) !== ""
+    readonly property bool hasVol: Pipewire.defaultAudioSink !== null
+        && Pipewire.defaultAudioSink.audio !== null
+    readonly property bool hasBat: UPower.displayDevice !== null
+        && UPower.displayDevice.isPresent && UPower.displayDevice.isLaptopBattery
+    function chipsWidth() {
+        var w = 0;
+        for (var i = 0; i < chipsRepeater.count; i++) {
+            var it = chipsRepeater.itemAt(i);
+            if (it !== null) w += it.implicitWidth;
+        }
+        if (chipsRepeater.count > 1) w += (chipsRepeater.count - 1) * spacing;
+        return w;
+    }
+    function rowWidth(parts) {
+        var w = 0, n = 0;
+        for (var i = 0; i < parts.length; i++)
+            if (parts[i] > 0) { w += parts[i]; n++; }
+        return n === 0 ? 0 : w + (n - 1) * spacing;
+    }
+    readonly property int fullWidth: rowWidth([chipsWidth(),
+        hasBri ? briText.width : 0, hasVol ? volText.width : 0, hasBat ? batText.width : 0])
+    readonly property int compactWidth: rowWidth([chipsWidth(), hasBat ? batText.width : 0])
 
     // Backlight percent from `monarch-display-brightness --list`, polled while the
     // bar is up. Nothing shows without an internal backlight (desktop, external
@@ -120,6 +150,7 @@ RowLayout {
     }
 
     Repeater {
+        id: chipsRepeater
         model: Logic.stateChips(root.chipState)
         Text {
             required property var modelData
@@ -137,7 +168,8 @@ RowLayout {
     }
 
     Text {
-        visible: text !== ""
+        id: briText
+        visible: !root.compact && text !== ""
         text: Logic.brightnessText(root.brightness)
         font.pixelSize: root.fontSize
         color: Theme.fg
@@ -148,8 +180,9 @@ RowLayout {
     }
 
     Text {
+        id: volText
         readonly property var sink: Pipewire.defaultAudioSink
-        visible: sink !== null && sink.audio !== null
+        visible: !root.compact && sink !== null && sink.audio !== null
         text: visible ? "vol " + Logic.volumeText(sink.audio.volume, sink.audio.muted) : ""
         font.pixelSize: root.fontSize
         color: Theme.fg
@@ -157,6 +190,7 @@ RowLayout {
     }
 
     Text {
+        id: batText
         readonly property var battery: UPower.displayDevice
         readonly property bool charging: battery !== null
             && (battery.state === UPowerDeviceState.Charging || battery.state === UPowerDeviceState.FullyCharged)
