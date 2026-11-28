@@ -21,6 +21,8 @@ Scope {
         }
         function close(): void { root.current = ""; }
         function active(): string { return root.current; }
+        // Diagnostics for the keynav smoke: whether the card holds Qt focus.
+        function cardFocused(): bool { return card.activeFocus; }
     }
 
     PanelWindow {
@@ -34,11 +36,16 @@ Scope {
         // Exclusive while a panel is open: the compositor sends keys to the
         // panel, so Escape works without a prior click. The close button below
         // is the pointer path out, and `monarch-panel close` the scripted one.
-        WlrLayershell.keyboardFocus: root.current !== "" ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+        // Always Exclusive, set before the surface first maps: requesting it
+        // only when a panel opens can leave an already-mapped surface
+        // without keyboard interactivity on some compositors, and then no
+        // key ever reaches the panel.
+        WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
         WlrLayershell.namespace: "monarch-panel"
 
         Rectangle {
             id: card
+            objectName: "panelCard"
             implicitWidth: loader.implicitWidth + 40
             implicitHeight: loader.implicitHeight + 40
             color: Theme.bg

@@ -98,6 +98,9 @@ shell_errors() {
 ipc panel open session
 sleep 1
 shot keynav-session-top
+echo "card focus: $(ipc panel cardFocused)"
+swaysock=$(find "$XDG_RUNTIME_DIR" -maxdepth 1 -name 'sway-ipc.*.sock' | head -n 1)
+command -v swaymsg >/dev/null && [[ -n $swaysock ]] && swaymsg -s "$swaysock" -t get_seats 2>&1 | head -30 || true
 
 # Down moves the focus highlight to the next row (visible in the screenshot).
 wtype -k Down
