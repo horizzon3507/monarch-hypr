@@ -139,4 +139,7 @@ if grep -q 'keynav exit: 0' "$R"; then
   note "RESULT: keynav smoke GREEN on real Hyprland (candidate $CANDIDATE_SHA)"
 else
   note "RESULT: keynav smoke NOT green or indeterminate - see report"
+  # The gate must not bless a failed verdict: fail the workflow. The
+  # artifact upload step has if: always(), so diagnostics still upload.
+  exit 1
 fi
