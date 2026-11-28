@@ -149,12 +149,12 @@ ipc panel close || true
 sleep 0.8
 if command -v wev >/dev/null; then
   lines_before=$(wc -l <"$work/calls")
-  wev -f wl_keyboard >"$work/wev.log" 2>&1 &
+  stdbuf -oL wev -f wl_keyboard >"$work/wev.log" 2>&1 &
   wev_pid=$!
   sleep 2
   wtype -k a
   sleep 0.8
-  kill "$wev_pid" 2>/dev/null
+  kill -INT "$wev_pid" 2>/dev/null
   wait "$wev_pid" 2>/dev/null
   if grep -q "sym: a" "$work/wev.log"; then
     ok "a normal client receives keys after the panel closes"
