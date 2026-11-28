@@ -599,6 +599,7 @@ popup_suite() { # BAR_H  (mode already 640x480)
     if ! popup_is_open "$OUT/.state.png"; then churn_closed=1; break; fi
   done
   say "deliberate dnd churn: popup closed within ${i}s of dnd on = $churn_closed (maxVisible guard)"
+  grim "$OUT/popup-after-dnd-on.png"  # named evidence frame: closed state + bar budget with the dnd chip
   say "TRAYPOPDIAG after dnd churn: $(grep TRAYPOPDIAG "$OUT/bar-qs.log" 2>/dev/null | tail -6 | tr '\n' ' | ')"
   [[ $churn_closed == 1 ]] || bad "deliberate dnd budget churn did NOT close the popup - maxVisible guard not firing"
   makoctl mode -r do-not-disturb >/dev/null 2>&1 || true
