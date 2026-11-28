@@ -76,13 +76,9 @@ RowLayout {
     // popup rather than leave it stale at the old position.
     Connections {
         target: root.Window.window
-        function onWidthChanged() { console.log("TRAYPOPDIAG bar-window width changed -> " + root.Window.window.width); root.overflowOpen = false }
-        function onHeightChanged() { console.log("TRAYPOPDIAG bar-window height changed -> " + root.Window.window.height); root.overflowOpen = false }
+        function onWidthChanged() { root.overflowOpen = false }
+        function onHeightChanged() { root.overflowOpen = false }
     }
-    // TEMPORARY VM DIAGNOSTIC (combined-validation branch only, do not
-    // merge): log-only maxVisible witness; the patched build must NOT close
-    // on this - the close logic is gone, this line only observes.
-    onMaxVisibleChanged: console.log("TRAYPOPDIAG maxVisible changed -> " + root.maxVisible)
 
     // Content churn is not a resize: when the chip moves inside the bar
     // window (the inline cap reshuffling the row, an indicator chip or a
@@ -98,15 +94,8 @@ RowLayout {
     // Popup contents rebind live and every dismissal path (chip toggle,
     // Escape, outside click, item activation, window resize) is unchanged.
     function reanchorOverflow() {
-        if (root.overflowOpen && overflowPopup.visible) {
-            // TEMPORARY VM DIAGNOSTIC: ordering witness - a reanchor fire
-            // must come AFTER the maxVisible/chipstate lines that caused
-            // it, carrying the chip's settled global position.
-            var g = overflowChip.mapToGlobal(0, 0);
-            console.log("TRAYPOPDIAG reanchor fired, chip global=" + g.x + "," + g.y + " chipWidth=" + overflowChip.width);
+        if (root.overflowOpen && overflowPopup.visible)
             overflowPopup.anchor.updateAnchor();
-            console.log("TRAYPOPDIAG reanchor updateAnchor returned");
-        }
     }
     onXChanged: reanchorOverflow()
     onYChanged: reanchorOverflow()
