@@ -92,7 +92,7 @@ done
 say "SUPER+Return after stock provisioning: spawned=$spawned (before=$before after=$(clients))"
 if [[ $spawned == 1 ]]; then
   say "the shipped Terminal bind works once a terminal is provisioned"
-  for a in $(hyprctl clients -j | jq -r '.[].address'); do hyprctl dispatch closewindow "address:$a" >/dev/null 2>&1; done
+  for a in $(hyprctl clients -j | jq -r '.[].address'); do hyprctl eval "return hl.dispatch('closewindow address:$a')" >/dev/null 2>&1; done
 else
   bad "SUPER+Return spawned no window even after stock provisioning"
 fi
@@ -102,6 +102,7 @@ fi
 # candidate checkout carries the fix (include of the rendered Monarch theme).
 # Verify with the real foot parser after a real theme render - not assumed.
 say "--- foot config verification (candidate config/foot/foot.ini over ISO state) ---"
+foot --version 2>&1 | head -1 | sed 's/^/foot version: /'
 if [[ -f $HOME/checkout/config/foot/foot.ini ]]; then
   render=$(command -v monarch-theme-render || echo "$MONARCH_PATH/bin/monarch-theme-render")
   "$render" >/dev/null 2>&1 || say "theme render exited non-zero (palette missing on fresh guest?)"
@@ -115,12 +116,19 @@ if [[ -f $HOME/checkout/config/foot/foot.ini ]]; then
   fi
   timeout 8 foot >/dev/null 2>"$OUT/foot-launch-stderr.log" &
   sleep 3
+  if hyprctl clients -j 2>/dev/null | jq -e '.[] | select((.class // "") | test("foot"))' >/dev/null 2>&1; then
+    say "foot produced a live client with the candidate config"
+  else
+    bad "foot produced NO live client with the candidate config"
+  fi
   if grep -q "failed to open" "$OUT/foot-launch-stderr.log"; then
     bad "foot launch still reports a missing include: $(grep 'failed to open' "$OUT/foot-launch-stderr.log" | head -1)"
+  elif grep -q "err:" "$OUT/foot-launch-stderr.log"; then
+    bad "foot launch reports a config error: $(grep 'err:' "$OUT/foot-launch-stderr.log" | head -1)"
   else
-    say "foot launch stderr has no missing-include error"
+    say "foot launch stderr clean (no config errors)"
   fi
-  for a in $(hyprctl clients -j | jq -r '.[].address'); do hyprctl dispatch closewindow "address:$a" >/dev/null 2>&1; done
+  for a in $(hyprctl clients -j | jq -r '.[].address'); do hyprctl eval "return hl.dispatch('closewindow address:$a')" >/dev/null 2>&1; done
 else
   say "checkout carries no config/foot/foot.ini; skipped"
 fi
@@ -132,8 +140,15 @@ fi
 say "--- theme-include series (candidate configs over ISO provisioning) ---"
 theme_dir="$HOME/.config/monarch/current/theme"
 for app in kitty ghostty; do
-  pacman -Qq $app >/dev/null 2>&1 || { echo monarch | sudo -S -v; "$MONARCH_PATH/bin/monarch-install-terminal" $app >/dev/null 2>&1; }
-  say "$app installed: $(pacman -Qq $app 2>/dev/null || echo MISSING)"
+  if ! pacman -Qq $app >/dev/null 2>&1; then
+    echo monarch | sudo -S -v
+    "$MONARCH_PATH/bin/monarch-install-terminal" $app >"$OUT/install-$app.log" 2>&1
+  fi
+  if pacman -Qq $app >/dev/null 2>&1; then
+    say "$app installed: $(pacman -Q $app)"
+  else
+    say "$app installed: MISSING (native validation skipped) - install log tail: $(tail -3 "$OUT/install-$app.log" 2>/dev/null | tr '\n' ' ')"
+  fi
   [[ -d $HOME/.config/$app && -f $HOME/checkout/config/$app ]] || true
 done
 # kitty: relative include against the including file

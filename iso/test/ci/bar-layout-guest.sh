@@ -314,8 +314,35 @@ popup_suite() { # BAR_H  (mode already 640x480)
   say "tray conservation: inline=$inline chip=+$chip_n registered=12"
   [[ $((inline + chip_n)) -eq 12 ]] || bad "tray item conservation violated: $inline inline + $chip_n overflow != 12 registered fixtures"
 
-  # 1. Click the chip: the popup must appear below the bar.
+  # 0. Click-delivery control: a bar click with a compositor-visible effect
+  # (workspace indicator 3 -> activeworkspace 3). Without a proven delivery
+  # witness a silent chip click cannot be separated from a handler defect.
+  ws0=$(hyprctl activeworkspace -j 2>/dev/null | jq -r '.id // 0')
+  click_at 106 14
+  sleep 0.8
+  ws1=$(hyprctl activeworkspace -j 2>/dev/null | jq -r '.id // 0')
+  if [[ $ws1 == "3" && $ws0 != "3" ]]; then
+    say "click delivery PROVEN: workspace $ws0 -> $ws1 via bar indicator click"
+    CLICK_PROVEN=1
+  else
+    say "click delivery UNVERIFIED: workspace $ws0 -> $ws1 after indicator click"
+    CLICK_PROVEN=0
+  fi
+  click_at 26 14; sleep 0.8  # return to workspace 1
+
+  # 1. Click the chip: the popup must appear below the bar. Transient
+  # detector: poll layer namespaces for ~1.2s so an instant open-close
+  # still leaves a trace, and keep a rapid post-click frame.
+  ns_before=$(hyprctl layers -j 2>/dev/null | jq -r '.. | .namespace? // empty' | sort -u)
   click_at "$cx" "$cy"
+  newns=""
+  for i in $(seq 1 12); do
+    newns=$(comm -13 <(printf '%s\n' "$ns_before") <(hyprctl layers -j 2>/dev/null | jq -r '.. | .namespace? // empty' | sort -u) | tr '\n' ' ')
+    [[ -n $newns ]] && break
+    sleep 0.1
+  done
+  say "post-chip-click new layer surfaces: [${newns:-none}]"
+  grim "$OUT/popup-transient-640.png" 2>/dev/null || true
   sleep 1
   grim "$OUT/popup-open-640.png"
   local bbox ae
@@ -323,7 +350,11 @@ popup_suite() { # BAR_H  (mode already 640x480)
   ae=$(diff_ae "$OUT/popup-closed-640.png" "$OUT/popup-open-640.png")
   say "popup open: diff bbox=$bbox ae=$ae"
   if [[ -z $bbox || $bbox == *0x0* || ${ae:-0} -lt 500 ]]; then
-    bad "clicking the overflow chip opened no popup at 640px"
+    if [[ ${CLICK_PROVEN:-0} == 1 ]]; then
+      bad "clicking the overflow chip opened no popup at 640px (delivery PROVEN via workspace indicator; pointer verified on-chip; new layers: [${newns:-none}]) - chip handler defect indicated"
+    else
+      bad "clicking the overflow chip opened no popup at 640px (delivery UNVERIFIED - cannot separate handler defect from input delivery)"
+    fi
     return
   fi
   # Placement: the popup's top edge must sit just under the bar.

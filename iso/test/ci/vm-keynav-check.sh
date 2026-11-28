@@ -190,7 +190,12 @@ echo "--- base shell interception comparison ---"
 # Inherited-baseline check: does the PRE-PR122 shell also let compositor
 # binds fire while its session panel is open? Same VM, same compositor, same
 # input path - only the shell code differs (99e0f22, pre-PR122). This keeps
-# base-ISO evidence separate from candidate-code verdicts.
+# base-ISO evidence separate from candidate-code verdicts. The panel-open
+# state is VERIFIED via layer-shell namespaces before the chord; an
+# unverified panel makes the comparison invalid (last round's failure).
+panel_open() { # any layer-shell namespace mentioning 'session'
+  hyprctl layers -j 2>/dev/null | jq -r '.. | .namespace? // empty' | grep -qi session
+}
 BASE=99e0f22a7704a3f609361a9c6b5a6e1fb9ebd931
 if git -C "$HOME/checkout" fetch --quiet --depth 1 origin "$BASE" \
   && git -C "$HOME/checkout" worktree add --detach "$HOME/base-shell" "$BASE" >/dev/null 2>&1; then
@@ -198,25 +203,45 @@ if git -C "$HOME/checkout" fetch --quiet --depth 1 origin "$BASE" \
   quickshell -p "$HOME/base-shell/default/quickshell" >"$HOME/keynav-out/base-qs.log" 2>&1 &
   sleep 8
   kill -0 $! 2>/dev/null || { echo "base shell died; see base-qs.log"; tail -10 "$HOME/keynav-out/base-qs.log"; }
+  pkill -x foot 2>/dev/null; pkill -x wev 2>/dev/null; sleep 1   # clean client baseline
   bw=$(hyprctl monitors -j | jq -r '.[0].width')
   # ydotool absolute coordinates are scaled vs output pixels on this stack
-  # (observed x2 at 640x480): calibrate, then click the power glyph.
+  # (observed x2 at 640x480): calibrate first.
   ydotool mousemove --absolute -x 100 -y 100 2>/dev/null; sleep 0.4
   cpos=$(hyprctl cursorpos 2>/dev/null | tr -d ' ')
   csx=$(( ${cpos%%,*} / 100 )); csy=$(( ${cpos##*,} / 100 ))
   [[ $csx -lt 1 ]] && csx=1; [[ $csy -lt 1 ]] && csy=1
   echo "base-phase pointer scale: ${csx}x${csy} (from 100,100 -> $cpos)"
-  ydotool mousemove --absolute -x $(( (bw - 16) / csx )) -y $(( 15 / csy )) 2>/dev/null; sleep 0.4
-  echo "power-click cursorpos: $(hyprctl cursorpos 2>/dev/null | tr -d ' ') (target $((bw-16)),15)"
-  ydotool click 0xC0 2>/dev/null; sleep 2
+  # click-delivery control: workspace indicator 3 must switch the workspace
+  bws0=$(hyprctl activeworkspace -j 2>/dev/null | jq -r '.id // 0')
+  ydotool mousemove --absolute -x $((106 / csx)) -y $((14 / csy)) 2>/dev/null; sleep 0.4
+  ydotool click 0xC0 2>/dev/null; sleep 0.8
+  bws1=$(hyprctl activeworkspace -j 2>/dev/null | jq -r '.id // 0')
+  echo "base-phase click-delivery control: workspace $bws0 -> $bws1 after indicator click"
+  ydotool mousemove --absolute -x $((26 / csx)) -y $((14 / csy)) 2>/dev/null; sleep 0.4
+  ydotool click 0xC0 2>/dev/null; sleep 0.8   # back to workspace 1
+  # open the base session panel via the power glyph; verify, retry up to 3x
+  panel=0
+  for try in 1 2 3; do
+    ydotool mousemove --absolute -x $(( (bw - 16) / csx )) -y $(( 15 / csy )) 2>/dev/null; sleep 0.4
+    echo "power-click cursorpos (try $try): $(hyprctl cursorpos 2>/dev/null | tr -d ' ') (target $((bw-16)),15)"
+    ydotool click 0xC0 2>/dev/null
+    for i in $(seq 1 20); do panel_open && break; sleep 0.2; done
+    panel_open && { panel=1; break; }
+    echo "base panel not verified open after try $try; retrying"
+  done
   grim "$HOME/keynav-out/base-panel-open.png" 2>/dev/null || true
-  bpre=$(hyprctl clients -j | jq length)
-  ydotool key 125:1 28:1 28:0 125:0 2>/dev/null; sleep 4
-  bpost=$(hyprctl clients -j | jq length)
-  grim "$HOME/keynav-out/base-after-chord.png" 2>/dev/null || true
-  echo "base shell ($BASE) panel-open SUPER+Return: clients $bpre -> $bpost"
-  [[ $bpost -gt $bpre ]] && echo "base shell: bind fired through open panel (INHERITED BASELINE)" \
-    || echo "base shell: bind did NOT fire through open panel (candidate behavior would be a regression)"
+  if [[ $panel == 1 ]]; then
+    bpre=$(hyprctl clients -j | jq length)
+    ydotool key 125:1 28:1 28:0 125:0 2>/dev/null; sleep 4
+    bpost=$(hyprctl clients -j | jq length)
+    grim "$HOME/keynav-out/base-after-chord.png" 2>/dev/null || true
+    echo "base shell ($BASE) VERIFIED-open panel SUPER+Return: clients $bpre -> $bpost"
+    [[ $bpost -gt $bpre ]] && echo "base shell: bind fired through VERIFIED-open panel (INHERITED BASELINE)" \
+      || echo "base shell: bind did NOT fire through VERIFIED-open panel (candidate behavior would be a regression)"
+  else
+    echo "base shell comparison INVALID: base session panel never verified open after 3 clicks"
+  fi
   pkill -x quickshell 2>/dev/null
 else
   echo "base shell comparison skipped: could not fetch/check out $BASE"

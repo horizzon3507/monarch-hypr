@@ -207,11 +207,11 @@ await_new_client() { # COUNT ADDRS(sorted) -> echoes the new address
 }
 close_client() { # ADDRESS - verified; closewindow silently fails on this stack
   local r
-  r=$(hyprctl dispatch closewindow "address:$1" 2>&1)
+  r=$(hyprctl eval "return hl.dispatch('closewindow address:$1')" 2>&1)
   sleep 0.5
   if hyprctl clients -j 2>/dev/null | jq -e --arg a "$1" '.[] | select(.address == $a)' >/dev/null 2>&1; then
     echo "close_client: closewindow reply [$r] left $1 alive; falling back to focus + SUPER+Q"
-    hyprctl dispatch focuswindow "address:$1" >/dev/null 2>&1
+    hyprctl eval "return hl.dispatch('focuswindow address:$1')" >/dev/null 2>&1
     sleep 0.5
     press_chord 16 q
     sleep 1
@@ -489,7 +489,7 @@ if [[ $attach == 1 && $compositor == hyprland ]]; then
     # own (observed: the 'a' probe landed in the terminal). Explicitly
     # refocus wev, then wait for the focus to actually land before the
     # key-receipt checks below.
-    hyprctl dispatch focuswindow "class:wev" >/dev/null 2>&1
+    hyprctl eval "return hl.dispatch('focuswindow class:wev')" >/dev/null 2>&1
     for _ in $(seq 1 25); do
       focused=$(hyprctl activewindow -j 2>/dev/null | grep -o '"class": "[^"]*"' | head -1 || true)
       [[ $focused == *wev* ]] && break
