@@ -62,11 +62,13 @@ jobs:
               bash test/quickshell-share-smoke.sh --screenshots "$GITHUB_WORKSPACE/smoke-shots"
             fi
             if [[ -f test/quickshell-keynav-smoke.sh ]]; then
-              bash test/quickshell-keynav-smoke.sh --screenshots "$GITHUB_WORKSPACE/smoke-shots"
-              # Also on the actual target compositor: key delivery to regular
-              # clients after the panel closes must be proven there, not only
-              # on sway.
-              SMOKE_COMPOSITOR=hyprland bash test/quickshell-keynav-smoke.sh --screenshots "$GITHUB_WORKSPACE/smoke-shots/hyprland"
+              # Run on the actual target compositor as well as sway, and do
+              # not let a sway failure keep the Hyprland run from happening:
+              # collect both outcomes and fail at the end.
+              keynav_status=0
+              bash test/quickshell-keynav-smoke.sh --screenshots "$GITHUB_WORKSPACE/smoke-shots" || keynav_status=1
+              SMOKE_COMPOSITOR=hyprland bash test/quickshell-keynav-smoke.sh --screenshots "$GITHUB_WORKSPACE/smoke-shots/hyprland" || keynav_status=1
+              [[ $keynav_status -eq 0 ]]
             fi
           '
 
