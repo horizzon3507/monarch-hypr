@@ -69,6 +69,7 @@ RowLayout {
     property bool updateFailed: false
 
     function setChip(key, value) {
+        if (root.chipState[key] !== value) console.log("TRAYPOPDIAG chipstate " + key + ": " + root.chipState[key] + " -> " + value);
         var next = Object.assign({}, root.chipState);
         next[key] = value;
         root.chipState = next;
