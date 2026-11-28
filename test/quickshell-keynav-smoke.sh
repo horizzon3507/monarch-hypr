@@ -265,7 +265,7 @@ if [[ $attach == 1 ]]; then
   pkill -x quickshell 2>/dev/null || true
   sleep 1
 fi
-quickshell -p "$SHELL_DIR" >"$work/qs.log" 2>&1 &
+quickshell -p "$SHELL_DIR" >"${screenshots:-$work}/qs-shell.log" 2>&1 &
 qs_pid=$!
 for _ in $(seq 1 $((load_timeout * 5))); do
   if grep -q 'Configuration Loaded' "$work/qs.log" || ! kill -0 "$qs_pid" 2>/dev/null; then break; fi
