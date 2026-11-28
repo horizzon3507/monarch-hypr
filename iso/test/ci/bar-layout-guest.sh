@@ -302,6 +302,29 @@ count_inline_icons() { # IMG -> inline magenta icon count
                  print runs }'
 }
 
+# Locate the "+N" overflow chip by OCR on a FRESH upscaled bar strip.
+# Re-aimed before every popup (re)open: the chip shifts when any indicator
+# takes budget (observed: the 'upd 5' update readout appearing mid-suite
+# moved the chip ~35px left; a stale aim hit the update chip and launched
+# its TUI fullscreen). Grayscale + negate: raw color strips OCR as garbage
+# (observed). The "+" is often dropped, so accept a bare number in the
+# right-edge zone (x > 2000 of 2560, before the power glyph ~2471); when
+# several tokens match (the update readout's count also OCRs as a bare
+# number), the chip is the LEFTMOST - readouts sit right of the tray.
+# Sets CHIP_CX CHIP_CY CHIP_N (CHIP_CX biased 10px left: OCR glyph boxes
+# wobble +/-10px and can land past the pill's right edge, observed x=609
+# with the pill ending ~600), CHIP_LOG = all candidates.
+chip_aim() { # BAR_H -> 0 ok / 1 OCR blind
+  local hh=$1 strip="$OUT/.chip-strip.png"
+  grim "$OUT/.chip-aim.png" 2>/dev/null || return 1
+  magick "$OUT/.chip-aim.png" -crop "640x${hh}+0+0" -resize 400% -colorspace Gray -negate "$strip"
+  CHIP_LOG=$(tesseract "$strip" - --psm 11 tsv 2>/dev/null \
+    | awk -F'\t' '$12 ~ /^\+?[0-9]+$/ && $7 > 2000 && $7 < 2450 {printf "%d %d %d\n", ($7+$9/2)/4, ($8+$10/2)/4, $12}' | sort -n)
+  [[ -n $CHIP_LOG ]] || return 1
+  read -r CHIP_CX CHIP_CY CHIP_N <<<"$(head -1 <<<"$CHIP_LOG")"
+  CHIP_CX=$((CHIP_CX - 10))
+}
+
 # --- tray overflow popup click-through (at 640px) ------------------------------
 popup_suite() { # BAR_H  (mode already 640x480)
   local H=$1 W=640
@@ -321,6 +344,22 @@ popup_suite() { # BAR_H  (mode already 640x480)
   dnd_now=$(monarch-toggle-notification-silencing status 2>/dev/null || true)
   say "dnd state after settle: ${dnd_now:-unreadable}"
 
+  # Budget settle, product-agnostic: the first update check lands 'a short
+  # delay' after shell start and its readout takes bar budget when updates
+  # are pending (observed: 'upd 5' appearing mid-suite shifted the overflow
+  # chip ~35px left). Wait until the right-edge token set is stable across
+  # two reads 5s apart (cap 60s); per-reopen re-aims cover any later churn.
+  local prev_tokens="" tokens settle_i
+  for settle_i in $(seq 1 12); do
+    grim "$OUT/.settle.png" 2>/dev/null || true
+    magick "$OUT/.settle.png" -crop "640x${H}+0+0" -resize 400% -colorspace Gray -negate "$OUT/.settle-strip.png"
+    tokens=$(tesseract "$OUT/.settle-strip.png" - --psm 11 tsv 2>/dev/null | awk -F'\t' '$12 != "" && $7 > 2000 {printf "%s,", $12}')
+    say "settle $settle_i: right-bar tokens: [${tokens:-none}]"
+    [[ -n $tokens && $tokens == "$prev_tokens" ]] && break
+    prev_tokens=$tokens
+    sleep 5
+  done
+
   # Park the cursor INSIDE the bar band before the reference shots: the
   # calibration move lands below the bar (~2x scale), and a below-bar cursor
   # in the closed shot merges into the below-bar diff bbox, dragging the
@@ -328,16 +367,12 @@ popup_suite() { # BAR_H  (mode already 640x480)
   # y=127 vs real icons at y~39).
   move_to 320 14; sleep 0.3
 
-  # Locate the "+N" overflow chip by OCR on the upscaled bar strip.
+  # Locate the "+N" overflow chip (fresh OCR via chip_aim; re-aimed before
+  # every reopen because indicator churn moves it).
   grim "$OUT/popup-closed-640.png"
-  # Grayscale + negate: raw color strips OCR as garbage (observed); the "+"
-  # of the chip is often dropped, so accept a bare number in the right-edge
-  # zone (x > 2100 of 2560, before the power glyph ~2471) as the chip.
-  magick "$OUT/popup-closed-640.png" -crop "${W}x${H}+0+0" -resize 400% -colorspace Gray -negate "$OUT/bar-640-strip4x.png"
   local chip
-  chip=$(tesseract "$OUT/bar-640-strip4x.png" - --psm 11 tsv 2>/dev/null \
-    | awk -F'\t' '$12 ~ /^\+?[0-9]+$/ && $7 > 2100 && $7 < 2450 {printf "%d %d %d", ($7+$9/2)/4, ($8+$10/2)/4, $12; exit}')
-  say "overflow chip: [${chip:-not found}]"
+  if chip_aim "$H"; then chip="$CHIP_CX $CHIP_CY $CHIP_N"; else chip=""; fi
+  say "overflow chip: [${chip:-not found}] (candidates: $(tr '\n' ' ' <<<"${CHIP_LOG:-none}"))"
   if [[ -z $chip ]]; then
     bad "no +N overflow chip found at 640px (tray overflow not rendered or OCR blind)"
     return
@@ -345,16 +380,11 @@ popup_suite() { # BAR_H  (mode already 640x480)
   local cx cy chip_n
   read -r cx cy chip_n <<<"$chip"
 
-  # OCR glyph boxes wobble +/-10px between runs and can land past the chip
-  # pill's right edge (observed: OCR center x=609 with the pill ending ~600:
-  # dead bar, no chip-pressed). The shell's chip-geom diagnostic logs the
-  # rect at CREATION, before tray reflow shifts the chip right (observed:
-  # logged x552 while a click at x599 landed with local=13.5/15), so it is
-  # NOT a reliable aim. Use the OCR center biased 10px left (on-pill in
-  # every observed run) and keep the corrective retry below.
+  # The shell's chip-geom diagnostic logs the rect at CREATION, before
+  # tray reflow shifts the chip right (observed: logged x552 while a click
+  # at x599 landed with local=13.5/15), so it is NOT a reliable aim.
   local geom
   geom=$(grep -o 'TRAYPOPDIAG chip-geom global=[0-9.]*,[0-9.]* size=[0-9.]*x[0-9.]*' "$OUT/bar-qs.log" 2>/dev/null | tail -1)
-  cx=$((cx - 10))
   say "chip aim from OCR with left bias: $cx,$cy (creation rect for reference: ${geom:-none})"
 
   # Conservation: inline icons + overflow count must equal the 12 registered
@@ -428,13 +458,27 @@ popup_suite() { # BAR_H  (mode already 640x480)
     magick "$1" -crop "640x$((480-H))+0+${H}" +repage "$OUT/.cur-below.png"
     diff_ae "$OUT/.closed-below.png" "$OUT/.cur-below.png"
   }
-  popup_is_open() { local ae; ae=$(below_ae "$1"); [[ ${ae:-0} -ge 400 ]]; }
+  popup_is_open() {
+    # Popup-SHAPED diff: one icon row hugging the bar bottom. A fullscreen
+    # app window (observed: a stale aim launching the updater TUI) produces
+    # a huge below-bar diff that must NOT read as 'popup open'.
+    local ae bb w2 h2 x2 y2
+    ae=$(below_ae "$1"); [[ ${ae:-0} -ge 400 ]] || return 1
+    bb=$(below_bbox "$1"); IFS='x+' read -r w2 h2 x2 y2 <<<"$bb"
+    [[ ${h2:-999} -le 60 && ${y2:-999} -le 10 ]]
+  }
   ensure_popup_open() {
     grim "$OUT/.state.png"
     popup_is_open "$OUT/.state.png" && return 0
-    click_at "$cx" "$cy"; sleep 1
-    grim "$OUT/.state.png"
-    popup_is_open "$OUT/.state.png"
+    local try ax ay
+    for try in 0 -8; do
+      if chip_aim "$H"; then ax=$CHIP_CX; ay=$CHIP_CY
+      else ax=$cx; ay=$cy; say "re-aim: OCR blind, falling back to first aim $cx,$cy"; fi
+      click_at "$((ax + try))" "$ay"; sleep 1
+      grim "$OUT/.state.png"
+      popup_is_open "$OUT/.state.png" && return 0
+    done
+    return 1
   }
   local pbbox pbw pbh pbx pby
   pbbox=$(below_bbox "$OUT/popup-open-640.png")
@@ -638,6 +682,14 @@ if set_mode 640x480; then
 else
   bad "could not switch to 640x480"
 fi
+# The suite may have launched strays (observed: a stale chip aim hit the
+# 'upd' chip and opened the updater TUI fullscreen). Sweep before the
+# after-resize comparison so it measures popup survival, not app windows.
+for a in $(hyprctl clients -j | jq -r '.[].address'); do
+  close_window "$a"
+done
+sleep 1
+say "clients before after-resize comparison: $(hyprctl clients -j | jq -c '[.[] | {class}]')"
 # Output change with the popup (possibly) open: it must close, not linger.
 if set_mode 1920x1080; then
   sleep 3
