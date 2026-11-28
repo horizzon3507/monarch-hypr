@@ -8,6 +8,8 @@ name: VM GPU feasibility (probe)
 
 on:
   workflow_dispatch:
+  push:
+    branches: [probe/vm-gpu-feasibility]
 
 permissions:
   contents: read
