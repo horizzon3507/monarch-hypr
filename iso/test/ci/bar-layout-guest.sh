@@ -215,6 +215,18 @@ check_bar() { # WIDTH (requested; measure against the CAPTURED size)
   awk -v s="$pwr_sd" 'BEGIN{exit !(s > 10)}' || bad "no power glyph at the right edge at ${W}px"
 }
 
+# Count inline tray icons: each fixture icon is a magenta checkerboard whose
+# magenta cells cover every column of its 16px width; columns between icons
+# are bar bg. Column-projection transitions over the icon band = icon count.
+count_inline_icons() { # IMG -> inline magenta icon count
+  magick "$1" -crop "640x26+0+3" -depth 8 txt:- 2>/dev/null \
+    | sed 's/[():,]/ /g' \
+    | awk 'NR > 1 && $3 > 150 && $5 > 150 && $4 < 120 { m[$1] = 1 }
+           END { runs = 0
+                 for (x = 1; x < 640; x++) if (m[x] && !m[x-1]) runs++
+                 print runs }'
+}
+
 # --- tray overflow popup click-through (at 640px) ------------------------------
 popup_suite() { # BAR_H  (mode already 640x480)
   local H=$1 W=640
@@ -227,13 +239,21 @@ popup_suite() { # BAR_H  (mode already 640x480)
   magick "$OUT/popup-closed-640.png" -crop "${W}x${H}+0+0" -resize 400% -colorspace Gray -negate "$OUT/bar-640-strip4x.png"
   local chip
   chip=$(tesseract "$OUT/bar-640-strip4x.png" - --psm 11 tsv 2>/dev/null \
-    | awk -F'\t' '$12 ~ /^\+?[0-9]+$/ && $7 > 2100 && $7 < 2450 {printf "%d %d", ($7+$9/2)/4, ($8+$10/2)/4; exit}')
-  say "overflow chip center: [${chip:-not found}]"
+    | awk -F'\t' '$12 ~ /^\+?[0-9]+$/ && $7 > 2100 && $7 < 2450 {printf "%d %d %d", ($7+$9/2)/4, ($8+$10/2)/4, $12; exit}')
+  say "overflow chip: [${chip:-not found}]"
   if [[ -z $chip ]]; then
     bad "no +N overflow chip found at 640px (tray overflow not rendered or OCR blind)"
     return
   fi
-  local cx=${chip% *} cy=${chip#* }
+  local cx cy chip_n
+  read -r cx cy chip_n <<<"$chip"
+
+  # Conservation: inline icons + overflow count must equal the 12 registered
+  # fixtures exactly - no lost or duplicated tray items.
+  local inline
+  inline=$(count_inline_icons "$OUT/popup-closed-640.png")
+  say "tray conservation: inline=$inline chip=+$chip_n registered=12"
+  [[ $((inline + chip_n)) -eq 12 ]] || bad "tray item conservation violated: $inline inline + $chip_n overflow != 12 registered fixtures"
 
   # 1. Click the chip: the popup must appear below the bar.
   click_at "$cx" "$cy"
@@ -253,12 +273,28 @@ popup_suite() { # BAR_H  (mode already 640x480)
   say "popup placement: top=$by (bar bottom=$H), left=$bx, size ${bw}x${bh}"
   (( by >= H - 2 && by <= H + 12 )) || bad "popup top edge at y=$by, expected just under the bar ($H)"
 
-  # 2. Click the first popup row: the fixture must receive Activate.
+  # 1b. Popup identity: the popup must list exactly chip_n DISTINCT fixture
+  # items (OCR the row labels; fixture titles are "Fixture Item N").
+  magick "$OUT/popup-open-640.png" -crop "${bw}x${bh}+${bx}+${by}" -resize 300% -colorspace Gray -negate "$OUT/popup-open-ocr.png"
+  local popup_items popup_count
+  popup_items=$(tesseract "$OUT/popup-open-ocr.png" - --psm 6 2>/dev/null \
+    | grep -oiE 'fixture item [0-9]+' | grep -oE '[0-9]+$' | sort -n | uniq | tr '\n' ' ' | sed 's/ $//')
+  popup_count=$(wc -w <<<"$popup_items")
+  say "popup rows (OCR identities): [$popup_items] count=$popup_count expected=$chip_n"
+  [[ $popup_count -eq $chip_n ]] || bad "popup lists $popup_count distinct fixture items, expected $chip_n"
+
+  # 2. Click the first popup row: the fixture must receive Activate, and the
+  # activated item must be one of the popup's own rows.
   local row_x=$((bx + bw / 2)) row_y=$((by + 16))
   click_at "$row_x" "$row_y"
   sleep 1
-  if grep -q '^ACTIVATE' "$FIXTURE_LOG"; then
-    say "popup row click delivered Activate to the SNI fixture: $(grep '^ACTIVATE' "$FIXTURE_LOG" | head -1)"
+  if grep -q ' ACTIVATE ' "$FIXTURE_LOG"; then
+    local act_id
+    act_id=$(grep ' ACTIVATE ' "$FIXTURE_LOG" | tail -1 | awk '{print $3}')
+    say "popup row click delivered Activate to fixture item $act_id"
+    if [[ -n $popup_items ]] && ! grep -qw "$act_id" <<<"$popup_items"; then
+      bad "activated item $act_id is not among the popup rows [$popup_items]"
+    fi
   else
     bad "popup row click did not reach the SNI fixture (no ACTIVATE logged)"
   fi

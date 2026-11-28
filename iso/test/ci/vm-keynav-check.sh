@@ -132,6 +132,10 @@ echo monarch | sudo -S chmod 0666 "$YDOTOOL_SOCKET" 2>/dev/null || true
 [[ -S $YDOTOOL_SOCKET ]] && echo "ydotoold up on $YDOTOOL_SOCKET" || echo "WARNING: ydotoold socket missing; chords fall back to wtype"
 mkdir -p "$HOME/.config"
 printf 'foot.desktop\n' > "$HOME/.config/xdg-terminals.list"
+# Disposable guest home hygiene: an empty .zshrc suppresses the
+# zsh-newuser-install wizard in fixture terminals. This is guest setup,
+# NOT evidence about the shipped first-run user experience.
+touch "$HOME/.zshrc"
 rm -rf "$HOME/checkout"
 git clone --quiet https://github.com/horizzon3507/monarch-hypr.git "$HOME/checkout"
 cd "$HOME/checkout"
