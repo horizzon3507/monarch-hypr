@@ -1,12 +1,15 @@
 #!/bin/bash
 # Runtime validation of keyboard navigation in the session panel in a real,
-# headless layer-shell compositor (sway, headless wlroots). Real key events
-# come from wtype (virtual keyboard): Down moves the focus highlight and
-# Return activates the focused row, dispatching the real lock command. All
-# session commands are stubs on PATH; nothing locks or suspends anything.
+# headless layer-shell compositor. Real key events come from wtype (virtual
+# keyboard): Down moves the focus highlight and Return activates the focused
+# row, dispatching the real lock command. All session commands are stubs on
+# PATH; nothing locks or suspends anything.
+#
+# Compositor: sway (default) or the actual target, set SMOKE_COMPOSITOR:
+#   SMOKE_COMPOSITOR=hyprland test/quickshell-keynav-smoke.sh
 #
 # Usage: test/quickshell-keynav-smoke.sh [--screenshots DIR] [--timeout SECONDS]
-# Needs: quickshell, sway, grim, wtype; run as non-root.
+# Needs: quickshell, grim, wtype, wev, and sway or Hyprland; run as non-root.
 
 set -uo pipefail
 
@@ -14,17 +17,24 @@ ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 SHELL_DIR="$ROOT/default/quickshell"
 screenshots=""
 load_timeout=10
+compositor=${SMOKE_COMPOSITOR:-sway}
 
 while [[ $# -gt 0 ]]; do
   case $1 in
     --screenshots) screenshots=$2; shift 2 ;;
     --timeout) load_timeout=$2; shift 2 ;;
-    -h|--help) sed -n 2,10p "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n 2,13p "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
 
-for tool in quickshell sway grim wtype; do
+case $compositor in
+  sway)     comp_bin=sway ;;
+  hyprland) comp_bin=Hyprland ;;
+  *) echo "keynav-smoke: unknown compositor '$compositor'" >&2; exit 2 ;;
+esac
+
+for tool in quickshell grim wtype wev "$comp_bin"; do
   command -v "$tool" >/dev/null || { echo "keynav-smoke: $tool is not installed" >&2; exit 2; }
 done
 [[ $(id -u) -ne 0 ]] || { echo "keynav-smoke: run as a non-root user" >&2; exit 2; }
@@ -35,13 +45,13 @@ mkdir -p "$XDG_RUNTIME_DIR" && chmod 700 "$XDG_RUNTIME_DIR"
 export HOME="$work/home"
 mkdir -p "$HOME" $screenshots
 
-sway_pid=""
+comp_pid=""
 qs_pid=""
 wtype_pid=""
 cleanup() {
   [[ -z $wtype_pid ]] || kill "$wtype_pid" 2>/dev/null
   [[ -z $qs_pid ]] || kill "$qs_pid" 2>/dev/null
-  [[ -z $sway_pid ]] || kill "$sway_pid" 2>/dev/null
+  [[ -z $comp_pid ]] || kill "$comp_pid" 2>/dev/null
   rm -rf "$work"
 }
 trap cleanup EXIT
@@ -60,24 +70,39 @@ printf '#!/bin/bash\nexit 1\n' >"$stubs/monarch-hibernation-available"
 chmod +x "$stubs"/monarch-toggle-enabled "$stubs"/monarch-hibernation-available
 export PATH="$stubs:$PATH"
 
-cp "$(command -v sway)" "$work/sway-bin"
-# A compositor-level probe binding: 'b' fires only when a key reaches sway's
-# normal routing, so it distinguishes a stuck keyboard grab from a
-# client-delivery problem in the hand-back check below.
-printf 'bindsym b exec echo binding-fired-b >> "%s/bindings"\n' "$work" >"$work/sway.conf"
-WLR_BACKENDS=headless WLR_LIBINPUT_NO_DEVICES=1 WLR_RENDERER=pixman \
-  "$work/sway-bin" -c "$work/sway.conf" >"$work/sway.log" 2>&1 &
-sway_pid=$!
+# Start the compositor with a probe binding: 'b' fires only when a key
+# reaches the compositor's normal routing, so it distinguishes a stuck
+# keyboard grab from a client-delivery problem in the hand-back check below.
+echo "keynav-smoke: compositor = $compositor"
+if [[ $compositor == sway ]]; then
+  cp "$(command -v sway)" "$work/sway-bin"
+  printf 'bindsym b exec echo binding-fired-b >> "%s/bindings"\n' "$work" >"$work/comp.conf"
+  WLR_BACKENDS=headless WLR_LIBINPUT_NO_DEVICES=1 WLR_RENDERER=pixman \
+    "$work/sway-bin" -c "$work/comp.conf" >"$work/comp.log" 2>&1 &
+else
+  {
+    echo 'monitor = HEADLESS-1, 1920x1080@60, 0x0, 1'
+    printf 'bind = , b, exec, echo binding-fired-b >> "%s/bindings"\n' "$work"
+    echo 'misc { disable_hyprland_logo = true; force_default_wallpaper = 0 }'
+    echo 'ecosystem { no_update_news = true; no_donation_nag = true }'
+    echo 'animations { enabled = false }'
+  } >"$work/comp.conf"
+  Hyprland --config "$work/comp.conf" >"$work/comp.log" 2>&1 &
+fi
+comp_pid=$!
 
 socket=""
-for _ in $(seq 1 50); do
+for _ in $(seq 1 100); do
   socket=$(find "$XDG_RUNTIME_DIR" -maxdepth 1 -name 'wayland-[0-9]*' ! -name '*.lock' -printf '%f\n' | head -n 1)
   [[ -n $socket ]] && break
   sleep 0.2
 done
-[[ -n $socket ]] || { echo "keynav-smoke: headless sway did not start" >&2; cat "$work/sway.log" >&2; exit 2; }
+[[ -n $socket ]] || { echo "keynav-smoke: headless $compositor did not start" >&2; cat "$work/comp.log" >&2; exit 2; }
 export WAYLAND_DISPLAY=$socket
 unset QT_QPA_PLATFORM
+if [[ $compositor == hyprland ]]; then
+  export HYPRLAND_INSTANCE_SIGNATURE=$(find "$XDG_RUNTIME_DIR/hypr" -mindepth 1 -maxdepth 1 -printf '%f\n' 2>/dev/null | head -n 1)
+fi
 
 # The headless seat starts with no input devices at all (capabilities 0), so
 # a one-shot wtype would create its virtual keyboard after the panel mapped
@@ -93,6 +118,24 @@ sleep 0.5
 failures=0
 ok() { echo "ok - $1"; }
 not_ok() { echo "not ok - $1"; failures=$((failures + 1)); }
+
+# Baseline control, with the panel shell ABSENT: can a regular toplevel
+# client receive a virtual-keyboard key on this compositor at all? This
+# separates a harness limitation from anything our shell does. Informational
+# only; the requirement itself is enforced after the panel closes below.
+stdbuf -oL wev >"$work/wev-baseline.log" 2>&1 &
+wev_base_pid=$!
+sleep 2
+wtype -k a
+sleep 1
+kill -INT "$wev_base_pid" 2>/dev/null
+wait "$wev_base_pid" 2>/dev/null
+if grep -q "sym: a" "$work/wev-baseline.log"; then
+  echo "baseline: toplevel key delivery works on $compositor without the shell"
+else
+  echo "baseline: NO toplevel key delivery on $compositor even without the shell:"
+  cat "$work/wev-baseline.log" || true
+fi
 
 ipc() { quickshell ipc --path "$SHELL_DIR" call "$@" 2>>"$work/qs.log"; }
 
@@ -116,11 +159,18 @@ ipc panel open session
 sleep 1
 shot keynav-session-top
 echo "card focus: $(ipc panel cardFocused)"
-swaysock=$(find "$XDG_RUNTIME_DIR" -maxdepth 1 -name 'sway-ipc.*.sock' | head -n 1)
-if command -v swaymsg >/dev/null && [[ -n $swaysock ]]; then
-  seats=$(swaymsg -s "$swaysock" -t get_seats 2>&1)
-  echo "$seats" | head -30
-  echo "$seats" | grep -q '"capabilities": [1-9]' && ok "the seat has input capabilities" || not_ok "the seat has input capabilities"
+if [[ $compositor == sway ]]; then
+  swaysock=$(find "$XDG_RUNTIME_DIR" -maxdepth 1 -name 'sway-ipc.*.sock' | head -n 1)
+  if command -v swaymsg >/dev/null && [[ -n $swaysock ]]; then
+    seats=$(swaymsg -s "$swaysock" -t get_seats 2>&1)
+    echo "$seats" | head -30
+    echo "$seats" | grep -q '"capabilities": [1-9]' && ok "the seat has input capabilities" || not_ok "the seat has input capabilities"
+  fi
+else
+  devices=$(hyprctl devices 2>&1)
+  echo "$devices" | head -30
+  echo "$devices" | sed -n '/[Kk]eyboards/,/^$/p' | grep -q ' at ' \
+    && ok "the seat has input capabilities" || not_ok "the seat has input capabilities"
 fi
 
 # Down moves the focus highlight to the next row (visible in the screenshot).
@@ -160,32 +210,29 @@ sleep 0.6
 # the panel stub log stays unchanged (the key reached no panel action).
 ipc panel close || true
 sleep 0.8
-if command -v wev >/dev/null; then
-  lines_before=$(wc -l <"$work/calls")
-  stdbuf -oL wev >"$work/wev.log" 2>&1 &
-  wev_pid=$!
-  sleep 2
-  wtype -k b
-  sleep 0.8
-  grep -q binding-fired-b "$work/bindings" && ok "compositor bindings fire again after the panel closes" || not_ok "compositor bindings fire again after the panel closes"
-  wtype -k a
-  sleep 1
-  kill -INT "$wev_pid" 2>/dev/null
-  wait "$wev_pid" 2>/dev/null
-  grep -q "wl_keyboard] enter" "$work/wev.log" && ok "a normal client gains keyboard focus after the panel closes" || not_ok "a normal client gains keyboard focus after the panel closes"
-  if grep -q "sym: a" "$work/wev.log"; then
-    ok "a normal client receives keys after the panel closes"
-  else
-    cat "$work/wev.log" || true
-    not_ok "a normal client receives keys after the panel closes"
-  fi
-  [[ $(wc -l <"$work/calls") -eq $lines_before ]] && ok "the key reached no panel action" || not_ok "the key reached no panel action"
+lines_before=$(wc -l <"$work/calls")
+stdbuf -oL wev >"$work/wev.log" 2>&1 &
+wev_pid=$!
+sleep 2
+wtype -k b
+sleep 0.8
+grep -q binding-fired-b "$work/bindings" && ok "compositor bindings fire again after the panel closes" || not_ok "compositor bindings fire again after the panel closes"
+wtype -k a
+sleep 1
+kill -INT "$wev_pid" 2>/dev/null
+wait "$wev_pid" 2>/dev/null
+grep -q "wl_keyboard] enter" "$work/wev.log" && ok "a normal client gains keyboard focus after the panel closes" || not_ok "a normal client gains keyboard focus after the panel closes"
+if grep -q "sym: a" "$work/wev.log"; then
+  ok "a normal client receives keys after the panel closes"
 else
-  not_ok "wev available for the focus hand-back check"
+  cat "$work/wev.log" || true
+  [[ $compositor == hyprland ]] && hyprctl activewindow || true
+  not_ok "a normal client receives keys after the panel closes"
 fi
+[[ $(wc -l <"$work/calls") -eq $lines_before ]] && ok "the key reached no panel action" || not_ok "the key reached no panel action"
 
 kill "$qs_pid" 2>/dev/null; wait "$qs_pid" 2>/dev/null; qs_pid=""
 [[ -z $(shell_errors) ]] && ok "no QML errors in the loaded shell" || { not_ok "no QML errors in the loaded shell"; shell_errors | sed 's/^/    /'; }
 
-echo "keynav-smoke: $failures failure(s)"
+echo "keynav-smoke ($compositor): $failures failure(s)"
 [[ $failures -eq 0 ]]
