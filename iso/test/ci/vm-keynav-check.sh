@@ -92,15 +92,6 @@ fi
 # Enable autologin into the monarch session and reboot so the real Hyprland
 # session starts on the virgl GPU.
 ssh_sudo 'mkdir -p /etc/sddm.conf.d && printf "[Autologin]\nUser=monarch\nSession=monarch.desktop\n" > /etc/sddm.conf.d/zz-vm-keynav.conf'
-
-# Give the session a startup-time probe binding via the user override file
-# (loaded last by hyprland.lua). Runtime-registered binds do not fire on
-# Hyprland 0.56 (register-but-dead upstream, cf. hyprwm/Hyprland#13994, and
-# the legacy keyword IPC request is gone), so the binding must be present
-# when the compositor starts.
-ssh_guest 'mkdir -p /home/monarch/keynav-probe /home/monarch/.config/hypr && printf -- "-- keynav smoke probe binding (disposable VM only)\nhl.bind(\"b\", hl.dsp.exec_cmd(\"echo binding-fired-b >> /home/monarch/keynav-probe/bindings\"))\n" >> /home/monarch/.config/hypr/bindings.lua'
-# Evidence: the include chain must actually pick the file up.
-ssh_guest 'ls -la /home/monarch/.config/hypr/; echo ---; tail -5 /home/monarch/.config/hypr/bindings.lua; echo ---; grep -c bindings.lua /home/monarch/.config/hypr/hyprland.lua 2>/dev/null || echo "hyprland.lua MISSING at ~/.config/hypr"' | tee -a "$R"
 ssh_sudo 'systemctl reboot' || true
 sleep 20
 if ! wait_for_ssh "$BOOT_TIMEOUT" failure-reboot-ssh; then
@@ -120,7 +111,7 @@ set -x
 sha=$1
 export PATH="$PATH"
 sudo -n true 2>/dev/null || echo monarch | sudo -S true
-echo monarch | sudo -S pacman -Sy --needed --noconfirm git wtype wev grim qt6-wayland 2>&1 | tail -3
+echo monarch | sudo -S pacman -Sy --needed --noconfirm git wtype wev grim qt6-wayland jq 2>&1 | tail -3
 rm -rf "$HOME/checkout"
 git clone --quiet https://github.com/horizzon3507/monarch-hypr.git "$HOME/checkout"
 cd "$HOME/checkout"
@@ -135,14 +126,12 @@ export XDG_RUNTIME_DIR=/run/user/$(id -u)
 export WAYLAND_DISPLAY=$(basename "$(ls $XDG_RUNTIME_DIR/wayland-* | grep -v lock | head -1)")
 export HYPRLAND_INSTANCE_SIGNATURE=$(ls "$XDG_RUNTIME_DIR/hypr" | head -1)
 echo "wayland=$WAYLAND_DISPLAY his=$HYPRLAND_INSTANCE_SIGNATURE"
-echo "--- probe bind diagnostics ---"
-ls -la /home/monarch/keynav-probe/ 2>&1
-tail -3 /home/monarch/.config/hypr/bindings.lua 2>&1
+echo "--- session evidence ---"
 timeout 10 hyprctl configerrors 2>&1 | tail -6
-timeout 10 hyprctl binds -j 2>/dev/null | head -c 1200; echo
-echo "--- end diagnostics ---"
+hyprctl binds -j > "$HOME/keynav-out/hyprctl-binds.json" 2>/dev/null || true
+hyprctl version -j 2>/dev/null | head -c 400; echo
+echo "--- end session evidence ---"
 SMOKE_ATTACH=1 SMOKE_COMPOSITOR=hyprland \
-  SMOKE_PROBE_BINDINGS=/home/monarch/keynav-probe/bindings \
   bash test/quickshell-keynav-smoke.sh --screenshots "$HOME/keynav-out" 2>&1 | tee "$HOME/keynav-out/smoke-full.log" | tail -80
 echo "keynav exit: ${PIPESTATUS[0]}"
 GUEST

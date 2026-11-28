@@ -48,9 +48,14 @@ done
 [[ $(id -u) -ne 0 ]] || { echo "keynav-smoke: run as a non-root user" >&2; exit 2; }
 
 work=$(mktemp -d)
-# SMOKE_PROBE_BINDINGS: the probe binding's output file when the binding
-# comes from the session's own config (startup binds fire on Hyprland;
-# runtime-registered ones may not, cf. hyprwm/Hyprland#13994).
+# SMOKE_PROBE_BINDINGS (non-attach runs only): the probe binding's output
+# file when the binding comes from a pre-seeded config. Attach + Hyprland
+# runs instead use the session's shipped SUPER+Return startup bind as the
+# compositor-bind witness: startup binds are the reliable witness on 0.56
+# (runtime-registered binds may register-but-never-fire, cf.
+# hyprwm/Hyprland#13994, and the legacy `keyword` IPC request is gone),
+# and its side effect - a new terminal window in `hyprctl clients` - is
+# observable regardless of focus, unlike a window-closing witness.
 bindings_file=${SMOKE_PROBE_BINDINGS:-$work/bindings}
 if [[ $attach == 1 ]]; then
   : "${XDG_RUNTIME_DIR:=/run/user/$(id -u)}"
@@ -136,37 +141,52 @@ unset QT_QPA_PLATFORM
 if [[ $compositor == hyprland ]]; then
   export HYPRLAND_INSTANCE_SIGNATURE=$(find "$XDG_RUNTIME_DIR/hypr" -mindepth 1 -maxdepth 1 -printf '%f\n' 2>/dev/null | head -n 1)
 fi
-binding_registered=0
+witness_ready=0
 if [[ $attach == 1 && $compositor == hyprland ]]; then
-  # Verify where the probe binding comes from. Startup config binds fire on
-  # Hyprland; runtime-registered ones may register-but-never-fire upstream
-  # (cf. hyprwm/Hyprland#13994, and Hyprland 0.56 dropped the legacy
-  # `keyword` IPC request entirely). Firing is the ground truth below.
-  echo "phase: probe binding source"
+  echo "phase: compositor-bind witness source"
   hyprctl version -j 2>/dev/null | head -c 400 >"$work/hyprland-version.json" || true
   hyprctl binds -j >"$work/hyprctl-binds.json" 2>/dev/null || true
-  if grep -q binding-fired-b "$work/hyprctl-binds.json" 2>/dev/null; then
-    binding_registered=1
-    echo "probe binding present from the session config"
-  elif [[ -z ${SMOKE_PROBE_BINDINGS:-} ]]; then
-    # No config-provided binding: try runtime registration as a fallback
-    # (eval/Lua first, legacy keyword for older Hyprland).
-    echo "eval reply: $(timeout 10 hyprctl eval "hl.bind(\"b\", hl.dsp.exec_cmd(\"echo binding-fired-b >> $bindings_file\"))" 2>&1 | tail -1)"
-    sleep 1
-    hyprctl binds -j >"$work/hyprctl-binds.json" 2>/dev/null || true
-    if grep -q binding-fired-b "$work/hyprctl-binds.json" 2>/dev/null; then
-      binding_registered=1
-    else
-      echo "keyword fallback reply: $(timeout 10 hyprctl keyword "bind = , b, exec, echo binding-fired-b >> $bindings_file" 2>&1 | tail -1)"
-      sleep 0.5
-      hyprctl binds -j >"$work/hyprctl-binds.json" 2>/dev/null || true
-      grep -q binding-fired-b "$work/hyprctl-binds.json" 2>/dev/null && binding_registered=1
-    fi
+  if grep -q '"description": "Terminal"' "$work/hyprctl-binds.json" 2>/dev/null; then
+    witness_ready=1
+    echo "witness: session startup bind SUPER+Return (Terminal) is registered"
   else
-    echo "WARNING: SMOKE_PROBE_BINDINGS is set but no probe binding lists in hyprctl binds - session config may not have loaded it"
+    echo "WARNING: SUPER+Return (Terminal) startup bind not listed in hyprctl binds - unexpected session config"
   fi
-  echo "probe binding listed in hyprctl binds: $binding_registered"
+  # The bind runs `uwsm-app -- xdg-terminal-exec ...`: the witness is only
+  # valid if a terminal can actually spawn.
+  if command -v xdg-terminal-exec >/dev/null && command -v foot >/dev/null; then
+    echo "witness: xdg-terminal-exec and foot present"
+  else
+    witness_ready=0
+    echo "WARNING: xdg-terminal-exec/foot missing - the SUPER+Return witness cannot work in this session"
+  fi
+  echo "witness bind usable: $witness_ready"
 fi
+
+# SUPER+Return witness helpers (attach + Hyprland only). A witness press is
+# attributed by address diff: only a window that appears after the chord
+# counts, identified by class, polled generously (uwsm-app + llvmpipe spawn
+# slowly). Each spawned terminal is closed again by address so it cannot
+# disturb later focus checks.
+client_addrs() { hyprctl clients -j 2>/dev/null | jq -r '.[].address' | sort; }
+witness_clients() { hyprctl clients -j 2>/dev/null | jq '[.[].address] | length'; }
+press_super_return() { timeout 10 wtype -M logo -k Return -m logo; }
+await_new_client() { # COUNT ADDRS(sorted) -> echoes the new address
+  local before_count=$1 before_addrs=$2 n a
+  for _ in $(seq 1 30); do
+    n=$(witness_clients)
+    if [[ $n -gt $before_count ]]; then
+      a=$(comm -13 <(echo "$before_addrs") <(client_addrs) | head -1)
+      hyprctl clients -j | jq -c --arg a "$a" '.[] | select(.address == $a) | {class, title, workspace: .workspace.name}' >&2
+      echo "$a"
+      return 0
+    fi
+    sleep 0.5
+  done
+  return 1
+}
+close_client() { hyprctl dispatch closewindow "address:$1" >/dev/null 2>&1; sleep 0.5; }
+baseline_bind_fired=0
 
 # The headless seat starts with no input devices at all (capabilities 0), so
 # a one-shot wtype would create its virtual keyboard after the panel mapped
@@ -250,6 +270,23 @@ shell_errors() {
       -e 'quickshell.network: Network will not work. Could not find an available backend.' || true
 }
 
+# Positive control, attach + Hyprland only: with the shell running and NO
+# panel open, the SUPER+Return startup bind must fire (a terminal window
+# appears). Without this, the bind's non-firing in-panel below would prove
+# nothing about interception.
+if [[ $attach == 1 && $compositor == hyprland ]]; then
+  echo "phase: bind witness positive control"
+  pre_addrs=$(client_addrs); pre_count=$(witness_clients)
+  press_super_return
+  if new_addr=$(await_new_client "$pre_count" "$pre_addrs"); then
+    baseline_bind_fired=1
+    ok "the SUPER+Return startup bind fires before the panel opens (positive control)"
+    close_client "$new_addr"
+  else
+    not_ok "the SUPER+Return startup bind fires before the panel opens (positive control)"
+  fi
+fi
+
 ipc panel open session
 sleep 1
 shot keynav-session-top
@@ -298,15 +335,36 @@ echo "armed state after Return: '${armed}'"
 [[ $armed == "suspend" ]] && ok "Return arms the confirm row" || not_ok "Return arms the confirm row"
 
 # Positive control, Hyprland only: while the open panel holds the exclusive
-# keyboard grab, the compositor's own 'b' binding must NOT fire - the grab
-# intercepts it. Meaningless on sway, which checks bindings before layer
-# grabs by design. Must run BEFORE the dispatch below, because the panel
-# closes on dispatch.
+# keyboard grab, the compositor's own bindings must NOT fire - the grab
+# intercepts them. Attach runs witness the shipped SUPER+Return startup
+# bind (no window may spawn); non-attach runs use their own config's 'b'
+# bind. Meaningless on sway, which checks bindings before layer grabs by
+# design. Must run BEFORE the dispatch below, because the panel closes on
+# dispatch.
 touch "$bindings_file"
 if [[ $compositor == hyprland ]]; then
-  timeout 10 wtype -k b
-  sleep 0.6
-  [[ ! -s $bindings_file ]] && ok "the open panel's grab intercepts compositor bindings" || not_ok "the open panel's grab intercepts compositor bindings"
+  if [[ $attach == 1 ]]; then
+    if [[ $baseline_bind_fired != 1 || $witness_ready != 1 ]]; then
+      # Fail closed: without a proven-firing witness, a non-firing bind
+      # in-panel proves nothing about interception.
+      not_ok "the open panel's grab intercepts compositor bindings (unverifiable: witness positive control did not fire)"
+    else
+      pre_addrs=$(client_addrs); pre_count=$(witness_clients)
+      press_super_return
+      sleep 4
+      if [[ $(witness_clients) -eq $pre_count ]]; then
+        ok "the open panel's grab intercepts compositor bindings"
+      else
+        not_ok "the open panel's grab intercepts compositor bindings (SUPER+Return spawned a window)"
+        stray=$(comm -13 <(echo "$pre_addrs") <(client_addrs) | head -1)
+        close_client "$stray"
+      fi
+    fi
+  else
+    timeout 10 wtype -k b
+    sleep 0.6
+    [[ ! -s $bindings_file ]] && ok "the open panel's grab intercepts compositor bindings" || not_ok "the open panel's grab intercepts compositor bindings"
+  fi
 else
   echo "skip - grab-intercept control is Hyprland-only (sway checks bindings before layer grabs)"
 fi
@@ -343,8 +401,26 @@ if [[ $compositor == sway ]] && command -v swaymsg >/dev/null; then
   echo "seat focus post-close: $(swaymsg -s "$swaysock" -t get_seats 2>&1 | grep -E '"focus"' || true)"
   swaymsg -s "$swaysock" -t get_tree 2>&1 | grep -B2 -A2 '"focused": true' | head -12 || true
 fi
-timeout 10 wtype -k b
-sleep 0.8
+bind_refired=0
+if [[ $attach == 1 && $compositor == hyprland ]]; then
+  pre_addrs=$(client_addrs); pre_count=$(witness_clients)
+  press_super_return
+  if new_addr=$(await_new_client "$pre_count" "$pre_addrs"); then
+    bind_refired=1
+    close_client "$new_addr"
+    # The spawned terminal took the focus; wait until it lands back on wev
+    # before the key-receipt checks below.
+    for _ in $(seq 1 25); do
+      focused=$(hyprctl activewindow -j 2>/dev/null | grep -o '"class": "[^"]*"' | head -1 || true)
+      [[ $focused == *wev* ]] && break
+      sleep 0.3
+    done
+    echo "post-witness focused window: '${focused:-none}'"
+  fi
+else
+  timeout 10 wtype -k b
+  sleep 0.8
+fi
 timeout 10 wtype -k Down
 sleep 0.6
 timeout 10 wtype -k a
@@ -352,14 +428,21 @@ sleep 1
 kill -INT "$wev_pid" 2>/dev/null
 wait "$wev_pid" 2>/dev/null
 # The binding assertion runs after wev stops so wev.log can arbitrate a
-# miss: if the runtime bind never fired but wev received 'b', routing to
-# clients is normal and the dead witness is the runtime-registered bind
-# itself (suspected upstream runtime-bind limitation), not our shell.
-if grep -q binding-fired-b "$bindings_file"; then
+# miss: if the bind never fired but wev received keys, routing to clients
+# is normal and the dead side is compositor bind dispatch, not the shell.
+if [[ $attach == 1 && $compositor == hyprland ]]; then
+  if [[ $bind_refired == 1 ]]; then
+    ok "compositor bindings fire again after the panel closes"
+  elif grep -q "sym: a" "$work/wev.log"; then
+    not_ok "compositor bindings fire again after the panel closes (SUPER+Return spawned no window post-close while a normal client received keys - grab release or bind dispatch is broken)"
+  else
+    not_ok "compositor bindings fire again after the panel closes"
+  fi
+elif grep -q binding-fired-b "$bindings_file"; then
   ok "compositor bindings fire again after the panel closes"
 elif [[ $compositor == hyprland ]] && grep -q 'sym: b' "$work/wev.log"; then
   head -c 600 "$work/hyprctl-binds.json" 2>/dev/null; echo
-  not_ok "compositor bindings fire again after the panel closes (runtime-registered bind never fired; 'b' was delivered to the client instead - suspected upstream runtime-bind limitation, cf. hyprwm/Hyprland#13994)"
+  not_ok "compositor bindings fire again after the panel closes (config bind never fired; 'b' was delivered to the client instead)"
 else
   not_ok "compositor bindings fire again after the panel closes"
 fi
