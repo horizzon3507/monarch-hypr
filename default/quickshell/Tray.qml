@@ -78,10 +78,10 @@ RowLayout {
     // also change with the width, which reshuffles the popup's contents.
     Connections {
         target: root.Window.window
-        function onWidthChanged() { root.overflowOpen = false }
-        function onHeightChanged() { root.overflowOpen = false }
+        function onWidthChanged() { console.log("TRAYPOPDIAG bar-window width changed -> " + root.Window.window.width); root.overflowOpen = false }
+        function onHeightChanged() { console.log("TRAYPOPDIAG bar-window height changed -> " + root.Window.window.height); root.overflowOpen = false }
     }
-    onMaxVisibleChanged: root.overflowOpen = false
+    onMaxVisibleChanged: { console.log("TRAYPOPDIAG maxVisible changed -> " + root.maxVisible); root.overflowOpen = false }
 
     Text {
         id: overflowChip
