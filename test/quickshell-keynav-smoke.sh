@@ -37,7 +37,9 @@ mkdir -p "$HOME" $screenshots
 
 sway_pid=""
 qs_pid=""
+wtype_pid=""
 cleanup() {
+  [[ -z $wtype_pid ]] || kill "$wtype_pid" 2>/dev/null
   [[ -z $qs_pid ]] || kill "$qs_pid" 2>/dev/null
   [[ -z $sway_pid ]] || kill "$sway_pid" 2>/dev/null
   rm -rf "$work"
@@ -73,6 +75,17 @@ done
 export WAYLAND_DISPLAY=$socket
 unset QT_QPA_PLATFORM
 
+# The headless seat starts with no input devices at all (capabilities 0), so
+# a one-shot wtype would create its virtual keyboard after the panel mapped
+# and the key events would go nowhere. Hold a persistent virtual keyboard
+# open on a FIFO before the shell starts: the seat has a keyboard when the
+# panel surface maps, and later wtype -k calls reach the focused panel.
+mkfifo "$work/wtype-stdin"
+wtype - <"$work/wtype-stdin" >"$work/wtype.log" 2>&1 &
+wtype_pid=$!
+exec 9>"$work/wtype-stdin"
+sleep 0.5
+
 failures=0
 ok() { echo "ok - $1"; }
 not_ok() { echo "not ok - $1"; failures=$((failures + 1)); }
@@ -100,7 +113,11 @@ sleep 1
 shot keynav-session-top
 echo "card focus: $(ipc panel cardFocused)"
 swaysock=$(find "$XDG_RUNTIME_DIR" -maxdepth 1 -name 'sway-ipc.*.sock' | head -n 1)
-command -v swaymsg >/dev/null && [[ -n $swaysock ]] && swaymsg -s "$swaysock" -t get_seats 2>&1 | head -30 || true
+if command -v swaymsg >/dev/null && [[ -n $swaysock ]]; then
+  seats=$(swaymsg -s "$swaysock" -t get_seats 2>&1)
+  echo "$seats" | head -30
+  echo "$seats" | grep -q '"capabilities": [1-9]' && ok "the seat has input capabilities" || not_ok "the seat has input capabilities"
+fi
 
 # Down moves the focus highlight to the next row (visible in the screenshot).
 wtype -k Down
