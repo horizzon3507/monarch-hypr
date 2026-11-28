@@ -49,7 +49,8 @@ if [[ -d /mnt ]]; then
 fi
 
 # Host GL for virgl: llvmpipe over Xvfb.
-Xvfb :99 -screen 0 1024x768x24 &
+# 1920x1080 so the bar-layout phase can switch the guest output up to 1920.
+Xvfb :99 -screen 0 1920x1080x24 &
 XVFB_PID=$!
 sleep 2
 export DISPLAY=:99
@@ -145,17 +146,35 @@ SMOKE_ATTACH=1 SMOKE_COMPOSITOR=hyprland \
   SMOKE_PROBE_BINDINGS=/home/monarch/keynav-probe/bindings \
   bash test/quickshell-keynav-smoke.sh --screenshots "$HOME/keynav-out" 2>&1 | tee "$HOME/keynav-out/smoke-full.log" | tail -80
 echo "keynav exit: ${PIPESTATUS[0]}"
+echo "--- bar layout phase ---"
+if [[ -f iso/test/ci/bar-layout-guest.sh ]]; then
+  bash iso/test/ci/bar-layout-guest.sh "$HOME/keynav-out" 2>&1 | tail -60
+  echo "bar-layout exit: ${PIPESTATUS[0]}"
+else
+  echo "bar-layout phase not present in this checkout; skipped"
+fi
 GUEST
 keynav_rc=${PIPESTATUS[0]}
 collect
 
 note "vm-keynav-check done (guest stream rc=$keynav_rc)"
 # The guest stream's own "keynav exit:" line is the smoke verdict; surface it.
+gate_rc=0
 if grep -q 'keynav exit: 0' "$R"; then
   note "RESULT: keynav smoke GREEN on real Hyprland (candidate $CANDIDATE_SHA)"
 else
   note "RESULT: keynav smoke NOT green or indeterminate - see report"
   # The gate must not bless a failed verdict: fail the workflow. The
   # artifact upload step has if: always(), so diagnostics still upload.
-  exit 1
+  gate_rc=1
 fi
+# Bar layout phase (present on branches carrying the bar fix): same rule.
+if grep -q 'bar-layout exit:' "$R"; then
+  if grep -q 'bar-layout exit: 0' "$R"; then
+    note "RESULT: bar layout GREEN on real Hyprland (candidate $CANDIDATE_SHA)"
+  else
+    note "RESULT: bar layout RED or indeterminate - see report"
+    gate_rc=1
+  fi
+fi
+exit $gate_rc
