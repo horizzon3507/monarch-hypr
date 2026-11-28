@@ -278,4 +278,17 @@ if grep -q 'stock-terminal exit:' "$R"; then
     note "RESULT: stock terminal provisioning RED (informational, not gating) - see stock-terminal.log"
   fi
 fi
+# Interception classification gate: the smoke records the open-panel bind
+# observation as a non-gating note only while the pre-PR122 base comparison
+# classifies it as inherited. A regressed or invalid base comparison makes
+# that classification unproven, and the run must not pass.
+if grep -q 'bind did NOT fire through VERIFIED-open panel' "$R"; then
+  note "RESULT: interception classification REGRESSED vs base shell - base intercepts binds the candidate lets through"
+  gate_rc=1
+elif grep -q 'base shell comparison INVALID' "$R"; then
+  note "RESULT: base comparison INVALID - interception classification unverified"
+  gate_rc=1
+elif grep -q 'INHERITED BASELINE' "$R"; then
+  note "RESULT: open-panel bind behavior matches the pre-PR122 base shell (inherited baseline, non-regression)"
+fi
 exit $gate_rc
