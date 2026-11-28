@@ -11,7 +11,7 @@ jobs:
       actions: read
     timeout-minutes: 120
     env:
-      PR122_SHA: 5f8324f8c130f3aae346e163c09733f7c01b4934
+      PR122_SHA: 1b9ce22880016acba58c5110fbc0a0744f44b13c
       ISO_SOURCE_SHA: 99e0f22
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
