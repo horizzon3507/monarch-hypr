@@ -130,7 +130,15 @@ if [[ $compositor == hyprland ]]; then
 fi
 if [[ $attach == 1 && $compositor == hyprland ]]; then
   # The live session's config is not ours: add the probe binding at runtime.
-  timeout 10 hyprctl keyword "bind = , b, exec, echo binding-fired-b >> $work/bindings" >/dev/null 2>&1 || true
+  # Verify registration: without this check the "grab intercepts bindings"
+  # control below is vacuous and a post-close miss is misread as a stuck grab.
+  timeout 10 hyprctl keyword "bind = , b, exec, echo binding-fired-b >> $work/bindings" 2>&1 | tail -2 || true
+  registered=0
+  for _ in $(seq 1 10); do
+    hyprctl binds -j 2>/dev/null | grep -q binding-fired-b && { registered=1; break; }
+    sleep 0.3
+  done
+  echo "probe binding registered on the compositor: $registered"
 fi
 
 # The headless seat starts with no input devices at all (capabilities 0), so
@@ -246,7 +254,16 @@ timeout 10 wtype -k Down
 sleep 0.3
 timeout 10 wtype -k Return
 sleep 0.5
-[[ $(ipc session armed) == "suspend" ]] && ok "Return arms the confirm row" || not_ok "Return arms the confirm row"
+# The arm state propagates through QML/IPC asynchronously; poll briefly
+# instead of reading once under load (llvmpipe guests are slow).
+armed=""
+for _ in $(seq 1 10); do
+  armed=$(ipc session armed)
+  [[ $armed == "suspend" ]] && break
+  sleep 0.3
+done
+echo "armed state after Return: '${armed}'"
+[[ $armed == "suspend" ]] && ok "Return arms the confirm row" || not_ok "Return arms the confirm row"
 
 # Positive control: while the open panel holds the exclusive keyboard grab,
 # the compositor's own 'b' binding must NOT fire - the grab intercepts it.
@@ -270,7 +287,19 @@ sleep 0.8
 lines_before=$(wc -l <"$work/calls")
 timeout 20 stdbuf -oL wev >"$work/wev.log" 2>&1 &
 wev_pid=$!
-sleep 2
+if [[ $compositor == hyprland ]]; then
+  # Wait until the compositor's focus has actually landed on wev before
+  # probing 'b': otherwise a slow grab release is misread as a stuck grab.
+  focused=""
+  for _ in $(seq 1 25); do
+    focused=$(hyprctl activewindow -j 2>/dev/null | grep -o '"class": "[^"]*"' | head -1 || true)
+    [[ $focused == *wev* ]] && break
+    sleep 0.3
+  done
+  echo "post-close focused window: '${focused:-none}'"
+else
+  sleep 2
+fi
 if [[ $compositor == sway ]] && command -v swaymsg >/dev/null; then
   swaysock=$(find "$XDG_RUNTIME_DIR" -maxdepth 1 -name 'sway-ipc.*.sock' | head -n 1)
   echo "seat focus post-close: $(swaymsg -s "$swaysock" -t get_seats 2>&1 | grep -E '"focus"' || true)"
@@ -297,6 +326,13 @@ fi
 
 kill "$qs_pid" 2>/dev/null; wait "$qs_pid" 2>/dev/null; qs_pid=""
 [[ -z $(shell_errors) ]] && ok "no QML errors in the loaded shell" || { not_ok "no QML errors in the loaded shell"; shell_errors | sed 's/^/    /'; }
+
+# Preserve the raw evidence (stub logs, wev logs, compositor output) next to
+# the screenshots so a remote run's verdict can be audited afterwards.
+if [[ -n $screenshots ]]; then
+  mkdir -p "$screenshots/work"
+  cp -a "$work"/*.log "$work"/calls "$work"/bindings "$screenshots/work/" 2>/dev/null || true
+fi
 
 echo "keynav-smoke ($compositor): $failures failure(s)"
 [[ $failures -eq 0 ]]
