@@ -97,7 +97,7 @@ done
 say "SUPER+Return after stock provisioning: spawned=$spawned (before=$before after=$(clients))"
 if [[ $spawned == 1 ]]; then
   say "the shipped Terminal bind works once a terminal is provisioned"
-  for a in $(hyprctl clients -j | jq -r '.[].address'); do hyprctl eval "return hl.dsp.window.close('address:$a')" >/dev/null 2>&1; done
+  for a in $(hyprctl clients -j | jq -r '.[].address'); do hyprctl eval "return hl.dsp.window.close({window='address:$a'})" >/dev/null 2>&1; done
 else
   bad "SUPER+Return spawned no window even after stock provisioning"
 fi
@@ -133,7 +133,7 @@ if [[ -f $HOME/checkout/config/foot/foot.ini ]]; then
   else
     say "foot launch stderr clean (no config errors)"
   fi
-  for a in $(hyprctl clients -j | jq -r '.[].address'); do hyprctl eval "return hl.dsp.window.close('address:$a')" >/dev/null 2>&1; done
+  for a in $(hyprctl clients -j | jq -r '.[].address'); do hyprctl eval "return hl.dsp.window.close({window='address:$a'})" >/dev/null 2>&1; done
 else
   say "checkout carries no config/foot/foot.ini; skipped"
 fi
