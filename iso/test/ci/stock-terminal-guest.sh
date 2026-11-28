@@ -109,8 +109,11 @@ fi
 say "--- foot config verification (candidate config/foot/foot.ini over ISO state) ---"
 foot --version 2>&1 | head -1 | sed 's/^/foot version: /'
 if [[ -f $HOME/checkout/config/foot/foot.ini ]]; then
-  render=$(command -v monarch-theme-render || echo "$MONARCH_PATH/bin/monarch-theme-render")
-  "$render" >/dev/null 2>&1 || say "theme render exited non-zero (palette missing on fresh guest?)"
+  # Candidate renderer + candidate templates (labeled): the default
+  # MONARCH_PATH=/usr/share/monarch is the ISO's install and would test the
+  # ISO's template instead of the one under review.
+  render="$HOME/checkout/bin/monarch-theme-render"
+  MONARCH_PATH="$HOME/checkout" "$render" >/dev/null 2>&1 || say "theme render exited non-zero (palette missing on fresh guest?)"
   rendered="$HOME/.config/monarch/current/theme/foot.ini"
   [[ -f $rendered ]] && say "rendered theme present: $rendered" || bad "monarch-theme-render produced no foot.ini at $rendered"
   cp "$HOME/checkout/config/foot/foot.ini" "$HOME/.config/foot/foot.ini"
@@ -240,6 +243,9 @@ if [[ -f $HOME/checkout/install/reconcile/terminal-themes.sh ]]; then
   blink=$(readlink -f "$HOME/.config/btop/themes/monarch-current.theme" 2>/dev/null)
   [[ -n $glink && -f $glink ]] && say "end-to-end: ghostty symlink resolves ($glink)" || bad "end-to-end: ghostty symlink broken"
   [[ -n $blink && -f $blink ]] && say "end-to-end: btop symlink resolves ($blink)" || bad "end-to-end: btop symlink broken"
+  # Re-render with the candidate template so the migrated include is checked
+  # against the theme file this branch ships, not the ISO's stale render.
+  MONARCH_PATH="$HOME/checkout" "$HOME/checkout/bin/monarch-theme-render" >/dev/null 2>&1 || true
   foot --check-config 2>"$OUT/foot-check-post-reconcile.log" \
     && say "end-to-end: foot --check-config clean after reconcile" \
     || bad "end-to-end: foot --check-config failed after reconcile: $(tail -1 "$OUT/foot-check-post-reconcile.log")"
