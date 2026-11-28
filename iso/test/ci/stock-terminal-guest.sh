@@ -184,6 +184,49 @@ else
 fi
 cp "$HOME/checkout/config/foot/foot.ini" "$HOME/.config/foot/foot.ini"  # restore candidate
 
+# --- 7. end-to-end reconcile: legacy Noctalia migration (candidate code) -----
+# Seed the genuine pre-fix state from the ISO's stock configs, then run the
+# CANDIDATE reconcile user.sh end-to-end (MONARCH_PATH = checkout) and verify
+# the terminal-theme migration on real guest state. user.sh runs with set -e
+# and may abort early in this minimal guest; then fall back to sourcing the
+# migration directly, labeled as the narrower check.
+say "--- reconcile end-to-end: legacy migration (candidate install/reconcile) ---"
+if [[ -f $HOME/checkout/install/reconcile/terminal-themes.sh ]]; then
+  for app in foot/foot.ini kitty/kitty.conf alacritty/alacritty.toml ghostty/config btop/btop.conf; do
+    mkdir -p "$HOME/.config/${app%/*}"
+    cp "$MONARCH_PATH/config/$app" "$HOME/.config/$app" 2>/dev/null || true
+  done
+  rm -rf "$HOME/.config/ghostty/themes" "$HOME/.config/btop/themes"
+  rm -f "$HOME"/.config/*/*.monarch-backup.* 2>/dev/null || true
+  MONARCH_PATH="$HOME/checkout" bash "$HOME/checkout/install/reconcile/user.sh" >"$OUT/reconcile-user.log" 2>&1
+  rc=$?
+  say "candidate user.sh exit=$rc (last line: $(tail -1 "$OUT/reconcile-user.log"))"
+  if ! grep -q 'monarch/current/theme/foot.ini' "$HOME/.config/foot/foot.ini"; then
+    say "full user.sh did not reach the migration (exit=$rc); sourcing terminal-themes.sh directly (narrower check)"
+    HOME="$HOME" bash -c 'source "$1"; terminal_themes_migrate' _ "$HOME/checkout/install/reconcile/terminal-themes.sh" >>"$OUT/reconcile-user.log" 2>&1
+  fi
+  for want in \
+    "$HOME/.config/foot/foot.ini:monarch/current/theme/foot.ini" \
+    "$HOME/.config/kitty/kitty.conf:../monarch/current/theme/kitty.conf" \
+    "$HOME/.config/alacritty/alacritty.toml:monarch/current/theme/alacritty.toml" \
+    "$HOME/.config/ghostty/config:theme = monarch-current" \
+    "$HOME/.config/btop/btop.conf:color_theme = \"monarch-current\""; do
+    f=${want%%:*}; pat=${want#*:}
+    grep -qF "$pat" "$f" && say "end-to-end: $(basename "$f") migrated" || bad "end-to-end: $f not migrated (want: $pat)"
+  done
+  nback=$(find "$HOME/.config" -name '*.monarch-backup.*' | wc -l)
+  [[ $nback -ge 5 ]] && say "end-to-end: $nback backups created" || say "end-to-end: backups=$nback (expected >=5 if migration ran)"
+  glink=$(readlink -f "$HOME/.config/ghostty/themes/monarch-current" 2>/dev/null)
+  blink=$(readlink -f "$HOME/.config/btop/themes/monarch-current.theme" 2>/dev/null)
+  [[ -n $glink && -f $glink ]] && say "end-to-end: ghostty symlink resolves ($glink)" || bad "end-to-end: ghostty symlink broken"
+  [[ -n $blink && -f $blink ]] && say "end-to-end: btop symlink resolves ($blink)" || bad "end-to-end: btop symlink broken"
+  foot --check-config 2>"$OUT/foot-check-post-reconcile.log" \
+    && say "end-to-end: foot --check-config clean after reconcile" \
+    || bad "end-to-end: foot --check-config failed after reconcile: $(tail -1 "$OUT/foot-check-post-reconcile.log")"
+else
+  say "checkout carries no terminal-themes.sh; skipped"
+fi
+
 if [[ $fail == 0 ]]; then
   say "STOCK-TERMINAL RESULT: GREEN (provisioning path + shipped bind verified)"
   exit 0
