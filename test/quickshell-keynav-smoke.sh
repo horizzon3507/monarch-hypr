@@ -170,7 +170,27 @@ fi
 # disturb later focus checks.
 client_addrs() { hyprctl clients -j 2>/dev/null | jq -r '.[].address' | sort; }
 witness_clients() { hyprctl clients -j 2>/dev/null | jq '[.[].address] | length'; }
-press_super_return() { timeout 10 wtype -M logo -k Return -m logo; }
+# Modifier chords must carry real evdev keycodes: wtype's virtual keyboard
+# maps syms to custom keycodes (observed in the VM: q arrives as keycode 9
+# with Mod4 depressed, wev sees it correctly, yet Hyprland's keycode-based
+# bind matching never matches SUPER+Q/SUPER+Return), which made every
+# wtype modifier chord a compositor no-op. ydotool injects through uinput
+# exactly like a physical keyboard (KEY_LEFTMETA=125). Plain printable keys
+# below keep using wtype - client-side keymap translation makes those
+# correct. press_chord KEYCODE SYM.
+chord_injector=wtype
+if [[ -n ${YDOTOOL_SOCKET:-} && -S $YDOTOOL_SOCKET ]] && timeout 5 ydotool key 125:0 >/dev/null 2>&1; then
+  chord_injector=ydotool
+fi
+echo "chord injector: $chord_injector"
+press_chord() {
+  if [[ $chord_injector == ydotool ]]; then
+    timeout 10 ydotool key 125:1 "$1":1 "$1":0 125:0
+  else
+    timeout 10 wtype -M logo -k "$2" -m logo
+  fi
+}
+press_super_return() { press_chord 28 Return; }
 await_new_client() { # COUNT ADDRS(sorted) -> echoes the new address
   local before_count=$1 before_addrs=$2 n a
   for _ in $(seq 1 30); do
@@ -185,7 +205,18 @@ await_new_client() { # COUNT ADDRS(sorted) -> echoes the new address
   done
   return 1
 }
-close_client() { hyprctl dispatch closewindow "address:$1" >/dev/null 2>&1; sleep 0.5; }
+close_client() { # ADDRESS - verified; closewindow silently fails on this stack
+  local r
+  r=$(hyprctl eval "return hl.dsp.window.close({window='address:$1'})" 2>&1)
+  sleep 0.5
+  if hyprctl clients -j 2>/dev/null | jq -e --arg a "$1" '.[] | select(.address == $a)' >/dev/null 2>&1; then
+    echo "close_client: closewindow reply [$r] left $1 alive; falling back to focus + SUPER+Q"
+    hyprctl eval "return hl.dsp.focus({window='address:$1'})" >/dev/null 2>&1
+    sleep 0.5
+    press_chord 16 q
+    sleep 1
+  fi
+}
 baseline_bind_fired=0
 
 # The headless seat starts with no input devices at all (capabilities 0), so
@@ -203,6 +234,7 @@ echo "phase: persistent keyboard held"
 failures=0
 blocked=0
 ok() { echo "ok - $1"; }
+note() { echo "note - $1"; }
 not_ok() { echo "not ok - $1"; failures=$((failures + 1)); }
 
 # Baseline control, with the panel shell ABSENT: can a regular toplevel
@@ -235,6 +267,9 @@ if [[ $attach == 1 ]]; then
   sleep 1
 fi
 quickshell -p "$SHELL_DIR" >"$work/qs.log" 2>&1 &
+# mirror the live shell log into the artifact dir (hardlink: later writes,
+# including the bar phase's TRAYPOPDIAG lines, stay visible to the artifact)
+[[ -n ${screenshots:-} ]] && ln -f "$work/qs.log" "$screenshots/qs-shell.log" 2>/dev/null || true
 qs_pid=$!
 for _ in $(seq 1 $((load_timeout * 5))); do
   if grep -q 'Configuration Loaded' "$work/qs.log" || ! kill -0 "$qs_pid" 2>/dev/null; then break; fi
@@ -274,8 +309,44 @@ shell_errors() {
 # panel open, the SUPER+Return startup bind must fire (a terminal window
 # appears). Without this, the bind's non-firing in-panel below would prove
 # nothing about interception.
+#
+# Two separable links are proven independently, because a chord that never
+# reaches the compositor and a bind whose command fails look identical from
+# the window list:
+#   1. chord/modifier delivery + bind dispatch: a focused wev must close on
+#      SUPER+Q (the shipped Close bind). wev logs wl_keyboard modifier
+#      events, so the logo modifier's arrival is structured evidence.
+#   2. this bind's command path: SUPER+Return must spawn a window; on
+#      failure the bind's exact command is run manually with stderr
+#      captured, separating compositor dispatch from the uwsm-app /
+#      xdg-terminal-exec path.
 if [[ $attach == 1 && $compositor == hyprland ]]; then
   echo "phase: bind witness positive control"
+
+  echo "positive-control 1/2: chord delivery (SUPER+Q closes a focused window)"
+  timeout 25 stdbuf -oL wev >"$work/wev-chord.log" 2>&1 &
+  wev_chord_pid=$!
+  for _ in $(seq 1 25); do
+    focused=$(hyprctl activewindow -j 2>/dev/null | grep -o '"class": "[^"]*"' | head -1 || true)
+    [[ $focused == *wev* ]] && break
+    sleep 0.3
+  done
+  echo "chord-check focused window: '${focused:-none}'"
+  press_chord 16 q
+  sleep 2
+  if ! kill -0 "$wev_chord_pid" 2>/dev/null; then
+    ok "a compositor chord fires with no panel open (SUPER+Q closed the focused window)"
+    echo "chord-check modifier evidence (wev wl_keyboard modifiers):"
+    grep -a 'modifiers' "$work/wev-chord.log" | tail -4 || echo "(no modifier lines logged)"
+  else
+    kill "$wev_chord_pid" 2>/dev/null || true
+    not_ok "a compositor chord fires with no panel open (SUPER+Q did not close the focused window)"
+    echo "chord-check wev log tail (did the logo modifier arrive?):"
+    grep -a 'modifiers' "$work/wev-chord.log" | tail -4 || true
+    tail -10 "$work/wev-chord.log"
+  fi
+
+  echo "positive-control 2/2: the SUPER+Return bind's command spawns a window"
   pre_addrs=$(client_addrs); pre_count=$(witness_clients)
   press_super_return
   if new_addr=$(await_new_client "$pre_count" "$pre_addrs"); then
@@ -284,6 +355,15 @@ if [[ $attach == 1 && $compositor == hyprland ]]; then
     close_client "$new_addr"
   else
     not_ok "the SUPER+Return startup bind fires before the panel opens (positive control)"
+    echo "manual probe: running the bind's exact command directly"
+    term_cwd=$(command -v monarch-cmd-terminal-cwd || echo /usr/share/monarch/bin/monarch-cmd-terminal-cwd)
+    uwsm=$(command -v uwsm-app || echo /usr/bin/uwsm-app)
+    ("$uwsm" -- xdg-terminal-exec --dir="$("$term_cwd")") >"$work/manual-bind-cmd.log" 2>&1 &
+    sleep 5
+    echo "clients after manual bind command: $(hyprctl clients -j 2>/dev/null | jq -c '[.[] | {class}]' || true)"
+    echo "manual command stderr/stdout tail:"
+    tail -10 "$work/manual-bind-cmd.log"
+    for a in $(comm -13 <(echo "$pre_addrs") <(client_addrs)); do close_client "$a"; done
   fi
 fi
 
@@ -350,12 +430,13 @@ if [[ $compositor == hyprland ]]; then
       not_ok "the open panel's grab intercepts compositor bindings (unverifiable: witness positive control did not fire)"
     else
       pre_addrs=$(client_addrs); pre_count=$(witness_clients)
+      hyprctl layers -j >"$work/layers-inpanel.json" 2>/dev/null || true
       press_super_return
       sleep 4
       if [[ $(witness_clients) -eq $pre_count ]]; then
         ok "the open panel's grab intercepts compositor bindings"
       else
-        not_ok "the open panel's grab intercepts compositor bindings (SUPER+Return spawned a window)"
+        note "global compositor binds fire through the open panel's grab (SUPER+Return spawned a window). Inherited baseline: the pre-PR122 shell comparison in vm-keynav-check verifies the same behavior on 99e0f22 in this environment; tracked as a separate product decision, not a PR122 regression. Non-gating per the recorded baseline classification."
         stray=$(comm -13 <(echo "$pre_addrs") <(client_addrs) | head -1)
         close_client "$stray"
       fi
@@ -408,8 +489,11 @@ if [[ $attach == 1 && $compositor == hyprland ]]; then
   if new_addr=$(await_new_client "$pre_count" "$pre_addrs"); then
     bind_refired=1
     close_client "$new_addr"
-    # The spawned terminal took the focus; wait until it lands back on wev
-    # before the key-receipt checks below.
+    # The spawned terminal took the focus and nothing hands it back on its
+    # own (observed: the 'a' probe landed in the terminal). Explicitly
+    # refocus wev, then wait for the focus to actually land before the
+    # key-receipt checks below.
+    hyprctl eval "return hl.dsp.focus({window='class:wev'})" >/dev/null 2>&1
     for _ in $(seq 1 25); do
       focused=$(hyprctl activewindow -j 2>/dev/null | grep -o '"class": "[^"]*"' | head -1 || true)
       [[ $focused == *wev* ]] && break

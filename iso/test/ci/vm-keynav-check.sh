@@ -49,7 +49,8 @@ if [[ -d /mnt ]]; then
 fi
 
 # Host GL for virgl: llvmpipe over Xvfb.
-Xvfb :99 -screen 0 1024x768x24 &
+# 1920x1080 so the bar-layout phase can switch the guest output up to 1920.
+Xvfb :99 -screen 0 1920x1080x24 &
 XVFB_PID=$!
 sleep 2
 export DISPLAY=:99
@@ -117,9 +118,24 @@ sudo -n true 2>/dev/null || echo monarch | sudo -S true
 # this says nothing about the delivered ISO; on a real install the user's
 # chosen terminal answers the bind. foot is shm-based (no GL, unlike the
 # shipped default preference Alacritty, which never spawned on llvmpipe).
-echo monarch | sudo -S pacman -Sy --needed --noconfirm git wtype wev grim qt6-wayland jq foot xdg-terminal-exec 2>&1 | tail -3
+# adwaita-icon-theme: the tray fixture's IconName (dialog-information) must
+# resolve to a real icon; without a theme the shell shows its missing-icon
+# fallback squares, which read as a rendering bug in the bar screenshots.
+echo monarch | sudo -S pacman -Sy --needed --noconfirm git wtype wev grim qt6-wayland jq foot xdg-terminal-exec adwaita-icon-theme ydotool 2>&1 | tail -3
+# uinput daemon for ydotool: modifier chords are injected as real evdev
+# keycodes (KEY_LEFTMETA=125) because wtype's virtual-keyboard keycodes never
+# match Hyprland's keycode-based binds (q arrived as keycode 9 in VM runs).
+export YDOTOOL_SOCKET=/tmp/.ydotool_socket
+pgrep -x ydotoold >/dev/null 2>&1 || echo monarch | sudo -S -b env YDOTOOL_SOCKET=$YDOTOOL_SOCKET ydotoold >/dev/null 2>&1
+sleep 1
+echo monarch | sudo -S chmod 0666 "$YDOTOOL_SOCKET" 2>/dev/null || true
+[[ -S $YDOTOOL_SOCKET ]] && echo "ydotoold up on $YDOTOOL_SOCKET" || echo "WARNING: ydotoold socket missing; chords fall back to wtype"
 mkdir -p "$HOME/.config"
 printf 'foot.desktop\n' > "$HOME/.config/xdg-terminals.list"
+# Disposable guest home hygiene: an empty .zshrc suppresses the
+# zsh-newuser-install wizard in fixture terminals. This is guest setup,
+# NOT evidence about the shipped first-run user experience.
+touch "$HOME/.zshrc"
 rm -rf "$HOME/checkout"
 git clone --quiet https://github.com/horizzon3507/monarch-hypr.git "$HOME/checkout"
 cd "$HOME/checkout"
@@ -139,20 +155,140 @@ timeout 10 hyprctl configerrors 2>&1 | tail -6
 hyprctl binds -j > "$HOME/keynav-out/hyprctl-binds.json" 2>/dev/null || true
 hyprctl version -j 2>/dev/null | head -c 400; echo
 echo "--- end session evidence ---"
+# Foot spawn probe: last run's SUPER+Return witness never produced a window
+# and the bar phase's `dispatch exec foot` produced none either (all 10
+# workspaces listed 0 windows). Isolate whether foot can spawn at all here.
+echo "--- foot spawn probe ---"
+foot --version 2>&1 | head -2
+ldd "$(command -v foot)" 2>/dev/null | grep 'not found' || echo "foot libs: all resolved"
+timeout 8 foot >"$HOME/keynav-out/foot-stdout.log" 2>"$HOME/keynav-out/foot-stderr.log" &
+sleep 3
+echo "clients after manual foot: $(hyprctl clients -j | jq -c '[.[] | {class}]')"
+echo "foot stderr:"; tail -5 "$HOME/keynav-out/foot-stderr.log"
+hyprctl dispatch exec foot >/dev/null 2>&1
+sleep 3
+echo "clients after dispatch exec foot: $(hyprctl clients -j | jq -c '[.[] | {class}]')"
+for a in $(hyprctl clients -j | jq -r '.[].address'); do hyprctl dispatch closewindow "address:$a" >/dev/null 2>&1; done
+sleep 1
+echo "--- end foot spawn probe ---"
 SMOKE_ATTACH=1 SMOKE_COMPOSITOR=hyprland \
   bash test/quickshell-keynav-smoke.sh --screenshots "$HOME/keynav-out" 2>&1 | tee "$HOME/keynav-out/smoke-full.log" | tail -80
 echo "keynav exit: ${PIPESTATUS[0]}"
+echo "--- bar layout phase ---"
+if [[ -f iso/test/ci/bar-layout-guest.sh ]]; then
+  bash iso/test/ci/bar-layout-guest.sh "$HOME/keynav-out" 2>&1 | tail -60
+  echo "bar-layout exit: ${PIPESTATUS[0]}"
+else
+  echo "bar-layout phase not present in this checkout; skipped"
+fi
+echo "--- stock terminal phase ---"
+if [[ -f iso/test/ci/stock-terminal-guest.sh ]]; then
+  bash iso/test/ci/stock-terminal-guest.sh "$HOME/keynav-out" 2>&1 | tail -30
+  echo "stock-terminal exit: ${PIPESTATUS[0]}"
+fi
+echo "--- base shell interception comparison ---"
+# Inherited-baseline check: does the PRE-PR122 shell also let compositor
+# binds fire while its session panel is open? Same VM, same compositor, same
+# input path - only the shell code differs (99e0f22, pre-PR122). This keeps
+# base-ISO evidence separate from candidate-code verdicts. The panel-open
+# state is VERIFIED via layer-shell namespaces before the chord; an
+# unverified panel makes the comparison invalid (last round's failure).
+# Base shell note: every base panel shares the "monarch-panel" layer
+# namespace, and the bar power button execs monarch-panel, which addresses
+# the shell by config path - in this guest that path is not the running
+# worktree shell, so the click cannot open the panel here. Open the panel
+# the way the button ultimately does: direct IPC against the base path.
+base_ipc() { LC_ALL=C.UTF-8 quickshell ipc --path "$HOME/base-shell/default/quickshell" call panel "$@" 2>/dev/null | grep -vi 'warn\|qt\.' | head -1; }
+panel_open() { [[ $(base_ipc active) == *session* ]]; }
+BASE=99e0f22a7704a3f609361a9c6b5a6e1fb9ebd931
+if git -C "$HOME/checkout" fetch --quiet --depth 1 origin "$BASE" \
+  && git -C "$HOME/checkout" worktree add --detach "$HOME/base-shell" "$BASE" >/dev/null 2>&1; then
+  pkill -x quickshell 2>/dev/null; sleep 2
+  quickshell -p "$HOME/base-shell/default/quickshell" >"$HOME/keynav-out/base-qs.log" 2>&1 &
+  sleep 8
+  kill -0 $! 2>/dev/null || { echo "base shell died; see base-qs.log"; tail -10 "$HOME/keynav-out/base-qs.log"; }
+  pkill -x foot 2>/dev/null; pkill -x wev 2>/dev/null; sleep 1   # clean client baseline
+  bw=$(hyprctl monitors -j | jq -r '.[0].width')
+  # ydotool absolute coordinates are scaled vs output pixels on this stack
+  # (observed x2 at 640x480): calibrate first.
+  ydotool mousemove --absolute -x 100 -y 100 2>/dev/null; sleep 0.4
+  cpos=$(hyprctl cursorpos 2>/dev/null | tr -d ' ')
+  csx=$(( ${cpos%%,*} / 100 )); csy=$(( ${cpos##*,} / 100 ))
+  [[ $csx -lt 1 ]] && csx=1; [[ $csy -lt 1 ]] && csy=1
+  echo "base-phase pointer scale: ${csx}x${csy} (from 100,100 -> $cpos)"
+  # click-delivery control: workspace indicator 3 must switch the workspace
+  bws0=$(hyprctl activeworkspace -j 2>/dev/null | jq -r '.id // 0')
+  ydotool mousemove --absolute -x $((106 / csx)) -y $((14 / csy)) 2>/dev/null; sleep 0.4
+  ydotool click 0xC0 2>/dev/null; sleep 0.8
+  bws1=$(hyprctl activeworkspace -j 2>/dev/null | jq -r '.id // 0')
+  echo "base-phase click-delivery control: workspace $bws0 -> $bws1 after indicator click"
+  ydotool mousemove --absolute -x $((26 / csx)) -y $((14 / csy)) 2>/dev/null; sleep 0.4
+  ydotool click 0xC0 2>/dev/null; sleep 0.8   # back to workspace 1
+  # open the base session panel via direct IPC; verify via panel active
+  echo "base panel open via IPC: [$(base_ipc toggle session)]"
+  panel=0
+  for i in $(seq 1 20); do panel_open && { panel=1; break; }; sleep 0.2; done
+  panel_open && panel=1
+  echo "base panel active state: [$(base_ipc active)]"
+  grim "$HOME/keynav-out/base-panel-open.png" 2>/dev/null || true
+  if [[ $panel == 1 ]]; then
+    bpre=$(hyprctl clients -j | jq length)
+    ydotool key 125:1 28:1 28:0 125:0 2>/dev/null; sleep 4
+    bpost=$(hyprctl clients -j | jq length)
+    grim "$HOME/keynav-out/base-after-chord.png" 2>/dev/null || true
+    echo "base shell ($BASE) VERIFIED-open panel SUPER+Return: clients $bpre -> $bpost"
+    [[ $bpost -gt $bpre ]] && echo "base shell: bind fired through VERIFIED-open panel (INHERITED BASELINE)" \
+      || echo "base shell: bind did NOT fire through VERIFIED-open panel (candidate behavior would be a regression)"
+  else
+    echo "base shell comparison INVALID: base session panel never verified open after 3 clicks"
+  fi
+  pkill -x quickshell 2>/dev/null
+else
+  echo "base shell comparison skipped: could not fetch/check out $BASE"
+fi
 GUEST
 keynav_rc=${PIPESTATUS[0]}
 collect
 
 note "vm-keynav-check done (guest stream rc=$keynav_rc)"
 # The guest stream's own "keynav exit:" line is the smoke verdict; surface it.
+gate_rc=0
 if grep -q 'keynav exit: 0' "$R"; then
   note "RESULT: keynav smoke GREEN on real Hyprland (candidate $CANDIDATE_SHA)"
 else
   note "RESULT: keynav smoke NOT green or indeterminate - see report"
   # The gate must not bless a failed verdict: fail the workflow. The
   # artifact upload step has if: always(), so diagnostics still upload.
-  exit 1
+  gate_rc=1
 fi
+# Bar layout phase (present on branches carrying the bar fix): same rule.
+if grep -q 'bar-layout exit:' "$R"; then
+  if grep -q 'bar-layout exit: 0' "$R"; then
+    note "RESULT: bar layout GREEN on real Hyprland (candidate $CANDIDATE_SHA)"
+  else
+    note "RESULT: bar layout RED or indeterminate - see report"
+    gate_rc=1
+  fi
+fi
+# Stock terminal provisioning: reported separately, does not gate.
+if grep -q 'stock-terminal exit:' "$R"; then
+  if grep -q 'stock-terminal exit: 0' "$R"; then
+    note "RESULT: stock terminal provisioning GREEN (delivered-ISO path)"
+  else
+    note "RESULT: stock terminal provisioning RED (informational, not gating) - see stock-terminal.log"
+  fi
+fi
+# Interception classification gate: the smoke records the open-panel bind
+# observation as a non-gating note only while the pre-PR122 base comparison
+# classifies it as inherited. A regressed or invalid base comparison makes
+# that classification unproven, and the run must not pass.
+if grep -q 'bind did NOT fire through VERIFIED-open panel' "$R"; then
+  note "RESULT: interception classification REGRESSED vs base shell - base intercepts binds the candidate lets through"
+  gate_rc=1
+elif grep -q 'base shell comparison INVALID' "$R"; then
+  note "RESULT: base comparison INVALID - interception classification unverified"
+  gate_rc=1
+elif grep -q 'INHERITED BASELINE' "$R"; then
+  note "RESULT: open-panel bind behavior matches the pre-PR122 base shell (inherited baseline, non-regression)"
+fi
+exit $gate_rc

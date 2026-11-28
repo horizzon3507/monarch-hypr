@@ -9,7 +9,7 @@ name: VM Keynav Validation
 
 on:
   push:
-    branches: [feat/panel-keynav, probe/vm-gpu-feasibility]
+    branches: [feat/panel-keynav, probe/vm-gpu-feasibility, tmp/vm-combined-validation]
     paths:
       - default/quickshell/**
       - test/quickshell-keynav-smoke.sh
