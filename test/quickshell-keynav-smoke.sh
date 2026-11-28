@@ -61,8 +61,12 @@ chmod +x "$stubs"/monarch-toggle-enabled "$stubs"/monarch-hibernation-available
 export PATH="$stubs:$PATH"
 
 cp "$(command -v sway)" "$work/sway-bin"
+# A compositor-level probe binding: 'b' fires only when a key reaches sway's
+# normal routing, so it distinguishes a stuck keyboard grab from a
+# client-delivery problem in the hand-back check below.
+printf 'bindsym b exec echo binding-fired-b >> "%s/bindings"\n' "$work" >"$work/sway.conf"
 WLR_BACKENDS=headless WLR_LIBINPUT_NO_DEVICES=1 WLR_RENDERER=pixman \
-  "$work/sway-bin" -c /dev/null >"$work/sway.log" 2>&1 &
+  "$work/sway-bin" -c "$work/sway.conf" >"$work/sway.log" 2>&1 &
 sway_pid=$!
 
 socket=""
@@ -142,9 +146,18 @@ wtype -k Return
 sleep 0.5
 grep -q '^systemctl suspend$' "$work/calls" && ok "the second Return dispatches suspend" || not_ok "the second Return dispatches suspend"
 
-# Focus hand-back: close the panel, then a benign normal client (wev) must
-# actually receive the next key. Failing to trigger the panel alone is not
-# enough - the panel could silently swallow keys while closed.
+# Positive control: while the open panel holds the exclusive keyboard grab,
+# the compositor's own 'b' binding must NOT fire - the grab intercepts it.
+touch "$work/bindings"
+wtype -k b
+sleep 0.6
+[[ ! -s $work/bindings ]] && ok "the open panel's grab intercepts compositor bindings" || not_ok "the open panel's grab intercepts compositor bindings"
+
+# Focus hand-back: close the panel, then keys must flow through normal
+# routing again. Three witnesses, strongest first: the compositor's 'b'
+# binding fires (grab released, routing works), a benign normal client (wev)
+# gets wl_keyboard enter (focus moved to it) and the key event itself, and
+# the panel stub log stays unchanged (the key reached no panel action).
 ipc panel close || true
 sleep 0.8
 if command -v wev >/dev/null; then
@@ -152,20 +165,18 @@ if command -v wev >/dev/null; then
   stdbuf -oL wev >"$work/wev.log" 2>&1 &
   wev_pid=$!
   sleep 2
-  echo "--- sway seats before probe ---"
-  swaymsg -s "$swaysock" -t get_seats 2>&1 | grep -E 'focus|capabilities' || true
-  swaymsg -s "$swaysock" -t get_tree 2>&1 | grep -E '"focused"|"name"' | head -10 || true
-  echo "--- probe: transient wtype -k a ---"
-  wtype -k a; echo "wtype exit: $?"
+  wtype -k b
+  sleep 0.8
+  grep -q binding-fired-b "$work/bindings" && ok "compositor bindings fire again after the panel closes" || not_ok "compositor bindings fire again after the panel closes"
+  wtype -k a
   sleep 1
   kill -INT "$wev_pid" 2>/dev/null
   wait "$wev_pid" 2>/dev/null
-  echo "--- full wev log ---"
-  cat "$work/wev.log" || true
+  grep -q "wl_keyboard] enter" "$work/wev.log" && ok "a normal client gains keyboard focus after the panel closes" || not_ok "a normal client gains keyboard focus after the panel closes"
   if grep -q "sym: a" "$work/wev.log"; then
     ok "a normal client receives keys after the panel closes"
   else
-    head -30 "$work/wev.log" || true
+    cat "$work/wev.log" || true
     not_ok "a normal client receives keys after the panel closes"
   fi
   [[ $(wc -l <"$work/calls") -eq $lines_before ]] && ok "the key reached no panel action" || not_ok "the key reached no panel action"
