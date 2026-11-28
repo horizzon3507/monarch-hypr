@@ -17,7 +17,10 @@ RowLayout {
     property int maxVisible: -1
 
     property bool overflowOpen: false
-    onOverflowOpenChanged: console.log("TRAYPOPDIAG overflowOpen=" + root.overflowOpen)
+    onOverflowOpenChanged: {
+        console.log("TRAYPOPDIAG overflowOpen=" + root.overflowOpen);
+        if (!root.overflowOpen) overflowGrab.active = false;
+    }
 
     // items is a Quickshell ObjectModel (a QAbstractListModel), not a JS
     // array: it has no length/slice. Read .values for array operations.
@@ -167,17 +170,36 @@ RowLayout {
     // Outside-click dismissal and keyboard focus for the overflow popup via
     // hyprland_focus_grab_v1: while active the popup keeps keyboard focus
     // (Escape reaches its Keys handler) and a click anywhere outside the
-    // listed windows clears the grab, which closes the popup. Becomes active
-    // once the popup is actually visible; a compositor without the protocol
-    // just leaves the grab inactive and the popup stays open until toggled.
+    // listed windows clears the grab, which closes the popup.
+    // Activation is deferred past the popup's mapping: activating in the
+    // same instant the window is created races the surface reaching the
+    // compositor, leaving the grab never active (no Escape, no outside
+    // click). A compositor without the protocol just leaves the grab
+    // inactive and the chip toggles the popup.
     HyprlandFocusGrab {
         id: overflowGrab
         windows: [overflowPopup]
-        active: root.overflowOpen && overflowPopup.visible
+        active: false
         onActiveChanged: console.log("TRAYPOPDIAG grab active=" + active)
         onCleared: {
             console.log("TRAYPOPDIAG grab cleared");
             root.overflowOpen = false;
+        }
+    }
+
+    Connections {
+        target: overflowPopup
+        function onVisibleChanged() {
+            if (overflowPopup.visible) grabActivate.restart();
+        }
+    }
+
+    Timer {
+        id: grabActivate
+        interval: 50
+        onTriggered: {
+            overflowGrab.active = root.overflowOpen && overflowPopup.visible;
+            console.log("TRAYPOPDIAG grab activate attempt, active=" + overflowGrab.active);
         }
     }
 }
