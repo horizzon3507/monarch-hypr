@@ -342,7 +342,7 @@ popup_suite() { # BAR_H  (mode already 640x480)
     sleep 0.1
   done
   say "post-chip-click new layer surfaces: [${newns:-none}]"
-  say "TRAYPOPDIAG: $(grep TRAYPOPDIAG "$OUT/qs-shell.log" 2>/dev/null | tail -6 | tr '\n' ' | ')"
+  say "TRAYPOPDIAG: $(grep TRAYPOPDIAG "$OUT/bar-qs.log" 2>/dev/null | tail -8 | tr '\n' ' | ')"
   grim "$OUT/popup-transient-640.png" 2>/dev/null || true
   sleep 1
   grim "$OUT/popup-open-640.png"

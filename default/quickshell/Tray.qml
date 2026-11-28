@@ -88,9 +88,18 @@ RowLayout {
         font.pixelSize: Math.max(10, root.iconSize - 3)
         opacity: root.overflowOpen ? 1.0 : 0.7
 
+        // TEMPORARY VM DIAGNOSTIC (combined-validation branch only, do not
+        // merge to product branches): report the chip's compositor-space
+        // geometry so the harness can compare it with the clicked cursorpos.
+        onVisibleChanged: if (visible) console.log("TRAYPOPDIAG chip-geom global=" + mapToGlobal(0, 0).x + "," + mapToGlobal(0, 0).y + " size=" + width + "x" + height);
+
         MouseArea {
             anchors.fill: parent
             anchors.margins: -4
+            // TEMPORARY VM DIAGNOSTIC: press fires before click; if presses
+            // never log while workspace-indicator clicks work, the click
+            // never reaches the chip (input region / hit-test), not the handler.
+            onPressed: console.log("TRAYPOPDIAG chip-pressed local=" + mouse.x + "," + mouse.y);
             onClicked: {
                 console.log("TRAYPOPDIAG chip-click hidden=" + root.hiddenCount + " open->" + (!root.overflowOpen));
                 root.overflowOpen = !root.overflowOpen;

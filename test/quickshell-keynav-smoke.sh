@@ -265,7 +265,10 @@ if [[ $attach == 1 ]]; then
   pkill -x quickshell 2>/dev/null || true
   sleep 1
 fi
-quickshell -p "$SHELL_DIR" >"${screenshots:-$work}/qs-shell.log" 2>&1 &
+quickshell -p "$SHELL_DIR" >"$work/qs.log" 2>&1 &
+# mirror the live shell log into the artifact dir (hardlink: later writes,
+# including the bar phase's TRAYPOPDIAG lines, stay visible to the artifact)
+[[ -n ${screenshots:-} ]] && ln -f "$work/qs.log" "$screenshots/qs-shell.log" 2>/dev/null || true
 qs_pid=$!
 for _ in $(seq 1 $((load_timeout * 5))); do
   if grep -q 'Configuration Loaded' "$work/qs.log" || ! kill -0 "$qs_pid" 2>/dev/null; then break; fi
