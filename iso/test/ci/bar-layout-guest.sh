@@ -317,6 +317,22 @@ popup_suite() { # BAR_H  (mode already 640x480)
   local cx cy chip_n
   read -r cx cy chip_n <<<"$chip"
 
+  # OCR glyph boxes wobble +/-10px between runs and can land past the chip
+  # pill's right edge (observed: OCR center x=609 with the pill ending ~600:
+  # dead bar, no chip-pressed). The shell's own chip-geom diagnostic gives
+  # the exact global rect; prefer it. Without it, bias 10px left of the OCR
+  # center, which has landed on-pill in every observed run.
+  local geom
+  geom=$(grep -o 'TRAYPOPDIAG chip-geom global=[0-9.]*,[0-9.]* size=[0-9.]*x[0-9.]*' "$OUT/bar-qs.log" 2>/dev/null | tail -1)
+  if [[ $geom =~ global=([0-9.]+),([0-9.]+)\ size=([0-9.]+)x([0-9.]+) ]]; then
+    cx=$(awk -v x="${BASH_REMATCH[1]}" -v w="${BASH_REMATCH[3]}" 'BEGIN{printf "%d", x+w/2}')
+    cy=$(awk -v y="${BASH_REMATCH[2]}" -v h="${BASH_REMATCH[4]}" 'BEGIN{printf "%d", y+h/2}')
+    say "chip aim from shell geometry: $cx,$cy"
+  else
+    cx=$((cx - 10))
+    say "chip aim from OCR with left bias: $cx,$cy"
+  fi
+
   # Conservation: inline icons + overflow count must equal the 12 registered
   # fixtures exactly - no lost or duplicated tray items.
   local inline
