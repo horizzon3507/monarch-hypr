@@ -48,6 +48,10 @@ done
 [[ $(id -u) -ne 0 ]] || { echo "keynav-smoke: run as a non-root user" >&2; exit 2; }
 
 work=$(mktemp -d)
+# SMOKE_PROBE_BINDINGS: the probe binding's output file when the binding
+# comes from the session's own config (startup binds fire on Hyprland;
+# runtime-registered ones may not, cf. hyprwm/Hyprland#13994).
+bindings_file=${SMOKE_PROBE_BINDINGS:-$work/bindings}
 if [[ $attach == 1 ]]; then
   : "${XDG_RUNTIME_DIR:=/run/user/$(id -u)}"
 else
@@ -92,7 +96,7 @@ if [[ $attach == 1 ]]; then
   [[ -n $socket ]] || { echo "keynav-smoke: no wayland socket in the running session" >&2; exit 2; }
 elif [[ $compositor == sway ]]; then
   cp "$(command -v sway)" "$work/sway-bin"
-  printf 'bindsym b exec echo binding-fired-b >> "%s/bindings"\n' "$work" >"$work/comp.conf"
+  printf 'bindsym b exec echo binding-fired-b >> "%s"\n' "$bindings_file" >"$work/comp.conf"
   WLR_BACKENDS=headless WLR_LIBINPUT_NO_DEVICES=1 WLR_RENDERER=pixman \
     "$work/sway-bin" -c "$work/comp.conf" >"$work/comp.log" 2>&1 &
 else
@@ -107,7 +111,7 @@ else
   fi
   {
     echo 'monitor = HEADLESS-1, 1920x1080@60, 0x0, 1'
-    printf 'bind = , b, exec, echo binding-fired-b >> "%s/bindings"\n' "$work"
+    printf 'bind = , b, exec, echo binding-fired-b >> "%s"\n' "$bindings_file"
     echo 'misc { disable_hyprland_logo = true; force_default_wallpaper = 0 }'
     echo 'ecosystem { no_update_news = true; no_donation_nag = true }'
     echo 'animations { enabled = false }'
@@ -134,27 +138,32 @@ if [[ $compositor == hyprland ]]; then
 fi
 binding_registered=0
 if [[ $attach == 1 && $compositor == hyprland ]]; then
-  # The live session's config is not ours: add the probe binding at runtime.
-  # Verify registration: without this check the "grab intercepts bindings"
-  # control below is vacuous and a post-close miss is misread as a stuck grab.
-  echo "phase: registering probe binding at runtime"
-  # Hyprland 0.56 dropped the legacy `keyword` IPC request ("unknown
-  # request"); runtime config changes go through `eval` (Lua). Try eval
-  # first, legacy keyword second for older Hyprland. Registration evidence
-  # is preserved: the firing checks below are the ground truth, since an
-  # eval-applied bind may not list in `hyprctl binds` and a listed bind
-  # may still never fire (cf. hyprwm/Hyprland#13994).
+  # Verify where the probe binding comes from. Startup config binds fire on
+  # Hyprland; runtime-registered ones may register-but-never-fire upstream
+  # (cf. hyprwm/Hyprland#13994, and Hyprland 0.56 dropped the legacy
+  # `keyword` IPC request entirely). Firing is the ground truth below.
+  echo "phase: probe binding source"
   hyprctl version -j 2>/dev/null | head -c 400 >"$work/hyprland-version.json" || true
-  echo "eval reply: $(timeout 10 hyprctl eval "hl.bind(\"b\", hl.dsp.exec_cmd(\"echo binding-fired-b >> $work/bindings\"))" 2>&1 | tail -1)"
-  sleep 1
   hyprctl binds -j >"$work/hyprctl-binds.json" 2>/dev/null || true
   if grep -q binding-fired-b "$work/hyprctl-binds.json" 2>/dev/null; then
     binding_registered=1
-  else
-    echo "keyword fallback reply: $(timeout 10 hyprctl keyword "bind = , b, exec, echo binding-fired-b >> $work/bindings" 2>&1 | tail -1)"
-    sleep 0.5
+    echo "probe binding present from the session config"
+  elif [[ -z ${SMOKE_PROBE_BINDINGS:-} ]]; then
+    # No config-provided binding: try runtime registration as a fallback
+    # (eval/Lua first, legacy keyword for older Hyprland).
+    echo "eval reply: $(timeout 10 hyprctl eval "hl.bind(\"b\", hl.dsp.exec_cmd(\"echo binding-fired-b >> $bindings_file\"))" 2>&1 | tail -1)"
+    sleep 1
     hyprctl binds -j >"$work/hyprctl-binds.json" 2>/dev/null || true
-    grep -q binding-fired-b "$work/hyprctl-binds.json" 2>/dev/null && binding_registered=1
+    if grep -q binding-fired-b "$work/hyprctl-binds.json" 2>/dev/null; then
+      binding_registered=1
+    else
+      echo "keyword fallback reply: $(timeout 10 hyprctl keyword "bind = , b, exec, echo binding-fired-b >> $bindings_file" 2>&1 | tail -1)"
+      sleep 0.5
+      hyprctl binds -j >"$work/hyprctl-binds.json" 2>/dev/null || true
+      grep -q binding-fired-b "$work/hyprctl-binds.json" 2>/dev/null && binding_registered=1
+    fi
+  else
+    echo "WARNING: SMOKE_PROBE_BINDINGS is set but no probe binding lists in hyprctl binds - session config may not have loaded it"
   fi
   echo "probe binding listed in hyprctl binds: $binding_registered"
 fi
@@ -293,11 +302,11 @@ echo "armed state after Return: '${armed}'"
 # intercepts it. Meaningless on sway, which checks bindings before layer
 # grabs by design. Must run BEFORE the dispatch below, because the panel
 # closes on dispatch.
-touch "$work/bindings"
+touch "$bindings_file"
 if [[ $compositor == hyprland ]]; then
   timeout 10 wtype -k b
   sleep 0.6
-  [[ ! -s $work/bindings ]] && ok "the open panel's grab intercepts compositor bindings" || not_ok "the open panel's grab intercepts compositor bindings"
+  [[ ! -s $bindings_file ]] && ok "the open panel's grab intercepts compositor bindings" || not_ok "the open panel's grab intercepts compositor bindings"
 else
   echo "skip - grab-intercept control is Hyprland-only (sway checks bindings before layer grabs)"
 fi
@@ -346,7 +355,7 @@ wait "$wev_pid" 2>/dev/null
 # miss: if the runtime bind never fired but wev received 'b', routing to
 # clients is normal and the dead witness is the runtime-registered bind
 # itself (suspected upstream runtime-bind limitation), not our shell.
-if grep -q binding-fired-b "$work/bindings"; then
+if grep -q binding-fired-b "$bindings_file"; then
   ok "compositor bindings fire again after the panel closes"
 elif [[ $compositor == hyprland ]] && grep -q 'sym: b' "$work/wev.log"; then
   head -c 600 "$work/hyprctl-binds.json" 2>/dev/null; echo
@@ -380,6 +389,7 @@ kill "$qs_pid" 2>/dev/null; wait "$qs_pid" 2>/dev/null; qs_pid=""
 if [[ -n $screenshots ]]; then
   mkdir -p "$screenshots/work"
   cp -a "$work"/*.log "$work"/calls "$work"/bindings "$screenshots/work/" 2>/dev/null || true
+  [[ $bindings_file == $work/* ]] || cp -a "$bindings_file" "$screenshots/work/probe-bindings" 2>/dev/null || true
 fi
 
 echo "keynav-smoke ($compositor): $failures failure(s), $blocked environment-blocked"
