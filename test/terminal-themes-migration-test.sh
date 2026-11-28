@@ -5,7 +5,7 @@
 #   bash terminal-themes-test.sh
 set -uo pipefail
 
-REPO="${MONARCH_PATH:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." REPO="${MONARCH_PATH:-$HOME/monarch}"REPO="${MONARCH_PATH:-$HOME/monarch}" pwd)}"
+REPO="${MONARCH_PATH:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 SCRIPT="$REPO/install/reconcile/terminal-themes.sh"
 BASE=""
 
