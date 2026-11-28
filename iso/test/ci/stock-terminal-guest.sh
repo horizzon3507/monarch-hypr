@@ -97,6 +97,93 @@ else
   bad "SUPER+Return spawned no window even after stock provisioning"
 fi
 
+# --- 4. foot config verification (candidate file over ISO provisioning) ------
+# The ISO's provisioned foot.ini carries the legacy noctalia include; the
+# candidate checkout carries the fix (include of the rendered Monarch theme).
+# Verify with the real foot parser after a real theme render - not assumed.
+say "--- foot config verification (candidate config/foot/foot.ini over ISO state) ---"
+if [[ -f $HOME/checkout/config/foot/foot.ini ]]; then
+  render=$(command -v monarch-theme-render || echo "$MONARCH_PATH/bin/monarch-theme-render")
+  "$render" >/dev/null 2>&1 || say "theme render exited non-zero (palette missing on fresh guest?)"
+  rendered="$HOME/.config/monarch/current/theme/foot.ini"
+  [[ -f $rendered ]] && say "rendered theme present: $rendered" || bad "monarch-theme-render produced no foot.ini at $rendered"
+  cp "$HOME/checkout/config/foot/foot.ini" "$HOME/.config/foot/foot.ini"
+  if foot --check-config 2>"$OUT/foot-check.log"; then
+    say "foot --check-config: clean"
+  else
+    bad "foot --check-config failed: $(tail -2 "$OUT/foot-check.log" | tr '\n' ' ')"
+  fi
+  timeout 8 foot >/dev/null 2>"$OUT/foot-launch-stderr.log" &
+  sleep 3
+  if grep -q "failed to open" "$OUT/foot-launch-stderr.log"; then
+    bad "foot launch still reports a missing include: $(grep 'failed to open' "$OUT/foot-launch-stderr.log" | head -1)"
+  else
+    say "foot launch stderr has no missing-include error"
+  fi
+  for a in $(hyprctl clients -j | jq -r '.[].address'); do hyprctl dispatch closewindow "address:$a" >/dev/null 2>&1; done
+else
+  say "checkout carries no config/foot/foot.ini; skipped"
+fi
+
+# --- 5. theme-include series validation (kitty/alacritty/ghostty/btop) -------
+# Same pattern as foot: provision via the stock script, apply the candidate
+# config over the ISO state (labeled), validate with the native app where one
+# exists. Also probes the already-provisioned upgrade path.
+say "--- theme-include series (candidate configs over ISO provisioning) ---"
+theme_dir="$HOME/.config/monarch/current/theme"
+for app in kitty ghostty; do
+  pacman -Qq $app >/dev/null 2>&1 || { echo monarch | sudo -S -v; "$MONARCH_PATH/bin/monarch-install-terminal" $app >/dev/null 2>&1; }
+  say "$app installed: $(pacman -Qq $app 2>/dev/null || echo MISSING)"
+  [[ -d $HOME/.config/$app && -f $HOME/checkout/config/$app ]] || true
+done
+# kitty: relative include against the including file
+if command -v kitty >/dev/null && [[ -f $HOME/checkout/config/kitty/kitty.conf ]]; then
+  cp -R "$HOME/checkout/config/kitty/." "$HOME/.config/kitty/" 2>/dev/null || mkdir -p "$HOME/.config/kitty" && cp -R "$HOME/checkout/config/kitty/." "$HOME/.config/kitty/"
+  kitty --debug-config >"$OUT/kitty-debug-config.log" 2>&1
+  grep -qi 'noctalia\|failed.*include\|Invalid' "$OUT/kitty-debug-config.log" \
+    && bad "kitty config reports include/parse problems: $(grep -i 'noctalia\|failed.*include\|Invalid' "$OUT/kitty-debug-config.log" | head -1)" \
+    || say "kitty --debug-config clean (include resolves: $([[ -f $theme_dir/kitty.conf ]] && echo yes || echo NO))"
+fi
+# alacritty: missing imports are skipped; assert the import target exists and no noctalia reference remains
+if command -v alacritty >/dev/null && [[ -f $HOME/checkout/config/alacritty/alacritty.toml ]]; then
+  mkdir -p "$HOME/.config/alacritty"
+  cp "$HOME/checkout/config/alacritty/alacritty.toml" "$HOME/.config/alacritty/alacritty.toml"
+  [[ -f $theme_dir/alacritty.toml ]] && say "alacritty import target rendered: $theme_dir/alacritty.toml" || bad "alacritty rendered import missing: $theme_dir/alacritty.toml"
+  grep -q noctalia "$HOME/.config/alacritty/alacritty.toml" && bad "alacritty.toml still references noctalia" || say "alacritty.toml has no noctalia reference"
+fi
+# ghostty: theme name resolves through the shipped relative symlink
+if command -v ghostty >/dev/null && [[ -d $HOME/checkout/config/ghostty ]]; then
+  mkdir -p "$HOME/.config/ghostty"
+  cp -RP "$HOME/checkout/config/ghostty/." "$HOME/.config/ghostty/"
+  resolved=$(readlink -f "$HOME/.config/ghostty/themes/monarch-current" 2>/dev/null)
+  [[ -n $resolved && -f $resolved ]] && say "ghostty theme symlink resolves: $resolved" || bad "ghostty theme symlink broken: $HOME/.config/ghostty/themes/monarch-current -> ${resolved:-nothing}"
+  ghostty +show-config >"$OUT/ghostty-show-config.log" 2>&1 \
+    && { grep -q 'theme = monarch-current' "$OUT/ghostty-show-config.log" && say "ghostty resolves theme=monarch-current" || say "ghostty +show-config ran; theme line: $(grep -m1 'theme' "$OUT/ghostty-show-config.log")"; } \
+    || say "ghostty +show-config unavailable/failed (see log) - symlink resolution is the evidence"
+fi
+# btop: theme name resolves through the shipped relative symlink
+if [[ -d $HOME/checkout/config/btop ]]; then
+  mkdir -p "$HOME/.config/btop"
+  cp -RP "$HOME/checkout/config/btop/." "$HOME/.config/btop/"
+  resolved=$(readlink -f "$HOME/.config/btop/themes/monarch-current.theme" 2>/dev/null)
+  [[ -n $resolved && -f $resolved ]] && say "btop theme symlink resolves: $resolved" || bad "btop theme symlink broken: $HOME/.config/btop/themes/monarch-current.theme -> ${resolved:-nothing}"
+fi
+# restore foot as the session default after the extra provisions
+printf 'foot.desktop\n' > "$HOME/.config/xdg-terminals.list"
+
+# --- 6. already-provisioned upgrade behavior -----------------------------------
+# The provisioner copies a config only when none exists; users provisioned
+# before the fix keep the legacy include. Verify, then restore the candidate.
+say "--- upgrade behavior: pre-existing config untouched by re-provision ---"
+cp "$MONARCH_PATH/config/foot/foot.ini" "$HOME/.config/foot/foot.ini"  # simulate a pre-fix provisioned user
+"$MONARCH_PATH/bin/monarch-install-terminal" foot >/dev/null 2>&1
+if grep -q noctalia "$HOME/.config/foot/foot.ini"; then
+  say "upgrade behavior CONFIRMED: existing installs keep the legacy noctalia include after re-provision (provisioner copies only when missing)"
+else
+  say "upgrade behavior: re-provision REPLACED the existing config (unexpected)"
+fi
+cp "$HOME/checkout/config/foot/foot.ini" "$HOME/.config/foot/foot.ini"  # restore candidate
+
 if [[ $fail == 0 ]]; then
   say "STOCK-TERMINAL RESULT: GREEN (provisioning path + shipped bind verified)"
   exit 0
